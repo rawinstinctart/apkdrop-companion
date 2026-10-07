@@ -2,28 +2,42 @@
 
 Native Android companion for verified APKDrop installs and updates.
 
-## Alpha 1
+## Alpha 1 flow
 
-The Companion consumes APKDrop's public `apkdrop.install.v1` contract and shows factual release identity before installation:
+`APKDrop link → release facts → permission delta → explicit download → local verification → Android system installer`
 
-- immutable APK URL
-- SHA-256
-- exact signing-certificate fingerprints
+The Companion consumes APKDrop's public `apkdrop.install.v1` contract and verifies the actual downloaded APK before Android is allowed to open it.
+
+Local verification covers:
+
+- exact byte size and SHA-256
+- APK cryptographic signature through Google's `apksig`
+- exact signer-certificate fingerprint set
 - package name and numeric versionCode
-- minSdk / targetSdk and native ABI compatibility
-- permission changes against an already installed version
+- minSdk / targetSdk
+- declared permissions
+- installed signer continuity for updates
+- no downgrade/current-version installation
 
-It does **not** invent a security score.
+Signer mismatch, hash mismatch, package mismatch, SDK/ABI mismatch and downgrades fail closed.
 
-## Trust boundary
+Sensitive new permissions are shown before the APK is downloaded. APKDrop does **not** invent a security score.
+
+## Network boundary
 
 The app accepts only APKDrop links and talks only to:
 
 `https://apkdrop.rawinstinctai.de`
 
-The release contract is fail-closed. Signer mismatch, package mismatch, incompatible SDK/ABI and downgrades are blocked before the install flow is offered.
+Redirects are not followed for the install contract or APK download. The APK URL must be the immutable APKDrop release URL from the verified contract.
 
-The local verifier already checks byte size, SHA-256, APK cryptographic signature via Google's `apksig`, package/version/SDK facts and permissions. The next slice adds the explicit user-controlled download and Android installer handoff.
+## Installation boundary
+
+Alpha 1 does not silently install or silently update apps.
+
+After local verification, APKDrop hands the read-only verified APK to Android's system installer. Android remains authoritative and the user may need to allow APKDrop as an installation source once.
+
+The verified APK is exposed only through a private, non-exported, read-only ContentProvider.
 
 ## Build
 
@@ -37,9 +51,13 @@ Requirements:
 gradle :app:testDebugUnitTest :app:assembleDebug
 ```
 
+GitHub Actions performs the same test/build and publishes the debug APK only as a short-lived workflow artifact.
+
 ## Release signing
 
-Release signing is intentionally not configured in source. Never commit keystore, private signing key, passwords or signing properties.
+Release signing is intentionally not configured in source.
+
+Never commit keystore, private signing key, passwords or signing properties.
 
 When the first production APK is externally signed, its certificate SHA-256 fingerprint becomes the public value used by APKDrop's gated `/.well-known/assetlinks.json`.
 

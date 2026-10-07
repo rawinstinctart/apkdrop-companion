@@ -67,11 +67,18 @@
 
             <ProgressBar android:id="@+id/progress" style="?android:attr/progressBarStyleHorizontal"
                 android:layout_width="match_parent" android:layout_height="8dp" android:layout_marginTop="22dp"
-                android:indeterminateTint="@color/lime" android:progressTint="@color/lime" android:visibility="gone" />
+                android:max="100" android:indeterminateTint="@color/lime"
+                android:progressTint="@color/lime" android:visibility="gone" />
 
             <TextView android:id="@+id/statusText" android:layout_width="match_parent"
                 android:layout_height="wrap_content" android:layout_marginTop="12dp"
                 android:textColor="@color/muted" android:textSize="11sp" android:lineSpacingMultiplier="1.35" />
+
+            <Button android:id="@+id/actionButton" android:layout_width="match_parent"
+                android:layout_height="56dp" android:layout_marginTop="18dp"
+                android:background="@drawable/bg_primary" android:text="APK herunterladen & lokal prüfen →"
+                android:textAllCaps="false" android:textStyle="bold" android:textColor="@color/lime_dark"
+                android:textSize="14sp" android:visibility="gone" />
         </LinearLayout>
 
         <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
