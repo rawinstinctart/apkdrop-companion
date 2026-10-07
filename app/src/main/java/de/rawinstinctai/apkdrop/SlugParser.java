@@ -14,6 +14,9 @@ final class SlugParser {
         Uri uri = Uri.parse(value);
         String scheme = uri.getScheme(), host = uri.getHost(), path = uri.getPath();
 
+        if(uri.getUserInfo()!=null || uri.getQuery()!=null || uri.getFragment()!=null
+                || (uri.getPort()!=-1 && !("https".equals(scheme) && uri.getPort()==443)))
+            throw new IllegalArgumentException("Unzulässiger APKDrop-Link.");
         if ("apkdrop".equals(scheme) && "install".equals(host) && path != null && path.matches("^/[a-z0-9-]{3,40}$")) {
             return path.substring(1);
         }

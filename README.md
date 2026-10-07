@@ -2,6 +2,20 @@
 
 Native Android companion for verified APKDrop installs and updates.
 
+## Alpha 4: Smart Update Center
+
+Alpha 4 adds local release explanations, a last-known release cache, metadata-only background checks and an explicit update round. No new runtime dependency, account, Google service, analytics or AI request is used.
+
+- Saved apps sort by new sensitive permissions, ordinary update, blocked/failed check, not installed, unknown, current. Every restored result is labeled as the last known release with a date and time; failed checks cannot masquerade as successful updates.
+- Release Radar compares permissions and SDK facts against the actual installed package. Size and ABI changes are compared separately against a previously checked release only when that baseline exists. Developer notes remain attributed to the developer. Contract signer continuity is not presented as completed APK verification.
+- Android JobScheduler checks saved pins approximately every six hours when network and battery conditions permit; Android may defer execution. The setting is visible and can be disabled. The job never downloads APKs or enumerates the installed-app inventory. Permission-controlled local notifications deduplicate by versionCode and SHA-256 and open the exact app through an explicit intent.
+- An update overview starts a persisted round. Each release is fetched freshly, each download and Android installation remains explicit. Cancelled/failed installs retain the same item; only confirmed PackageManager version and signer continuity advance the round automatically. Skip and stop remain available.
+- Before download and again before installer handoff, a fresh contract must still describe the same artifact. The existing full APK cryptographic gate remains mandatory. Cached contracts never authorize installation.
+- Saved snapshots are bounded, identity-checked and display-only. Removed entries cannot be recreated by an older job response. Snapshots, queue and pins stay in private preferences with backups disabled.
+- The release receipt can be opened from app details. HTTPS install links and notification links open the matching slug; automatic verified web-to-app handling still needs production signing and the existing Worker release gate.
+
+Native validation and remaining signing/device requirements are recorded in [Alpha 4 verification](docs/alpha4-verification.md). Alpha 3 device validation remains explicitly open, independently of the Alpha 4 JVM tests.
+
 ## Alpha 3: Meine Apps
 
 Apps are added explicitly after checking an APKDrop link. The local list stores only the slug, display name, package and pinned signer fingerprints; it survives app restarts. It contains up to 50 apps, with no account or cloud sync.

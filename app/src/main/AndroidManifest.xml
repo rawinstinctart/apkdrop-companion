@@ -1,13 +1,17 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- Needed because APKDrop must compare the exact arbitrary package from the install contract.
          The app does not enumerate or upload the installed-app inventory. -->
-    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+    <!-- Arbitrary user-pinned packages cannot be expressed as static <queries>. No inventory scan is performed. -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" tools:ignore="QueryAllPackagesPermission" />
 
     <application
         android:allowBackup="false"
         android:fullBackupContent="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:usesCleartextTraffic="false"
         android:label="@string/app_name"
         android:icon="@drawable/ic_apkdrop"
@@ -35,6 +39,8 @@
             </intent-filter>
         </activity>
 
+        <service android:name=".UpdateCheckJob" android:permission="android.permission.BIND_JOB_SERVICE" android:exported="true" />
+
         <provider
             android:name=".VerifiedApkProvider"
             android:authorities="${applicationId}.files"
@@ -42,3 +48,4 @@
             android:grantUriPermissions="true" />
     </application>
 </manifest>
+

@@ -1,0 +1,8 @@
+// Explicit unsigned debug output for signing externally with the existing debug key.
+allprojects {
+    plugins.withId('com.android.application') {
+        androidComponents.finalizeDsl { extension ->
+            extension.buildTypes.getByName('debug').signingConfig = null
+        }
+    }
+}
