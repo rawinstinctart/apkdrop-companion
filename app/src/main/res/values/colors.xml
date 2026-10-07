@@ -1,0 +1,12 @@
+<resources>
+    <color name="bg">#0E0F12</color>
+    <color name="surface">#17191E</color>
+    <color name="surface_alt">#20232A</color>
+    <color name="line">#343842</color>
+    <color name="text">#F7F7F8</color>
+    <color name="muted">#A5A9B3</color>
+    <color name="lime">#D9F56D</color>
+    <color name="lime_dark">#11140A</color>
+    <color name="warn">#FFB28A</color>
+    <color name="danger">#FF8F8F</color>
+</resources>

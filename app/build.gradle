@@ -1,0 +1,35 @@
+plugins { id "com.android.application" }
+
+android {
+    namespace "de.rawinstinctai.apkdrop"
+    compileSdk 36
+
+    defaultConfig {
+        applicationId "de.rawinstinctai.apkdrop"
+        minSdk 26
+        targetSdk 36
+        versionCode 1
+        versionName "0.1.0-alpha.1"
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    buildTypes {
+        debug {
+            applicationIdSuffix ".debug"
+            versionNameSuffix "-debug"
+        }
+        release {
+            minifyEnabled false
+            // Release signing stays external. Never commit a keystore or password.
+        }
+    }
+}
+
+dependencies {
+    implementation "com.android.tools.build:apksig:8.13.2"
+    testImplementation "junit:junit:4.13.2"
+}
