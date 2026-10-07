@@ -44,7 +44,7 @@ final class InstallPolicy {
         Set<String> sensitive=new LinkedHashSet<>(added); sensitive.retainAll(SENSITIVE);
 
         return new Result(current==null?Mode.INSTALL:Mode.UPDATE,
-                current==null?"Neue App · Identität geprüft":"Update · Signer-Kontinuität geprüft",
+                current==null?"Neue App · Release-Vertrag geprüft":"Update · installierter Signer passt zum Vertrag",
                 Collections.unmodifiableSet(added),Collections.unmodifiableSet(sensitive));
     }
 
