@@ -1,6 +1,31 @@
-# Alpha 3 implementation and verification
+# Alpha 3 implementation and build verification
 
-Date: 2026-10-07. This record describes Alpha 3 source preparation; it is **not an APK build report**.
+Date: 2026-10-07. **Native build PASS** for source commit `eeaf4c4741d1edcea70e1e116f8fb1dee572e915`, with no source patches. Device validation of the Alpha 3 UI and update flow remains open.
+
+## Native build and uploaded artifact
+
+The user supplied `alpha3-build-evidence.txt` and `APKDrop-Companion-v0.1.0-alpha.3-debug.apk`. HIOS's evidence reports a clean isolated checkout of the exact source commit, BUILD SUCCESSFUL (exit 0), and **41 native JUnit tests passed**, zero failures, errors or skips.
+
+| Test class | Passed |
+| --- | ---: |
+| ApkSignatureChecksTest | 9 |
+| AppLibraryTest | 13 |
+| InstallPolicyTest | 13 |
+| ManifestPermissionsTest | 1 |
+| VerifiedApkFilesTest | 5 |
+
+The nine signature tests used real disposable signed APK fixtures and apksig v2 verification/tampering cases. HIOS reports `apksigner verify --verbose --print-certs` PASS, APK Signature Scheme v2, one signer, and an unchanged original debug keystore. No patches were needed.
+
+The uploaded bytes were independently checked here:
+
+- Size: **281,268 bytes**.
+- SHA-256: `be7003fe4e7ea0a04b90b1a7afdc14d043acaeff41699631881d4b8caa817fed`.
+- ZIP integrity passed; no duplicate entry names.
+- Binary AndroidManifest.xml parsed: package `de.rawinstinctai.apkdrop.debug`, versionCode 3, versionName `0.1.0-alpha.3-debug`, minSdk 26, targetSdk 36.
+- The v2 signing block contains one signer whose embedded certificate SHA-256 equals `6cf70241a63498e5e9fce78bac9abec760364cf320928347114bf109abd81e2e`.
+- Companion declares INTERNET, REQUEST_INSTALL_PACKAGES and QUERY_ALL_PACKAGES; it does **not** declare RECORD_AUDIO. The microphone warning describes the target app's declaration.
+
+The independent embedded-certificate comparison is not a second full cryptographic signature verification; the apksigner PASS and native test results are attributed to the supplied HIOS evidence. The APK is a debug build. No Alpha 3 device test result has yet been supplied.
 
 ## Implemented behavior
 
@@ -35,16 +60,16 @@ The headless adapters for APK download, cryptographic verification and installer
 
 A simultaneous local JVM invocation failed in HotSpot PerfMemory setup because processes shared the performance-data file. Re-running the affected orchestration checks with `-XX:-UsePerfData` passed all thirteen; no source or assertions changed.
 
-## Native build still required
+## Reproducing the verified native build
 
-Use the exact Alpha 3 commit in the existing isolated build environment with JDK 17, Gradle 8.13, SDK 36 and the original debug keystore. Run:
+HIOS reused `/tmp/apkdrop-companion-build.XA95do` with Temurin JDK 17.0.20.1, Gradle 8.13, SDK 36 and Build Tools 35.0.0. Caches and temporary files remained isolated. The original debug keystore digest matched before and after the build. To reproduce the exact source build, run:
 
 ```bash
 gradle :app:testDebugUnitTest :app:assembleDebug
 apksigner verify --verbose --print-certs app/build/outputs/apk/debug/app-debug.apk
 ```
 
-The source contains **41 JUnit test methods**: 13 policy, 9 real signed-fixture/tampering, 1 manifest adapter, 13 app-list and 5 cache tests. Report actual test totals, failures, errors and skips. The nine apksig tests must use real disposable signed APK fixtures; do not replace crypto results or weaken assertions.
+The source contains **41 JUnit test methods**: 13 policy, 9 real signed-fixture/tampering, 1 manifest adapter, 13 app-list and 5 cache tests. All 41 passed in the supplied native build evidence. The nine apksig tests use real disposable signed APK fixtures.
 
 Expected artifact identity: `de.rawinstinctai.apkdrop.debug`, versionCode 3, `0.1.0-alpha.3-debug`, minSdk 26, targetSdk 36. Expected debug signer SHA-256:
 
@@ -52,11 +77,11 @@ Expected artifact identity: `de.rawinstinctai.apkdrop.debug`, versionCode 3, `0.
 6cf70241a63498e5e9fce78bac9abec760364cf320928347114bf109abd81e2e
 ```
 
-Return the APK, its SHA-256/size, build and test evidence, and signer verification. Do not edit or replace the original keystore. Report blockers or any necessary source patch explicitly; do not label a patched checkout as the unmodified source commit.
+The supplied APK and evidence match this source commit without any source patch. Any future build with a source patch must identify that patch separately.
 
 The previously supplied 23-test Alpha 2 build belongs to `6d2644b09131ed232ba3b1e3140d0c36440c5ad8` plus the committed readAllBytes compatibility fix. It does not validate Alpha 3. Its provenance and earlier user-reported successful FREY installation remain in [the Alpha 2 record](alpha2-verification.md).
 
-## Device checks after building
+## Alpha 3 device checks still open
 
 1. Update Companion Alpha 2 to Alpha 3 with the same signer. Check the screen at the device's text size, status bar, keyboard and scroll positions.
 2. Check installed `frey-messenger`, explicitly add it once, restart Companion and confirm the list survives. Same installed version should show AKTUELL without an install action.
