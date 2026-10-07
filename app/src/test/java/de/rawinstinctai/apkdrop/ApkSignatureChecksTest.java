@@ -36,7 +36,7 @@ public final class ApkSignatureChecksTest {
             keytool.destroyForcibly();
             throw new AssertionError("Test-only keytool fixture generation timed out");
         }
-        assertEquals("keytool: "+Files.readString(log),0,keytool.exitValue());
+        assertEquals("keytool: "+new String(Files.readAllBytes(log),StandardCharsets.UTF_8),0,keytool.exitValue());
 
         KeyStore keys=KeyStore.getInstance("PKCS12");
         try(InputStream in=Files.newInputStream(store)) { keys.load(in,"test-only-password".toCharArray()); }
