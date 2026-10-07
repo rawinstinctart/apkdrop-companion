@@ -8,11 +8,17 @@ import java.util.*;
 
 final class InstalledState {
     final String packageName;
+    final String versionName;
     final long versionCode;
     final Set<String> signers, permissions;
 
     InstalledState(String packageName,long versionCode,Set<String> signers,Set<String> permissions) {
-        this.packageName=packageName; this.versionCode=versionCode; this.signers=signers; this.permissions=permissions;
+        this(packageName,versionCode,null,signers,permissions);
+    }
+
+    InstalledState(String packageName,long versionCode,String versionName,Set<String> signers,Set<String> permissions) {
+        this.packageName=packageName; this.versionCode=versionCode; this.versionName=versionName;
+        this.signers=signers; this.permissions=permissions;
     }
 
     static InstalledState read(Context context,String packageName) throws Exception {
@@ -24,7 +30,7 @@ final class InstalledState {
 
         Set<String> permissions=new LinkedHashSet<>();
         if(info.requestedPermissions!=null) Collections.addAll(permissions,info.requestedPermissions);
-        return new InstalledState(info.packageName,versionCode(info),fingerprints(info),permissions);
+        return new InstalledState(info.packageName,versionCode(info),info.versionName,fingerprints(info),permissions);
     }
 
     @SuppressWarnings("deprecation")

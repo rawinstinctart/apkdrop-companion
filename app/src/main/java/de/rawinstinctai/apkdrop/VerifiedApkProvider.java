@@ -12,11 +12,12 @@ public final class VerifiedApkProvider extends ContentProvider {
     @Override public boolean onCreate() { return true; }
 
     private File file(Uri uri) throws FileNotFoundException {
-        if(uri==null || !"/verified.apk".equals(uri.getPath())) throw new FileNotFoundException("Unknown APKDrop file.");
+        if(uri==null || uri.getPath()==null || !uri.getPath().startsWith("/")
+                || !VerifiedApkFiles.allowed(uri.getPath().substring(1))) throw new FileNotFoundException("Unknown APKDrop file.");
         Context context=getContext();
         if(context==null) throw new FileNotFoundException("Provider unavailable.");
         File dir=new File(context.getCacheDir(),"apkdrop");
-        File file=new File(dir,"verified.apk");
+        File file=new File(dir,uri.getPath().substring(1));
         try {
             String root=dir.getCanonicalPath()+File.separator;
             String candidate=file.getCanonicalPath();

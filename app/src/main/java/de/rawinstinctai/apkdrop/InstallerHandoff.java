@@ -11,6 +11,7 @@ final class InstallerHandoff {
     private InstallerHandoff() {}
 
     static boolean open(Activity activity,File verifiedApk) {
+        if(!VerifiedApkFiles.allowed(verifiedApk.getName())) throw new SecurityException("Unbekannte geprüfte APK-Datei.");
         if(Build.VERSION.SDK_INT>=26 && !activity.getPackageManager().canRequestPackageInstalls()) {
             Intent settings=new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
                     Uri.parse("package:"+activity.getPackageName()));
@@ -21,7 +22,7 @@ final class InstallerHandoff {
         Uri uri=new Uri.Builder()
                 .scheme("content")
                 .authority(activity.getPackageName()+".files")
-                .path("verified.apk")
+                .path(verifiedApk.getName())
                 .build();
 
         Intent intent=new Intent(Intent.ACTION_VIEW)

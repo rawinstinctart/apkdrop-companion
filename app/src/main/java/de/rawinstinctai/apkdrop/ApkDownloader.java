@@ -10,7 +10,7 @@ final class ApkDownloader {
     interface Progress { void onProgress(int percent); }
     private ApkDownloader() {}
 
-    static File download(Context context,InstallContract release,Progress progress) throws Exception {
+    static synchronized File download(Context context,InstallContract release,Progress progress) throws Exception {
         URI uri=URI.create(release.downloadUrl);
         if(!"https".equals(uri.getScheme()) || !"apkdrop.rawinstinctai.de".equalsIgnoreCase(uri.getHost())
                 || uri.getUserInfo()!=null || uri.getFragment()!=null || uri.getQuery()!=null)
@@ -25,10 +25,10 @@ final class ApkDownloader {
 
         File dir=new File(context.getCacheDir(),"apkdrop");
         if(!dir.isDirectory() && !dir.mkdirs()) throw new IOException("Privater APKDrop-Cache konnte nicht angelegt werden.");
-        File part=new File(dir,"verified.apk.part");
-        File verified=new File(dir,"verified.apk");
-        if(part.exists() && !part.delete()) throw new IOException("Alter Download konnte nicht verworfen werden.");
-        if(verified.exists() && !verified.delete()) throw new IOException("Alte geprüfte APK konnte nicht verworfen werden.");
+        VerifiedApkFiles.prepare(dir);
+        String name=VerifiedApkFiles.newName();
+        File part=new File(dir,name+".part");
+        File verified=new File(dir,name);
 
         try {
             int status=c.getResponseCode();

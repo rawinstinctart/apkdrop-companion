@@ -36,7 +36,9 @@ final class ContractClient {
                     if(out.size()+n>131072) throw new SecurityException("APKDrop-Antwort ist zu groß.");
                     out.write(buffer,0,n);
                 }
-                return InstallContract.parse(new String(out.toByteArray(), StandardCharsets.UTF_8));
+                InstallContract release=InstallContract.parse(new String(out.toByteArray(), StandardCharsets.UTF_8));
+                if(!slug.equals(release.slug)) throw new SecurityException("Der Vertrag gehört zu einer anderen APKDrop-App.");
+                return release;
             }
         } finally { c.disconnect(); }
     }
