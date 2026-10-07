@@ -3,6 +3,7 @@ package de.rawinstinctai.apkdrop;
 import java.io.*;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 
 final class ContractClient {
     private static final String ORIGIN="https://apkdrop.rawinstinctai.de";
@@ -35,7 +36,7 @@ final class ContractClient {
                     if(out.size()+n>131072) throw new SecurityException("APKDrop-Antwort ist zu groß.");
                     out.write(buffer,0,n);
                 }
-                return InstallContract.parse(out.toString(StandardCharsets.UTF_8));
+                return InstallContract.parse(new String(out.toByteArray(), StandardCharsets.UTF_8));
             }
         } finally { c.disconnect(); }
     }
