@@ -50,8 +50,8 @@ final class InstallContract {
         long code=r.getLong("versionCode"), size=r.getLong("size");
         int min=r.getInt("minSdk"), target=r.isNull("targetSdk")?0:r.optInt("targetSdk",0);
 
-        if(!SLUG.matcher(slug).matches() || name.isBlank() || name.length()>160 || id.isBlank() || id.length()>100
-                || version.isBlank() || version.length()>120 || code<1 || !PACKAGE.matcher(pkg).matches()
+        if(!SLUG.matcher(slug).matches() || name.trim().isEmpty() || name.length()>160 || id.trim().isEmpty() || id.length()>100
+                || version.trim().isEmpty() || version.length()>120 || code<1 || !PACKAGE.matcher(pkg).matches()
                 || min<1 || size<1 || size>MAX_BYTES || !HEX.matcher(sha).matches())
             throw new SecurityException("Ungültige Release-Daten.");
 
@@ -76,7 +76,7 @@ final class InstallContract {
         List<String> out=new ArrayList<>();
         for(int i=0;i<array.length();i++) {
             String value=array.getString(i);
-            if(value.isBlank() || value.length()>maxLen) throw new SecurityException("Ungültige Release-Merkmale.");
+            if(value.trim().isEmpty() || value.length()>maxLen) throw new SecurityException("Ungültige Release-Merkmale.");
             if(hex) {
                 value=value.toLowerCase(Locale.ROOT);
                 if(!HEX.matcher(value).matches()) throw new SecurityException("Ungültiger Signatur-Fingerprint.");
