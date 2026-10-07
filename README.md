@@ -15,6 +15,7 @@ Local verification covers:
 - exact signer-certificate fingerprint set
 - package name and numeric versionCode
 - minSdk / targetSdk
+- native ABIs parsed from the downloaded APK
 - declared permissions
 - installed signer continuity for updates
 - no downgrade/current-version installation
@@ -67,4 +68,4 @@ The app declares `https://apkdrop.rawinstinctai.de/install/<slug>` with Android 
 
 ## Privacy
 
-Alpha 1 has no account requirement, analytics identifier, advertising SDK, device fingerprinting or hidden telemetry.
+Alpha 1 has no account requirement, analytics identifier, advertising SDK, device fingerprinting or hidden telemetry. It declares `QUERY_ALL_PACKAGES` only because Android 11+ otherwise hides arbitrary target packages from `getPackageInfo()`; APKDrop queries only the package named by the active install contract and does not enumerate or upload the installed-app inventory.
