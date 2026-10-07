@@ -40,17 +40,31 @@ paths passed, including a same-size mutation and truncation of a temporary copy.
 The new test sources also passed a syntax check using fail-fast apksig API doubles.
 Those doubles never return a successful verification result and are not committed.
 
-The real apksig fixture tests and Android Gradle build have **not** run for this
-test-expansion commit in this environment: Android SDK, Gradle and the apksig JAR
-are unavailable here. HIOS must run the exact commit with the original isolated
-toolchain:
+HIOS's subsequent isolated build ran the real tests for commit
+`6d2644b09131ed232ba3b1e3140d0c36440c5ad8` plus one test-only compile fix:
+decode `Files.readAllBytes(log)` as UTF-8 instead of `Files.readString(log)`,
+which the Android compile stub does not expose. The exact patch is now committed
+as `4b1121f60291c1def738622219a53dc2fe455044`; its test blob matches the supplied
+patch result. No assertions or verification rules changed.
 
 ```sh
 gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug
 ```
 
-The previous Alpha 2 build's six passing JUnit tests apply to commit
-`b1b5d28abea6af92b1a18850c91fc6a59ee38783`, not to this later test expansion.
+Result reported by HIOS: BUILD SUCCESSFUL; 23 JUnit tests, zero failures/errors/
+skips. All nine real signature/tampering tests passed. Fixture cleanup completed.
+The uploaded APK's size (287,144 bytes), SHA-256
+`5e60945418a20b9bc987975009d0233257a495b019b0c7470e439bc4782f5c70`,
+ZIP integrity and embedded v2 certificate fingerprint were independently checked.
+HIOS reports apksigner PASS with the unchanged Alpha 1/2 debug certificate:
+`6cf70241a63498e5e9fce78bac9abec760364cf320928347114bf109abd81e2e`.
+
+The subsequent permission copy change displays RECORD_AUDIO as
+**Mikrofonzugriff (Audio aufnehmen)** in the card and warning, names the target
+app and explains that download confirmation grants no Android permission.
+That UI change has passed Java syntax validation but is not in the uploaded APK
+and has not yet been rebuilt. The security warning and exact permission comparison
+remain enforced. A declared permission is not evidence of an active recording.
 
 ## Remaining device checks
 

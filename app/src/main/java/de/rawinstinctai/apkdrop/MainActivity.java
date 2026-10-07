@@ -107,7 +107,8 @@ public final class MainActivity extends Activity {
         else if(decision.addedPermissions.isEmpty()) p.append("✓ Keine neuen Berechtigungen gegenüber der installierten Version.");
         else p.append("+").append(decision.addedPermissions.size()).append(" neue Berechtigung(en).");
         if(!decision.sensitiveAdded.isEmpty()) {
-            p.append("\n\n⚠ Neu bzw. sensibel:\n");
+            p.append(installed==null ? "\n\n⚠ Sensible Berechtigungen der App:\n"
+                    : "\n\n⚠ Neue sensible Berechtigungen:\n");
             for(String permission:decision.sensitiveAdded) p.append("• ").append(human(permission)).append("\n");
         }
         permissions.setText(p.toString().trim()); status.setText(decision.reason);
@@ -138,8 +139,9 @@ public final class MainActivity extends Activity {
         if(!currentDecision.sensitiveAdded.isEmpty()) {
             new AlertDialog.Builder(this)
                     .setTitle("Sensible Berechtigungen erkannt")
-                    .setMessage("APKDrop hat relevante Berechtigungen erkannt:\n\n"+join(currentDecision.sensitiveAdded)
-                            +"\n\nDie APK wird erst nach deiner Bestätigung geladen und anschließend lokal geprüft.")
+                    .setMessage(currentRelease.appName+" deklariert folgende sensible Berechtigung(en):\n\n"+join(currentDecision.sensitiveAdded)
+                            +"\n\nDie APK wird erst nach deiner Bestätigung geladen und anschließend lokal geprüft."
+                            +"\n\nDiese Bestätigung erteilt der App keine Android-Berechtigung.")
                     .setNegativeButton("Abbrechen",null)
                     .setPositiveButton("Prüfung starten",(dialog,which)->downloadAndVerify())
                     .show();
@@ -199,6 +201,7 @@ public final class MainActivity extends Activity {
     }
 
     private static String human(String permission) {
+        if("android.permission.RECORD_AUDIO".equals(permission)) return "Mikrofonzugriff (Audio aufnehmen)";
         int i=permission.lastIndexOf('.'); return (i>=0?permission.substring(i+1):permission).replace('_',' ');
     }
     private static String join(java.util.Set<String> permissions) {
