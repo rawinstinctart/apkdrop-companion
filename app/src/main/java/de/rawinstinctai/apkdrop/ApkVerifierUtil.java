@@ -8,6 +8,8 @@ import java.io.*;
 import java.security.MessageDigest;
 import java.security.cert.X509Certificate;
 import java.util.*;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 
 final class ApkVerifierUtil {
     private ApkVerifierUtil() {}
@@ -42,11 +44,29 @@ final class ApkVerifierUtil {
         if(!permissions.equals(release.permissions))
             throw new SecurityException("Berechtigungen der APK stimmen nicht mit APKDrop überein.");
 
+        Set<String> localAbis=readAbis(file);
+        if(!localAbis.equals(new LinkedHashSet<>(release.abis)))
+            throw new SecurityException("Native Architekturen der APK stimmen nicht mit APKDrop überein.");
+
         if(current!=null) {
             if(!current.packageName.equals(archive.packageName)) throw new SecurityException("Diese APK gehört zu einer anderen App.");
             if(!current.signers.equals(verified)) throw new SecurityException("Signierschlüssel weicht von der installierten App ab.");
             if(release.versionCode<=current.versionCode) throw new SecurityException("Kein neueres Update.");
         }
+    }
+
+    private static Set<String> readAbis(File file) throws Exception {
+        Set<String> abis=new LinkedHashSet<>();
+        try(ZipFile zip=new ZipFile(file)) {
+            Enumeration<? extends ZipEntry> entries=zip.entries();
+            while(entries.hasMoreElements()) {
+                String name=entries.nextElement().getName();
+                if(!name.startsWith("lib/")) continue;
+                String[] parts=name.split("/");
+                if(parts.length>=3 && !parts[1].trim().isEmpty()) abis.add(parts[1]);
+            }
+        }
+        return abis;
     }
 
     static String sha256(File file) throws Exception {
