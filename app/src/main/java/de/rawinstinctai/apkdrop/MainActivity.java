@@ -4,6 +4,8 @@ import android.app.*;
 import android.content.Intent;
 import android.os.*;
 import android.view.View;
+import android.view.WindowInsets;
+import android.view.DisplayCutout;
 import android.widget.*;
 import java.io.File;
 import java.util.concurrent.*;
@@ -23,6 +25,7 @@ public final class MainActivity extends Activity {
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state); setContentView(R.layout.activity_main);
+        applySystemInsets();
         input=findViewById(R.id.urlInput); checkButton=findViewById(R.id.checkButton); actionButton=findViewById(R.id.actionButton);
         card=findViewById(R.id.releaseCard); badge=findViewById(R.id.statusBadge);
         title=findViewById(R.id.titleText); meta=findViewById(R.id.metaText); proof=findViewById(R.id.proofText);
@@ -34,6 +37,34 @@ public final class MainActivity extends Activity {
         });
         actionButton.setOnClickListener(v->onAction());
         handleIntent(getIntent());
+    }
+
+    private void applySystemInsets() {
+        View root=findViewById(R.id.pageRoot);
+        final int left=root.getPaddingLeft(),top=root.getPaddingTop();
+        final int right=root.getPaddingRight(),bottom=root.getPaddingBottom();
+        root.setOnApplyWindowInsetsListener((view,insets)->{
+            int l,t,r,b;
+            if(Build.VERSION.SDK_INT>=30) {
+                android.graphics.Insets safe=insets.getInsets(WindowInsets.Type.systemBars()
+                        | WindowInsets.Type.displayCutout() | WindowInsets.Type.ime());
+                l=safe.left; t=safe.top; r=safe.right; b=safe.bottom;
+            } else {
+                l=insets.getSystemWindowInsetLeft(); t=insets.getSystemWindowInsetTop();
+                r=insets.getSystemWindowInsetRight(); b=insets.getSystemWindowInsetBottom();
+                if(Build.VERSION.SDK_INT>=28) {
+                    DisplayCutout cutout=insets.getDisplayCutout();
+                    if(cutout!=null) {
+                        l=Math.max(l,cutout.getSafeInsetLeft()); t=Math.max(t,cutout.getSafeInsetTop());
+                        r=Math.max(r,cutout.getSafeInsetRight()); b=Math.max(b,cutout.getSafeInsetBottom());
+                    }
+                }
+            }
+            // Always start from original padding, so repeat dispatches cannot accumulate it.
+            view.setPadding(left+l,top+t,right+r,bottom+b);
+            return Build.VERSION.SDK_INT>=30 ? WindowInsets.CONSUMED : insets.consumeSystemWindowInsets();
+        });
+        root.requestApplyInsets();
     }
 
     @Override protected void onNewIntent(Intent intent) {

@@ -39,10 +39,9 @@ final class ApkVerifierUtil {
         if(release.targetSdk>0 && archive.applicationInfo.targetSdkVersion!=release.targetSdk)
             throw new SecurityException("targetSdk der APK stimmt nicht.");
 
-        Set<String> permissions=new LinkedHashSet<>();
-        if(archive.requestedPermissions!=null) Collections.addAll(permissions,archive.requestedPermissions);
-        if(!permissions.equals(release.permissions))
-            throw new SecurityException("Berechtigungen der APK stimmen nicht mit APKDrop überein.");
+        // PackageManager may normalize/filter permissions for the device. APKDrop's contract
+        // describes declarations in the signed manifest, so compare that exact representation.
+        ManifestPermissions.requireExact(ManifestPermissions.read(file),release.permissions);
 
         Set<String> localAbis=readAbis(file);
         if(!localAbis.equals(new LinkedHashSet<>(release.abis)))
