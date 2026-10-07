@@ -12,11 +12,11 @@
             android:textSize="17sp" android:letterSpacing="0.08" />
 
         <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:layout_marginTop="34dp" android:text="COMPANION · ALPHA 3"
-            android:textColor="@color/muted" android:textSize="10sp" android:letterSpacing="0.16" />
+            android:layout_marginTop="34dp" android:text="COMPANION · ALPHA 4"
+            android:textColor="@color/muted" android:textSize="11sp" android:letterSpacing="0.16" />
 
         <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:layout_marginTop="10dp" android:text="Meine Apps"
+            android:layout_marginTop="10dp" android:text="Update Center"
             android:textColor="@color/text" android:textStyle="bold" android:textSize="32sp"
             android:lineSpacingMultiplier="0.94" />
 
@@ -28,14 +28,33 @@
         <TextView android:id="@+id/librarySummary" android:layout_width="match_parent" android:layout_height="wrap_content"
             android:layout_marginTop="20dp" android:textColor="@color/lime" android:textSize="13sp" android:textStyle="bold"
             android:accessibilityLiveRegion="polite" />
-        <Button android:id="@+id/checkAllButton" android:layout_width="match_parent" android:layout_height="56dp"
+        <Button android:id="@+id/checkAllButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="56dp"
             android:layout_marginTop="12dp" android:background="@drawable/bg_primary" android:text="Alle auf Updates prüfen →"
             android:textAllCaps="false" android:textColor="@color/lime_dark" android:textSize="14sp" android:textStyle="bold" />
+        <Button android:id="@+id/updatesButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="56dp"
+            android:layout_marginTop="10dp" android:background="@drawable/bg_input" android:text="Updates gemeinsam prüfen →"
+            android:textAllCaps="false" android:textColor="@color/lime" android:textSize="14sp" android:visibility="gone" />
+        <LinearLayout android:id="@+id/queueCard" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="vertical" android:layout_marginTop="12dp" android:background="@drawable/bg_card" android:visibility="gone">
+            <TextView android:id="@+id/queueStatus" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:textColor="@color/lime" android:textSize="14sp" />
+            <Button android:id="@+id/queueSkip" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp"
+                android:text="Diese App überspringen" android:textAllCaps="false" android:textColor="@color/text" android:background="@drawable/bg_input" />
+            <Button android:id="@+id/queueCancel" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp"
+                android:text="Update-Runde beenden" android:textAllCaps="false" android:textColor="@color/muted" android:background="@drawable/bg_input" />
+        </LinearLayout>
         <TextView android:id="@+id/libraryEmpty" android:layout_width="match_parent" android:layout_height="wrap_content"
             android:layout_marginTop="18dp" android:background="@drawable/bg_card" android:textColor="@color/muted"
             android:textSize="13sp" android:lineSpacingMultiplier="1.25" />
         <LinearLayout android:id="@+id/libraryList" android:layout_width="match_parent" android:layout_height="wrap_content"
             android:orientation="vertical" />
+        <Switch android:id="@+id/backgroundSwitch" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp"
+            android:layout_marginTop="24dp" android:text="Automatisch auf Updates prüfen" android:textColor="@color/text" android:textSize="14sp" />
+        <TextView android:id="@+id/backgroundStatus" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:textColor="@color/muted" android:textSize="12sp" android:lineSpacingMultiplier="1.3" />
+        <Button android:id="@+id/notificationsButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp"
+            android:layout_marginTop="8dp" android:text="Update-Benachrichtigungen" android:textAllCaps="false"
+            android:textColor="@color/text" android:background="@drawable/bg_input" />
         <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
             android:layout_marginTop="32dp" android:text="App hinzufügen" android:textColor="@color/text"
             android:textSize="24sp" android:textStyle="bold" />
@@ -43,12 +62,12 @@
             android:layout_marginTop="8dp" android:text="Prüfe einen APKDrop-Link und speichere die App in deiner Liste."
             android:textColor="@color/muted" android:textSize="13sp" />
 
-        <EditText android:id="@+id/urlInput" android:layout_width="match_parent" android:layout_height="56dp"
+        <EditText android:id="@+id/urlInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="56dp"
             android:layout_marginTop="14dp" android:background="@drawable/bg_input"
             android:hint="APKDrop-Link oder App-Slug" android:singleLine="true" android:inputType="textUri"
             android:textColor="@color/text" android:textColorHint="@color/muted" android:textSize="14sp" />
 
-        <Button android:id="@+id/checkButton" android:layout_width="match_parent" android:layout_height="56dp"
+        <Button android:id="@+id/checkButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="56dp"
             android:layout_marginTop="10dp" android:background="@drawable/bg_primary"
             android:text="Release prüfen →" android:textAllCaps="false" android:textStyle="bold"
             android:textColor="@color/lime_dark" android:textSize="14sp" />
@@ -65,7 +84,7 @@
             <TextView android:id="@+id/statusBadge" android:layout_width="wrap_content"
                 android:layout_height="wrap_content" android:background="@drawable/bg_badge"
                 android:text="GEPRÜFT" android:textColor="@color/lime" android:textStyle="bold"
-                android:textSize="9sp" android:letterSpacing="0.12" />
+                android:textSize="11sp" android:letterSpacing="0.12" />
 
             <TextView android:id="@+id/titleText" android:layout_width="match_parent"
                 android:layout_height="wrap_content" android:layout_marginTop="18dp"
@@ -75,6 +94,8 @@
                 android:layout_height="wrap_content" android:layout_marginTop="8dp"
                 android:textColor="@color/muted" android:textSize="12sp" android:lineSpacingMultiplier="1.35" />
 
+            <TextView android:id="@+id/radarText" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="18dp" android:textColor="@color/text" android:textSize="14sp" android:lineSpacingMultiplier="1.3" />
             <TextView android:id="@+id/proofText" android:layout_width="match_parent"
                 android:layout_height="wrap_content" android:layout_marginTop="20dp"
                 android:textColor="@color/text" android:textSize="12sp" android:fontFamily="monospace"
@@ -97,13 +118,16 @@
                 android:layout_height="wrap_content" android:layout_marginTop="12dp"
                 android:textColor="@color/muted" android:textSize="11sp" android:lineSpacingMultiplier="1.35" />
 
-            <Button android:id="@+id/addButton" android:layout_width="match_parent" android:layout_height="52dp"
+            <Button android:id="@+id/receiptButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp"
+                android:layout_marginTop="12dp" android:background="@drawable/bg_input" android:text="Release-Beleg öffnen"
+                android:textAllCaps="false" android:textColor="@color/muted" android:textSize="13sp" />
+            <Button android:id="@+id/addButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="52dp"
                 android:layout_marginTop="18dp" android:background="@drawable/bg_input"
                 android:text="Zu meinen Apps hinzufügen +" android:textAllCaps="false" android:textColor="@color/text"
                 android:textSize="13sp" android:visibility="gone" />
 
             <Button android:id="@+id/actionButton" android:layout_width="match_parent"
-                android:layout_height="56dp" android:layout_marginTop="18dp"
+                android:layout_height="wrap_content" android:minHeight="56dp" android:layout_marginTop="18dp"
                 android:background="@drawable/bg_primary" android:text="APK herunterladen &amp; lokal prüfen →"
                 android:textAllCaps="false" android:textStyle="bold" android:textColor="@color/lime_dark"
                 android:textSize="14sp" android:visibility="gone" />
@@ -112,6 +136,6 @@
         <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
             android:layout_marginTop="28dp"
             android:text="APKDrop vergibt keinen erfundenen Sicherheits-Score. Angezeigt werden nur überprüfbare Fakten."
-            android:textColor="@color/muted" android:textSize="10sp" android:lineSpacingMultiplier="1.35" />
+            android:textColor="@color/muted" android:textSize="11sp" android:lineSpacingMultiplier="1.35" />
     </LinearLayout>
 </ScrollView>

@@ -10,6 +10,7 @@ final class InstalledState {
     final String packageName;
     final String versionName;
     final long versionCode;
+    final int minSdk,targetSdk;
     final Set<String> signers, permissions;
 
     InstalledState(String packageName,long versionCode,Set<String> signers,Set<String> permissions) {
@@ -17,7 +18,12 @@ final class InstalledState {
     }
 
     InstalledState(String packageName,long versionCode,String versionName,Set<String> signers,Set<String> permissions) {
+        this(packageName,versionCode,versionName,signers,permissions,0,0);
+    }
+
+    InstalledState(String packageName,long versionCode,String versionName,Set<String> signers,Set<String> permissions,int minSdk,int targetSdk) {
         this.packageName=packageName; this.versionCode=versionCode; this.versionName=versionName;
+        this.minSdk=minSdk; this.targetSdk=targetSdk;
         this.signers=signers; this.permissions=permissions;
     }
 
@@ -30,7 +36,9 @@ final class InstalledState {
 
         Set<String> permissions=new LinkedHashSet<>();
         if(info.requestedPermissions!=null) Collections.addAll(permissions,info.requestedPermissions);
-        return new InstalledState(info.packageName,versionCode(info),info.versionName,fingerprints(info),permissions);
+        return new InstalledState(info.packageName,versionCode(info),info.versionName,fingerprints(info),permissions,
+                info.applicationInfo==null?0:info.applicationInfo.minSdkVersion,
+                info.applicationInfo==null?0:info.applicationInfo.targetSdkVersion);
     }
 
     @SuppressWarnings("deprecation")

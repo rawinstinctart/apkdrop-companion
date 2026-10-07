@@ -8,14 +8,16 @@ android {
         applicationId "de.rawinstinctai.apkdrop"
         minSdk 26
         targetSdk 36
-        versionCode 3
-        versionName "0.1.0-alpha.3"
+        versionCode 4
+        versionName "0.1.0-alpha.4"
     }
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
+
+    testOptions { unitTests.includeAndroidResources = true }
 
     buildTypes {
         debug {
@@ -32,4 +34,6 @@ android {
 dependencies {
     implementation "com.android.tools.build:apksig:8.13.2"
     testImplementation "junit:junit:4.13.2"
+    testImplementation "org.json:json:20240303"
+    testImplementation "org.robolectric:robolectric:4.17"
 }

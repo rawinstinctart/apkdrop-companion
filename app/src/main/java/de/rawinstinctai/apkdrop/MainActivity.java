@@ -18,7 +18,9 @@ public final class MainActivity extends Activity {
     private EditText input;
     private Button checkButton,actionButton,addButton;
     private LinearLayout card;
-    private TextView badge,title,meta,proof,permissions,status,notes;
+    private TextView badge,title,meta,proof,permissions,status,notes,radar,queueStatus,backgroundStatus;
+    private UpdateQueue queue=new UpdateQueue(java.util.Collections.emptyList());
+    private boolean awaitingInstaller;
     private ProgressBar progress;
     private AppLibraryController library;
     private int generation;
@@ -49,21 +51,47 @@ public final class MainActivity extends Activity {
         card=findViewById(R.id.releaseCard); badge=findViewById(R.id.statusBadge);
         title=findViewById(R.id.titleText); meta=findViewById(R.id.metaText); proof=findViewById(R.id.proofText);
         permissions=findViewById(R.id.permissionsText); status=findViewById(R.id.statusText); progress=findViewById(R.id.progress);
-        library=new AppLibraryController(this,io,this::load,this::updateSaveButton);
+        library=new AppLibraryController(this,io,this::selectSingle,this::updateSaveButton);
+        library.onUpdates(this::startUpdates);
+        radar=findViewById(R.id.radarText); queueStatus=findViewById(R.id.queueStatus);
+        queue=new AppLibraryStore(this).queue(); awaitingInstaller=library.pendingLaunched();
+        findViewById(R.id.queueSkip).setOnClickListener(v->{ if(!detailBusy) nextUpdate(); });
+        findViewById(R.id.queueCancel).setOnClickListener(v->{ if(!detailBusy) { clearQueue(); toast("Update-Runde beendet."); } });
+        backgroundStatus=findViewById(R.id.backgroundStatus);
+        Switch background=findViewById(R.id.backgroundSwitch);
+        background.setChecked(UpdateScheduler.enabled(this));
+        background.setOnCheckedChangeListener((button,enabled)->{
+            UpdateScheduler.enabled(this,enabled); updateBackgroundStatus();
+        });
+        findViewById(R.id.notificationsButton).setOnClickListener(v->{
+            if(Build.VERSION.SDK_INT>=33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)
+                    !=android.content.pm.PackageManager.PERMISSION_GRANTED)
+                requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS},44);
+            else startActivity(new Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                    .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE,getPackageName()));
+        });
+        UpdateScheduler.reconcile(this); updateBackgroundStatus(); updateQueueUi();
 
         checkButton.setOnClickListener(v->{
-            try { load(SlugParser.parse(input.getText().toString())); }
+            try { selectSingle(SlugParser.parse(input.getText().toString())); }
             catch(Exception e) { toast(message(e)); }
         });
         actionButton.setOnClickListener(v->onAction());
+        findViewById(R.id.receiptButton).setOnClickListener(v->{
+            if(currentRelease==null || detailBusy) return;
+            try { startActivity(new Intent(Intent.ACTION_VIEW,android.net.Uri.parse(currentRelease.receiptUrl))); }
+            catch(Exception unavailable) { toast("Der Release-Beleg konnte nicht geöffnet werden."); }
+        });
         addButton.setOnClickListener(v->{
             if(currentRelease==null || detailBusy || library.checking()) return;
             try { library.add(currentRelease,currentInstalled,currentDecision); toast("In Meine Apps gespeichert."); }
             catch(Exception e) { toast(message(e)); }
         });
-        if(getIntent()!=null && getIntent().getData()!=null) handleIntent(getIntent());
+        if(state==null && queue.current()==null && library.pendingInstaller()==null
+                && getIntent()!=null && getIntent().getData()!=null) handleIntent(getIntent());
         else {
             String slug=state==null?null:state.getString("activeSlug");
+            if(slug==null) slug=queue.current();
             if(slug==null) slug=library.pendingInstaller();
             if(slug!=null) load(slug);
         }
@@ -103,6 +131,7 @@ public final class MainActivity extends Activity {
 
     @Override protected void onResume() {
         super.onResume();
+        updateBackgroundStatus();
         library.refreshInstalled();
         if(detailBusy) refreshOnIdle=true;
         else refreshCurrent();
@@ -135,13 +164,14 @@ public final class MainActivity extends Activity {
     private void handleIntent(Intent intent) {
         if(intent==null || intent.getData()==null) return;
         String raw=intent.getDataString();
-        try { String slug=SlugParser.parse(raw); input.setText(raw); load(slug); }
+        try { String slug=SlugParser.parse(raw); input.setText(raw); selectSingle(slug); }
         catch(Exception e) { toast(message(e)); }
     }
 
     private void load(String slug) {
         final int ticket=++generation;
         final AppLibrary.Entry saved=library.find(slug);
+        if(slug.equals(queue.current()) && saved==null) { showError("Diese App ist nicht mehr in Meine Apps. Überspringe sie in der Update-Runde."); return; }
         input.setText(slug);
         resetCandidate(); setBusy(true,"Prüfe Release-Vertrag …"); card.setVisibility(View.VISIBLE);
         io.execute(()->{
@@ -152,16 +182,23 @@ public final class MainActivity extends Activity {
                 InstallPolicy.Result decision=InstallPolicy.evaluate(release,installed,Build.VERSION.SDK_INT,Build.SUPPORTED_ABIS);
                 post(ticket,()->{
                     show(release,installed,decision,false,true);
-                    library.clearPendingInstaller();
+                    if(!awaitingInstaller) library.clearPendingInstaller();
                 });
             } catch(Exception e) { post(ticket,()->showError(message(e))); }
         });
     }
 
     private void show(InstallContract release,InstalledState installed,InstallPolicy.Result decision,boolean keepVerified,boolean fetched) {
+        if(awaitingInstaller && installed!=null && installed.versionCode>=release.versionCode
+                && installed.signers.equals(release.signers) && decision.mode==InstallPolicy.Mode.CURRENT) {
+            awaitingInstaller=false; library.clearPendingInstaller();
+            if(release.slug.equals(queue.current())) { boolean more=queue.size()>1; nextUpdate(); if(more) return; }
+        }
         File prior=keepVerified?verifiedApk:null;
         currentRelease=release; currentInstalled=installed; currentDecision=decision; verifiedApk=null;
         title.setText(release.appName);
+        radar.setText(ReleaseIntelligence.summary(release,installed,decision)+"\n\n"
+                +ReleaseIntelligence.radar(release,installed,library.previous(release)));
         meta.setText((installed==null?"Nicht installiert":"Installiert: "+AppLibraryController.installedVersion(installed))
                 +"\nVerfügbar: v"+release.version+" · "+formatSize(release.size)+" · "+release.channel+"\n"+release.packageName);
         String signer=release.signers.iterator().next();
@@ -171,10 +208,11 @@ public final class MainActivity extends Activity {
 
         StringBuilder p=new StringBuilder();
         if(installed==null) p.append("Deklarierte Berechtigungen: ").append(release.permissions.size());
-        else if(decision.addedPermissions.isEmpty()) p.append("✓ Keine neuen Berechtigungen gegenüber der installierten Version.");
+        else if(release.permissions.equals(installed.permissions)) p.append("✓ Keine neuen Berechtigungen gegenüber der installierten Version.");
         else {
-            p.append("Neue Berechtigungen (+").append(decision.addedPermissions.size()).append("):\n");
-            for(String permission:decision.addedPermissions) p.append("• ").append(human(permission)).append("\n");
+            java.util.Set<String> added=new java.util.LinkedHashSet<>(release.permissions); added.removeAll(installed.permissions);
+            p.append("Neue Berechtigungen (+").append(added.size()).append("):\n");
+            for(String permission:added) p.append("• ").append(human(permission)).append("\n");
         }
         if(installed!=null) {
             java.util.Set<String> removed=new java.util.LinkedHashSet<>(installed.permissions);
@@ -191,7 +229,7 @@ public final class MainActivity extends Activity {
         }
         permissions.setText(p.toString().trim()); status.setText(decision.reason);
         notes.setVisibility(release.notes.trim().isEmpty()?View.GONE:View.VISIBLE);
-        notes.setText("Was ändert sich?\n"+release.notes);
+        notes.setText("Änderungen laut Entwickler\n"+release.notes);
 
         boolean actionable=false;
         switch(decision.mode) {
@@ -209,6 +247,7 @@ public final class MainActivity extends Activity {
         }
         if(fetched) library.rememberChecked(release,installed,decision);
         setBusy(false,"");
+        updateQueueUi();
     }
 
     private void onAction() {
@@ -247,6 +286,7 @@ public final class MainActivity extends Activity {
 
         io.execute(()->{
             try {
+                requireFreshRelease(release);
                 File file=ApkDownloader.download(this,release,pct->post(ticket,()->progress.setProgress(pct)));
                 post(ticket,()->status.setText("Prüfe SHA-256, APK-Signatur und Android-Identität lokal …"));
                 InstalledState fresh=InstalledState.read(this,release.packageName);
@@ -285,13 +325,13 @@ public final class MainActivity extends Activity {
         library.setDetailBusy(busy);
         if(busy) { progress.setVisibility(View.VISIBLE); progress.setIndeterminate(true); status.setText(text); }
         else { progress.setIndeterminate(false); progress.setVisibility(View.GONE); }
-        updateSaveButton();
+        updateSaveButton(); updateQueueUi();
         if(!busy && refreshOnIdle) { refreshOnIdle=false; refreshCurrent(); }
     }
 
     private void showError(String text) {
         resetCandidate(); setBusy(false,""); card.setVisibility(View.VISIBLE); badge.setText("STOP");
-        title.setText("Nicht verfügbar"); meta.setText(""); proof.setText(""); permissions.setText(""); notes.setVisibility(View.GONE); status.setText(text);
+        radar.setText(""); title.setText("Nicht verfügbar"); meta.setText(""); proof.setText(""); permissions.setText(""); notes.setVisibility(View.GONE); status.setText(text);
     }
 
     private void updateSaveButton() {
@@ -313,7 +353,7 @@ public final class MainActivity extends Activity {
                 post(ticket,()->{
                     if(!detailBusy && currentRelease==release) {
                         show(release,installed,decision,true,false);
-                        library.clearPendingInstaller();
+                        if(!awaitingInstaller) library.clearPendingInstaller();
                     }
                 });
             } catch(Exception e) { post(ticket,()->{ if(!detailBusy) showError(message(e)); }); }
@@ -327,6 +367,7 @@ public final class MainActivity extends Activity {
         setBusy(true,"Prüfe den aktuellen Installationsstand …"); actionButton.setEnabled(false);
         io.execute(()->{
             try {
+                requireFreshRelease(release);
                 InstalledState fresh=InstalledState.read(this,release.packageName);
                 InstallPolicy.Result decision=InstallPolicy.evaluate(release,fresh,Build.VERSION.SDK_INT,Build.SUPPORTED_ABIS);
                 if(decision.mode==InstallPolicy.Mode.CURRENT || decision.mode==InstallPolicy.Mode.BLOCKED) {
@@ -337,6 +378,7 @@ public final class MainActivity extends Activity {
                     try {
                         library.pendingInstaller(release.slug);
                         boolean launched=InstallerHandoff.open(this,file);
+                        awaitingInstaller=launched; library.pendingLaunched(launched);
                         setBusy(false,""); actionButton.setEnabled(true);
                         status.setText(launched?"Android übernimmt jetzt die Installation. Der Status wird bei deiner Rückkehr aktualisiert."
                                 :"Erlaube APKDrop einmal als Installationsquelle und kehre danach zurück.");
@@ -346,14 +388,53 @@ public final class MainActivity extends Activity {
         });
     }
 
+    private void requireFreshRelease(InstallContract expected) throws Exception {
+        InstallContract fresh=ContractClient.fetch(expected.slug);
+        AppLibrary.Entry pin=library.find(expected.slug);
+        if(expected.slug.equals(queue.current()) && pin==null) throw new SecurityException("Diese App wurde aus Meine Apps entfernt.");
+        if(pin!=null) pin.requireIdentity(fresh.slug,fresh.packageName,fresh.signers);
+        expected.requireSameArtifact(fresh);
+    }
+
+    private void selectSingle(String slug) { clearQueue(); load(slug); }
+    private void startUpdates(java.util.List<String> slugs) {
+        queue=new UpdateQueue(slugs); new AppLibraryStore(this).queue(queue);
+        awaitingInstaller=false; library.clearPendingInstaller(); updateQueueUi(); load(queue.current());
+    }
+    private void nextUpdate() {
+        if(queue.current()==null) return;
+        queue=queue.next(); awaitingInstaller=false; library.clearPendingInstaller();
+        new AppLibraryStore(this).queue(queue); updateQueueUi();
+        if(queue.current()==null) { toast("Update-Runde beendet. Dein Installationsstand wird neu eingelesen."); library.refreshInstalled(); }
+        else load(queue.current());
+    }
+    private void clearQueue() {
+        queue=new UpdateQueue(java.util.Collections.emptyList()); new AppLibraryStore(this).queue(queue);
+        awaitingInstaller=false; library.clearPendingInstaller(); updateQueueUi();
+    }
+    private void updateQueueUi() {
+        if(queueStatus==null) return;
+        findViewById(R.id.queueCard).setVisibility(queue.current()==null?View.GONE:View.VISIBLE);
+        queueStatus.setText("Update-Runde · "+queue.size()+" verbleibend\nJede Installation bestätigst du in Android.");
+        findViewById(R.id.queueSkip).setEnabled(!detailBusy);
+        findViewById(R.id.queueCancel).setEnabled(!detailBusy);
+    }
+    private void updateBackgroundStatus() {
+        if(backgroundStatus==null) return;
+        String text=UpdateScheduler.enabled(this)?"Automatische Prüfungen etwa alle 6 Stunden, sobald Android Netzwerk und Akku freigibt. Nur gespeicherte Apps; keine APK-Downloads."
+                :"Automatische Prüfungen sind ausgeschaltet.";
+        text+=UpdateNotifications.allowed(this)?"\nUpdate-Benachrichtigungen erlaubt.":"\nBenachrichtigungen sind aus. Updates bleiben in der App sichtbar.";
+        backgroundStatus.setText(text);
+    }
+    @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] grants) {
+        super.onRequestPermissionsResult(request,permissions,grants); updateBackgroundStatus();
+    }
+
     private void post(int ticket,Runnable callback) {
         runOnUiThread(()->{ if(ticket==generation&&!isFinishing()&&!isDestroyed()) callback.run(); });
     }
 
-    private static String human(String permission) {
-        if("android.permission.RECORD_AUDIO".equals(permission)) return "Mikrofonzugriff (Audio aufnehmen)";
-        int i=permission.lastIndexOf('.'); return (i>=0?permission.substring(i+1):permission).replace('_',' ');
-    }
+    private static String human(String permission) { return ReleaseIntelligence.human(permission); }
     private static String join(java.util.Set<String> permissions) {
         StringBuilder out=new StringBuilder();
         for(String permission:permissions) out.append("• ").append(human(permission)).append("\n");

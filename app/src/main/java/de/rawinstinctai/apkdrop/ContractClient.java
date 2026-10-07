@@ -10,6 +10,8 @@ final class ContractClient {
     private ContractClient() {}
 
     static InstallContract fetch(String slug) throws Exception {
+        if(slug==null || !slug.matches("[a-z0-9-]{3,40}")) throw new SecurityException("Ungültiger App-Slug.");
+        if(Thread.currentThread().isInterrupted()) throw new InterruptedIOException("Prüfung abgebrochen.");
         String endpoint=ORIGIN+"/api/"+slug+"/install.json";
         URI uri=URI.create(endpoint);
         if(!"https".equals(uri.getScheme()) || !"apkdrop.rawinstinctai.de".equalsIgnoreCase(uri.getHost()))
@@ -33,6 +35,7 @@ final class ContractClient {
             try(InputStream in=c.getInputStream(); ByteArrayOutputStream out=new ByteArrayOutputStream()) {
                 byte[] buffer=new byte[4096];
                 for(int n;(n=in.read(buffer))!=-1;) {
+                    if(Thread.currentThread().isInterrupted()) throw new InterruptedIOException("Prüfung abgebrochen.");
                     if(out.size()+n>131072) throw new SecurityException("APKDrop-Antwort ist zu groß.");
                     out.write(buffer,0,n);
                 }

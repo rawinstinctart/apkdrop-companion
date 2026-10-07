@@ -71,6 +71,28 @@ final class InstallContract {
                 r.optString("channel","stable"),notes,download,receipt,showcase);
     }
 
+    JSONObject json() throws Exception {
+        JSONObject app=new JSONObject().put("slug",slug).put("name",appName);
+        JSONObject r=new JSONObject().put("releaseId",releaseId).put("version",version).put("versionCode",versionCode)
+                .put("packageName",packageName).put("minSdk",minSdk).put("targetSdk",targetSdk==0?JSONObject.NULL:targetSdk)
+                .put("abis",new JSONArray(abis)).put("permissions",new JSONArray(permissions)).put("signers",new JSONArray(signers))
+                .put("sha256",sha256).put("size",size).put("channel",channel).put("notes",notes)
+                .put("downloadUrl",downloadUrl).put("receiptUrl",receiptUrl).put("showcaseUrl",showcaseUrl);
+        JSONObject policy=new JSONObject().put("hash","sha256").put("signers","exact")
+                .put("identity","package+versionCode").put("keyRotation",false);
+        return new JSONObject().put("schema","apkdrop.install.v1").put("status","ready")
+                .put("policy",policy).put("app",app).put("release",r);
+    }
+
+    void requireSameArtifact(InstallContract fresh) {
+        if(!slug.equals(fresh.slug) || !packageName.equals(fresh.packageName) || !signers.equals(fresh.signers)
+                || versionCode!=fresh.versionCode || !releaseId.equals(fresh.releaseId) || !sha256.equals(fresh.sha256)
+                || size!=fresh.size || minSdk!=fresh.minSdk || targetSdk!=fresh.targetSdk
+                || !new HashSet<>(abis).equals(new HashSet<>(fresh.abis)) || !permissions.equals(fresh.permissions)
+                || !downloadUrl.equals(fresh.downloadUrl))
+            throw new SecurityException("Der Release hat sich geändert. Bitte erneut prüfen und bestätigen.");
+    }
+
     private static List<String> readArray(JSONArray array,int max,int maxLen,boolean hex) throws Exception {
         if(array.length()>max) throw new SecurityException("Zu viele Release-Merkmale.");
         List<String> out=new ArrayList<>();
