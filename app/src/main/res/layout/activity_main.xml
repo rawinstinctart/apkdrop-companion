@@ -76,7 +76,7 @@
 
             <Button android:id="@+id/actionButton" android:layout_width="match_parent"
                 android:layout_height="56dp" android:layout_marginTop="18dp"
-                android:background="@drawable/bg_primary" android:text="APK herunterladen & lokal prüfen →"
+                android:background="@drawable/bg_primary" android:text="APK herunterladen &amp; lokal prüfen →"
                 android:textAllCaps="false" android:textStyle="bold" android:textColor="@color/lime_dark"
                 android:textSize="14sp" android:visibility="gone" />
         </LinearLayout>
