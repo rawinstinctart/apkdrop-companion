@@ -12,12 +12,21 @@ final class DeveloperFollows {
         String raw=prefs.getString("follows","{}");
         if(raw.length()>32768)throw new SecurityException("Gespeicherte Entwicklerliste ungültig.");
         JSONObject data=new JSONObject(raw);
+        requireValid(data);
+        return data;
+    }
+    static void requireValid(JSONObject data) throws Exception {
         if(data.length()>20)throw new SecurityException("Zu viele gespeicherte Entwickler.");
         for(java.util.Iterator<String> it=data.keys();it.hasNext();) {
             String id=it.next();if(!validId(id))throw new SecurityException("Ungültige Entwickler-ID.");
             JSONObject item=data.getJSONObject(id);StoreClient.handle(item.getString("handle"));
             if(item.getString("name").length()>160)throw new SecurityException("Ungültiger Entwicklername.");
-        }return data;
+        }
+    }
+    void replace(JSONObject data) throws Exception {
+        requireValid(data);
+        if(!prefs.edit().putString("follows",data.toString()).commit())
+            throw new java.io.IOException("Entwicklerliste konnte nicht gespeichert werden.");
     }
     static boolean validId(String id) {return id!=null && id.matches("(?:[1-9][0-9]{0,19}|owner)");}
     boolean contains(String id) throws Exception {return read().has(id);}
