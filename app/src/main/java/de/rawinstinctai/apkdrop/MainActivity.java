@@ -222,7 +222,7 @@ public final class MainActivity extends Activity {
     }
 
     private void eraseBackupPassword() {
-        if(pendingBackupPassword!=null)Arrays.fill(pendingBackupPassword,'\\0');
+        if(pendingBackupPassword!=null)Arrays.fill(pendingBackupPassword,(char)0);
         pendingBackupPassword=null;
     }
     private void chooseBackup(boolean export) {
@@ -238,7 +238,7 @@ public final class MainActivity extends Activity {
                     eraseBackupPassword();
                     char[] pass=input.getText().toString().toCharArray();
                     input.setText("");
-                    if(pass.length<10){Arrays.fill(pass,'\\0');toast("Mindestens 10 Zeichen erforderlich.");return;}
+                    if(pass.length<10){Arrays.fill(pass,(char)0);toast("Mindestens 10 Zeichen erforderlich.");return;}
                     pendingBackupPassword=pass;
                     Intent intent=new Intent(export?Intent.ACTION_CREATE_DOCUMENT:Intent.ACTION_OPEN_DOCUMENT)
                             .addCategory(Intent.CATEGORY_OPENABLE).setType("application/json");
@@ -254,7 +254,7 @@ public final class MainActivity extends Activity {
         char[] password=pendingBackupPassword;
         pendingBackupPassword=null;
         if(password==null)return;
-        if(result!=RESULT_OK || data==null || data.getData()==null) {Arrays.fill(password,'\\0');return;}
+        if(result!=RESULT_OK || data==null || data.getData()==null) {Arrays.fill(password,(char)0);return;}
         android.net.Uri uri=data.getData();
         io.execute(()->{
             try {
@@ -278,7 +278,7 @@ public final class MainActivity extends Activity {
                     BackupCodec.Plan plan=BackupCodec.preview(buffer.toString(StandardCharsets.UTF_8),password);
                     runOnUiThread(()->new AlertDialog.Builder(this)
                         .setTitle("Gerätewechsel bestätigen")
-                        .setMessage(plan.apps+" gespeicherte Apps und "+plan.follows+" Entwickler-Follows übernehmen?\\n\\n"
+                        .setMessage(plan.apps+" gespeicherte Apps und "+plan.follows+" Entwickler-Follows übernehmen?\n\n"
                                 +"Bestehende Identitäten werden nicht überschrieben. Keine APK wird installiert.")
                         .setNegativeButton("Abbrechen",null)
                         .setPositiveButton("Zusammenführen",(d,w)->io.execute(()->{
@@ -291,7 +291,7 @@ public final class MainActivity extends Activity {
                         })).show());
                 }
             }catch(Exception e){runOnUiThread(()->toast("Sicherung fehlgeschlagen: "+message(e)));}
-            finally {Arrays.fill(password,'\\0');}
+            finally {Arrays.fill(password,(char)0);}
         });
     }
     private static boolean isInstallIntent(Intent intent) {
