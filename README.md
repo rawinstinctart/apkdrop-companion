@@ -2,6 +2,14 @@
 
 Native Android companion for verified APKDrop installs and updates.
 
+## Alpha 6: Everyday Experience (development branch)
+
+Alpha 6 introduces a native Home with live, **locally derived** app/update counts and three clear shortcuts; Android `ACTION_SEND` text/plain handling for APKDrop links; and a visible cancel control while downloading/verifying an APK. Cancelled operations discard their candidate and **never** count as a verified or installed release. The signature/identity checks and Android system installer remain mandatory.
+
+The debug package stays `de.rawinstinctai.apkdrop.debug`, now versionCode **7**, versionName `0.1.0-alpha.6-debug`. Release preflight defaults to the strictly pinned `alpha6` profile; `--profile alpha5` preserves historical verification. The prior original debug signer must still be used for an in-place upgrade. This branch has **not** passed physical Android acceptance, original-key signing, or hosted CI merely by changing source.
+
+See [Alpha 6 acceptance plan](docs/alpha6-acceptance.md). Source development and signing are intentionally separate; no Cloudflare publication is part of this change.
+
 ## Alpha 5: native store
 
 Alpha 5 adds separate Entdecken, Meine Apps, Updates and Einstellungen tabs. The catalog uses APKDrop's opt-in Discover API; app cards open the existing fresh-contract installation flow. Updates show a count and keep the guided round's skip/stop controls visible during app review.

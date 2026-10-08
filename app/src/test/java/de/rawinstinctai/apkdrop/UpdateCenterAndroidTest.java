@@ -142,6 +142,35 @@ public final class UpdateCenterAndroidTest {
         assertFalse(UpdateScheduler.reconcile(context));
         assertEquals("corrupt",context.getSharedPreferences("apkdrop-library",Context.MODE_PRIVATE).getString("apps",null));
     }
+    @Test public void cancelDownloadRestoresControlsAndKeepsQueueItem() throws Exception {
+        MainActivity target=start();
+        UpdateQueue queued=new UpdateQueue(List.of("test-app","other-app"));
+        java.lang.reflect.Field queueField=MainActivity.class.getDeclaredField("queue"); queueField.setAccessible(true); queueField.set(target,queued);
+        new AppLibraryStore(target).queue(queued);
+        java.util.concurrent.FutureTask<Void> pending=new java.util.concurrent.FutureTask<>(()->null);
+        java.lang.reflect.Field active=MainActivity.class.getDeclaredField("activeDownload"); active.setAccessible(true); active.set(target,pending);
+        ApkDownloader.Cancellation cancellation=new ApkDownloader.Cancellation();
+        boolean[] disconnected={false};
+        java.net.HttpURLConnection connection=new java.net.HttpURLConnection(new java.net.URL("https://apkdrop.rawinstinctai.de")) {
+            @Override public void connect() {}
+            @Override public void disconnect() { disconnected[0]=true; }
+            @Override public boolean usingProxy() { return false; }
+        };
+        cancellation.attach(connection);
+        java.lang.reflect.Field cancellationField=MainActivity.class.getDeclaredField("downloadCancellation");
+        cancellationField.setAccessible(true); cancellationField.set(target,cancellation);
+        java.lang.reflect.Field running=MainActivity.class.getDeclaredField("downloadRunning");running.setAccessible(true);running.setBoolean(target,true);
+        Button cancel=target.findViewById(R.id.cancelDownload);cancel.setVisibility(android.view.View.VISIBLE);
+        cancel.performClick();
+        assertTrue(pending.isCancelled());
+        assertTrue(disconnected[0]);
+        assertEquals(android.view.View.GONE,cancel.getVisibility());
+        assertFalse(running.getBoolean(target));
+        assertTrue(((TextView)target.findViewById(R.id.statusText)).getText().toString().contains("abgebrochen"));
+        assertEquals("test-app",new AppLibraryStore(target).queue().current());
+        assertTrue(target.findViewById(R.id.queueSkip).isEnabled());
+        assertTrue(target.findViewById(R.id.queueCancel).isEnabled());
+    }
     @Test public void queueAndPendingInstallerPersistSeparately() {
         AppLibraryStore store=new AppLibraryStore(context); store.queue(new UpdateQueue(List.of("test-app","other-app")));
         store.pendingInstaller("test-app"); store.pendingLaunched(true);

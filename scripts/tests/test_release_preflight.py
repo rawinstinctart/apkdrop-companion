@@ -22,6 +22,15 @@ class ReleasePolicyTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 p.policy("alpha5", **kwargs)
 
+    def test_alpha6_identity_is_pinned_and_rejects_alpha5_artifact(self):
+        alpha6 = p.policy("alpha6")
+        self.assertEqual(alpha6["versionCode"], 7)
+        self.assertEqual(alpha6["versionName"], "0.1.0-alpha.6-debug")
+        for kwargs in [{"expected_cert": "a" * 64}, {"version_code": 6}, {"version_name": "other"}]:
+            with self.assertRaises(ValueError):
+                p.policy("alpha6", **kwargs)
+        self.assertEqual(p.policy("alpha5")["versionCode"], 6)
+
     def test_production_needs_explicit_identity(self):
         with self.assertRaises(ValueError):
             p.policy("production")
@@ -94,6 +103,15 @@ class ArtifactGateTest(unittest.TestCase):
         for signature, manifest in variants:
             with self.subTest(manifest=manifest):
                 self.assertEqual(self.inspect_with(signature, manifest)["artifactStatus"], "blocked")
+
+    def test_alpha6_requires_new_version(self):
+        alpha5 = self.inspect_with(expected=p.policy("alpha6"))
+        self.assertEqual(alpha5["artifactStatus"], "blocked")
+        self.assertEqual(alpha5["checks"]["versionCode"], "blocked")
+        self.assertEqual(alpha5["checks"]["versionName"], "blocked")
+        alpha6_manifest = MANIFEST.replace("versionCode='6'", "versionCode='7'").replace("alpha.5", "alpha.6")
+        alpha6 = self.inspect_with(manifest=alpha6_manifest, expected=p.policy("alpha6"))
+        self.assertEqual(alpha6["artifactStatus"], "passed")
 
     def test_production_debuggable_apk_is_blocked(self):
         signature = SIGNATURE.replace(p.DEBUG_CERT, "a" * 64)

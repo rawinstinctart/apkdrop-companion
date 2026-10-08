@@ -34,6 +34,45 @@ final class AppLibraryController {
     private boolean updatesOnly;
     void updatesOnly(boolean value) {if(updatesOnly!=value){updatesOnly=value;render();}}
     int updateCount() {int count=0;for(State s:states.values())if(s.error==null&&s.decision!=null&&s.decision.mode==InstallPolicy.Mode.UPDATE)count++;return count;}
+    int count() {return library.entries().size();}
+    String homeStatus() {
+        if(!readable) return "Deine App-Liste konnte nicht geladen werden.";
+        if(count()==0) return "Entdecke unabhängige Apps und speichere sie für künftige Updates.";
+        int unknown=0,blocked=0;
+        boolean cached=false;
+        for(AppLibrary.Entry entry:library.entries()) {
+            State state=states.get(entry.slug);
+            if(state==null || state.decision==null) unknown++;
+            if(state!=null && (state.error!=null || (state.decision!=null && state.decision.mode==InstallPolicy.Mode.BLOCKED))) blocked++;
+            if(state!=null && state.cached) cached=true;
+        }
+        if(blocked>0) return blocked+" App(s) mit Prüfproblemen. Details unter Meine Apps ansehen.";
+        if(unknown>0) return unknown+" App(s) noch nicht aktuell geprüft. Letzte Ergebnisse sind gekennzeichnet.";
+        int updates=updateCount();
+        if(updates>0) return updates+" neue Version(en) "+(cached
+                ?"laut gespeichertem Prüfstand verfügbar; vor dem Download wird frisch geprüft. "
+                :"laut letzter Prüfung verfügbar. ")+"Jede Installation bleibt deine Entscheidung.";
+        return "Alle gespeicherten Apps laut letzter Prüfung aktuell.";
+    }
+    String homePreview() {
+        if(count()==0) return "Noch keine Apps gespeichert. Dein persönlicher Überblick erscheint hier.";
+        StringBuilder out=new StringBuilder();
+        int shown=0;
+        for(AppLibrary.Entry entry:sortedEntries()) {
+            if(shown++>=3) break;
+            State state=states.get(entry.slug);
+            String status=state==null || state.decision==null?"Noch prüfen":
+                    state.decision.mode==InstallPolicy.Mode.UPDATE?"Update verfügbar":
+                    state.decision.mode==InstallPolicy.Mode.CURRENT?"Aktuell":
+                    state.decision.mode==InstallPolicy.Mode.BLOCKED?"Blockiert":"Nicht installiert";
+            if(state!=null && state.error!=null) status="Prüfung fehlgeschlagen";
+            if(out.length()>0) out.append("\n\n");
+            out.append(entry.name).append(" · ").append(status);
+            if(state!=null && state.cached) out.append(" (letzter Stand)");
+        }
+        if(count()>3) out.append("\n\n+").append(count()-3).append(" weitere Apps");
+        return out.toString();
+    }
 
     private static final class State {
         final InstalledState installed;

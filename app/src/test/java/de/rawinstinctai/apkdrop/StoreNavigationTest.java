@@ -18,17 +18,81 @@ public final class StoreNavigationTest {
     private MainActivity create(Bundle state){controller=Robolectric.buildActivity(MainActivity.class).create(state);return controller.get();}
     @Test public void navigationSeparatesCatalogLibraryUpdatesAndSettings() {
         MainActivity a=create(null);
+        assertEquals(View.VISIBLE,a.findViewById(R.id.homePanel).getVisibility());
+        assertEquals(View.GONE,a.findViewById(R.id.discoverPanel).getVisibility());
+        a.findViewById(R.id.navDiscover).performClick();
         assertEquals(View.VISIBLE,a.findViewById(R.id.discoverPanel).getVisibility());assertEquals(View.GONE,a.findViewById(R.id.libraryPanel).getVisibility());
         a.findViewById(R.id.navApps).performClick();assertEquals(View.VISIBLE,a.findViewById(R.id.libraryPanel).getVisibility());assertEquals(View.GONE,a.findViewById(R.id.settingsPanel).getVisibility());
         a.findViewById(R.id.navUpdates).performClick();assertEquals("Updates",((TextView)a.findViewById(R.id.sectionTitle)).getText().toString());
         a.findViewById(R.id.navSettings).performClick();assertEquals(View.VISIBLE,a.findViewById(R.id.settingsPanel).getVisibility());assertEquals(View.GONE,a.findViewById(R.id.libraryPanel).getVisibility());
     }
     @Test public void restoresSelectedTabAndFollowsWithoutAccount() throws Exception {
-        Bundle saved=new Bundle();saved.putInt("storeTab",3);MainActivity a=create(saved);
+        Bundle saved=new Bundle();saved.putInt("storeTab",4);MainActivity a=create(saved);
         assertEquals("Einstellungen",((TextView)a.findViewById(R.id.sectionTitle)).getText().toString());
         Context c=a;DeveloperFollows follows=new DeveloperFollows(c);c.getSharedPreferences("developer-follows-v1",Context.MODE_PRIVATE).edit().clear().commit();
         follows.toggle("42","fixture-dev","Fixture Developer");assertTrue(new DeveloperFollows(c).contains("42"));
         follows.toggle("42","renamed-dev","Renamed Developer");assertEquals(0,follows.ids().length());
+    }
+    @Test public void activityRestartRestoresSelectedTab() {
+        MainActivity a=create(null);
+        a.findViewById(R.id.navSettings).performClick();
+        controller.recreate();
+        MainActivity restored=controller.get();
+        assertEquals("Einstellungen",((TextView)restored.findViewById(R.id.sectionTitle)).getText().toString());
+        assertEquals(View.VISIBLE,restored.findViewById(R.id.settingsPanel).getVisibility());
+    }
+    @Test public void homeProvidesRealEmptyStateAndShortcuts() {
+        MainActivity a=create(null);
+        assertEquals("0",((TextView)a.findViewById(R.id.homeAppCount)).getText().toString());
+        ((Button)a.findViewById(R.id.homeUpdates)).performClick();
+        assertEquals("Entdecken",((TextView)a.findViewById(R.id.sectionTitle)).getText().toString());
+        a.findViewById(R.id.navHome).performClick();
+        a.findViewById(R.id.homeLibrary).performClick();
+        assertEquals("Meine Apps",((TextView)a.findViewById(R.id.sectionTitle)).getText().toString());
+    }
+    @SuppressWarnings({"unchecked","rawtypes"})
+    @Test public void homeBlockedStateIsNotReportedAsCurrent() throws Exception {
+        MainActivity a=create(null);
+        java.lang.reflect.Field controllerField=MainActivity.class.getDeclaredField("library");
+        controllerField.setAccessible(true);
+        AppLibraryController controller=(AppLibraryController)controllerField.get(a);
+        AppLibrary.Entry entry=new AppLibrary.Entry("sample-app","Sample","dev.sample.app",java.util.Set.of("a".repeat(64)));
+        java.lang.reflect.Field libraryField=AppLibraryController.class.getDeclaredField("library");
+        libraryField.setAccessible(true);
+        libraryField.set(controller,new AppLibrary().add(entry));
+        InstallPolicy.Result blocked=new InstallPolicy.Result(InstallPolicy.Mode.BLOCKED,"Signer mismatch",java.util.Set.of(),java.util.Set.of());
+        Class<?> stateClass=Class.forName("de.rawinstinctai.apkdrop.AppLibraryController$State");
+        java.lang.reflect.Constructor<?> constructor=stateClass.getDeclaredConstructors()[0];
+        constructor.setAccessible(true);
+        Object state=constructor.newInstance(null,null,blocked,null,true,System.currentTimeMillis());
+        java.lang.reflect.Field statesField=AppLibraryController.class.getDeclaredField("states");
+        statesField.setAccessible(true);
+        ((java.util.Map<String,Object>)statesField.get(controller)).put(entry.slug,state);
+        assertTrue(controller.homeStatus().contains("Prüfproblemen"));
+        assertFalse(controller.homeStatus().contains("laut letzter Prüfung aktuell"));
+    }
+    @SuppressWarnings({"unchecked","rawtypes"})
+    @Test public void homeCachedUpdateIsMarkedAsLastKnown() throws Exception {
+        MainActivity a=create(null);
+        java.lang.reflect.Field controllerField=MainActivity.class.getDeclaredField("library");
+        controllerField.setAccessible(true);
+        AppLibraryController controller=(AppLibraryController)controllerField.get(a);
+        AppLibrary.Entry entry=new AppLibrary.Entry("sample-app","Sample","dev.sample.app",java.util.Set.of("a".repeat(64)));
+        java.lang.reflect.Field libraryField=AppLibraryController.class.getDeclaredField("library");
+        libraryField.setAccessible(true);
+        libraryField.set(controller,new AppLibrary().add(entry));
+        InstallPolicy.Result update=new InstallPolicy.Result(InstallPolicy.Mode.UPDATE,"update",java.util.Set.of(),java.util.Set.of());
+        Class<?> stateClass=Class.forName("de.rawinstinctai.apkdrop.AppLibraryController$State");
+        java.lang.reflect.Constructor<?> constructor=stateClass.getDeclaredConstructors()[0];
+        constructor.setAccessible(true);
+        Object state=constructor.newInstance(null,null,update,null,false,System.currentTimeMillis());
+        java.lang.reflect.Field cachedField=stateClass.getDeclaredField("cached");
+        cachedField.setAccessible(true); cachedField.setBoolean(state,true);
+        java.lang.reflect.Field statesField=AppLibraryController.class.getDeclaredField("states");
+        statesField.setAccessible(true);
+        ((java.util.Map)statesField.get(controller)).put(entry.slug,state);
+        assertTrue(controller.homeStatus().contains("laut gespeichertem Prüfstand"));
+        assertTrue(controller.homeStatus().contains("vor dem Download wird frisch geprüft"));
     }
     @Test @GraphicsMode(GraphicsMode.Mode.NATIVE) public void catalogRendersNativeCardsAndKeepsInstallActionVisible() throws Exception {
         MainActivity a=create(null);java.lang.reflect.Field field=MainActivity.class.getDeclaredField("store");field.setAccessible(true);StoreController store=(StoreController)field.get(a);

@@ -48,6 +48,11 @@ def policy(profile, expected_cert=None, version_code=None, version_name=None):
             raise ValueError("Alpha 5 identity is fixed; overrides are not accepted.")
         return {"package": DEBUG_PACKAGE, "certificateSha256": DEBUG_CERT,
                 "versionCode": 6, "versionName": "0.1.0-alpha.5-debug", "debuggable": True}
+    if profile == "alpha6":
+        if any(value is not None for value in (expected_cert, version_code, version_name)):
+            raise ValueError("Alpha 6 identity is fixed; overrides are not accepted.")
+        return {"package": DEBUG_PACKAGE, "certificateSha256": DEBUG_CERT,
+                "versionCode": 7, "versionName": "0.1.0-alpha.6-debug", "debuggable": True}
     if expected_cert is None or version_code is None or not version_name:
         raise ValueError("Production requires an explicit certificate, version code and version name.")
     expected_cert = certificate(expected_cert)
@@ -114,7 +119,7 @@ def inspect(apk, tools, expected):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("apk", type=Path)
-    parser.add_argument("--profile", choices=["alpha5", "production"], default="alpha5")
+    parser.add_argument("--profile", choices=["alpha5", "alpha6", "production"], default="alpha6")
     parser.add_argument("--sdk", default=os.environ.get("ANDROID_HOME") or os.environ.get("ANDROID_SDK_ROOT"))
     parser.add_argument("--build-tools", default="35.0.0")
     parser.add_argument("--expected-cert-sha256")
