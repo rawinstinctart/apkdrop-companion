@@ -137,6 +137,14 @@ public class ShareTakeoverTest {
         while(System.nanoTime()<until){Shadows.shadowOf(Looper.getMainLooper()).idle();if(fetched.contains("/api/dropid/fixture-dev.json"))break;Thread.sleep(5);}
         assertTrue(fetched.contains("/api/dropid/fixture-dev.json"));ready(a);takeOver(a);
     }
+    @Test public void pendingShareOpensWhenReturningFromACancelledInstaller() throws Exception {
+        AppLibraryStore pins=new AppLibraryStore(context);pins.pendingInstaller("older-app");pins.pendingLaunched(true);
+        MainActivity a=share("https://github.com/fixture-dev/example/releases/latest");a.onResume();
+        long until=System.nanoTime()+TimeUnit.SECONDS.toNanos(5);
+        while(System.nanoTime()<until){Shadows.shadowOf(Looper.getMainLooper()).idle();if(fetched.contains("/api/dropid/fixture-dev.json"))break;Thread.sleep(5);}
+        assertTrue(fetched.contains("/api/dropid/fixture-dev.json"));ready(a);
+        assertNull(pins.pendingInstaller());takeOver(a);
+    }
     private void render(MainActivity a,String name) throws Exception {
         String dir=System.getProperty("apkdrop.preview.dir");if(dir==null)return;
         View root=a.findViewById(R.id.pageRoot);root.measure(View.MeasureSpec.makeMeasureSpec(720,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(1600,View.MeasureSpec.EXACTLY));root.layout(0,0,720,1600);

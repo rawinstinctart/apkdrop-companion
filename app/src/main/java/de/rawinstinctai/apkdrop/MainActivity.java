@@ -161,6 +161,9 @@ public final class MainActivity extends Activity {
 
     @Override protected void onResume() {
         super.onResume();
+        if(awaitingInstaller&&deferredLink!=null){
+            awaitingInstaller=false;library.clearPendingInstaller();updateSaveButton();
+        }
         store.resume();
         updateBackgroundStatus();
         library.refreshInstalled();
