@@ -14,7 +14,9 @@ final class DropPilot {
 
     static boolean enabled(Context c) {return c.getSharedPreferences(PREF,Context.MODE_PRIVATE).getBoolean("enabled",false);}
     static synchronized void enabled(Context c,boolean value) {
-        c.getSharedPreferences(PREF,Context.MODE_PRIVATE).edit().putBoolean("enabled",value).apply();
+        boolean was=enabled(c);
+        c.getSharedPreferences(PREF,Context.MODE_PRIVATE).edit().putBoolean("enabled",value)
+                .putBoolean("initialRequested",value && !was).apply();
         if(!value) clear(c);
         reconcile(c);
     }
@@ -27,6 +29,10 @@ final class DropPilot {
     }
     static synchronized File candidate(Context c,InstallContract release) {
         if(!enabled(c))return null;
+        AppLibrary.Entry pin;
+        try {pin=new AppLibraryStore(c).read().find(release.slug);}catch(Exception bad){return null;}
+        if(pin==null)return null;
+        try {pin.requireIdentity(release.slug,release.packageName,release.signers);}catch(Exception bad){return null;}
         SharedPreferences prefs=c.getSharedPreferences(PREF,Context.MODE_PRIVATE);
         String name=prefs.getString("file","");
         if(!VerifiedApkFiles.allowed(name) || !release.slug.equals(prefs.getString("slug",""))
@@ -37,10 +43,12 @@ final class DropPilot {
         return file.isFile() && file.length()==release.size?file:null;
     }
     static synchronized boolean record(Context c,AppLibrary.Entry pin,InstallContract release,File file) {
-        if(!enabled(c) || !new AppLibraryStore(c).read().entries().contains(pin)
+        AppLibrary.Entry current;
+        try {current=new AppLibraryStore(c).read().find(pin.slug);}catch(Exception bad){return false;}
+        if(!enabled(c) || current==null
                 || !VerifiedApkFiles.allowed(file.getName()) || !file.getParentFile().equals(directory(c))
                 || file.length()!=release.size) return false;
-        pin.requireIdentity(release.slug,release.packageName,release.signers);
+        current.requireIdentity(release.slug,release.packageName,release.signers);
         boolean saved=c.getSharedPreferences(PREF,Context.MODE_PRIVATE).edit()
                 .putString("slug",release.slug).putString("pkg",release.packageName)
                 .putString("sha",release.sha256).putLong("version",release.versionCode)
@@ -69,15 +77,13 @@ final class DropPilot {
                 JobInfo periodic=base(c,PERIODIC_JOB).setPeriodic(PERIOD,60*60*1000L).build();
                 if(jobs.schedule(periodic)!=JobScheduler.RESULT_SUCCESS)return false;
             }
-            if(jobs.getPendingJob(INITIAL_JOB)==null && candidateExists(c)==false) {
-                jobs.schedule(base(c,INITIAL_JOB).setMinimumLatency(1).build());
+            if(c.getSharedPreferences(PREF,Context.MODE_PRIVATE).getBoolean("initialRequested",false)
+                    && jobs.getPendingJob(INITIAL_JOB)==null) {
+                if(jobs.schedule(base(c,INITIAL_JOB).setMinimumLatency(1).build())==JobScheduler.RESULT_SUCCESS)
+                    c.getSharedPreferences(PREF,Context.MODE_PRIVATE).edit().putBoolean("initialRequested",false).apply();
             }
             return true;
         }catch(Exception rejected) {return false;}
-    }
-    private static boolean candidateExists(Context c) {
-        String name=c.getSharedPreferences(PREF,Context.MODE_PRIVATE).getString("file","");
-        return VerifiedApkFiles.allowed(name) && new File(directory(c),name).isFile();
     }
     private static JobInfo.Builder base(Context c,int id) {
         return new JobInfo.Builder(id,new ComponentName(c,DropPilotJob.class))
