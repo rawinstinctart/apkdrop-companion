@@ -38,18 +38,18 @@ jobs:
           set -euo pipefail
           command -v zstd
           mkdir -p dist
-          zipalign -p -f 4 unsigned/app-preview-unsigned.apk /tmp/alpha11-aligned.apk
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -p -f 4 unsigned/app-preview-unsigned.apk /tmp/alpha11-aligned.apk
           python3 release/reconstruct-alpha11.py /tmp/alpha11-aligned.apk release/alpha11-signed.patch.zst.b64 dist/APKDrop-Companion-v0.1.0-alpha.11-preview.apk
-          apksigner verify --verbose --print-certs dist/APKDrop-Companion-v0.1.0-alpha.11-preview.apk > /tmp/apk-verify.log
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs dist/APKDrop-Companion-v0.1.0-alpha.11-preview.apk > /tmp/apk-verify.log
           grep -q '^Verified using v2 scheme (APK Signature Scheme v2): true' /tmp/apk-verify.log
           grep -q '^Verified using v3 scheme (APK Signature Scheme v3): true' /tmp/apk-verify.log
           grep -q '^Number of signers: 1' /tmp/apk-verify.log
           grep -q '^Signer #1 certificate SHA-256 digest: 6cf70241a63498e5e9fce78bac9abec760364cf320928347114bf109abd81e2e' /tmp/apk-verify.log
-          aapt dump badging dist/APKDrop-Companion-v0.1.0-alpha.11-preview.apk > /tmp/apk-manifest.log
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging dist/APKDrop-Companion-v0.1.0-alpha.11-preview.apk > /tmp/apk-manifest.log
           grep -q "package: name='de.rawinstinctai.apkdrop.debug' versionCode='14' versionName='0.1.0-alpha.11-preview'" /tmp/apk-manifest.log
           grep -q "^uses-permission: name='android.permission.ACCESS_NETWORK_STATE'" /tmp/apk-manifest.log
           ! grep -q '^application-debuggable' /tmp/apk-manifest.log
-          zipalign -c 4 dist/APKDrop-Companion-v0.1.0-alpha.11-preview.apk
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c 4 dist/APKDrop-Companion-v0.1.0-alpha.11-preview.apk
           printf 'd05665a7340eff6dc88c8d3d563f31444477ff2b1e7470b82676051d924895c5  dist/APKDrop-Companion-v0.1.0-alpha.11-preview.apk\n' | sha256sum -c -
       - uses: actions/upload-artifact@v4
         with:
