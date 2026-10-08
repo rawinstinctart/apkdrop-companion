@@ -275,8 +275,8 @@ public final class MainActivity extends Activity {
                             buffer.write(chunk,0,n);
                         }
                     }
-                    BackupCodec.Plan plan=BackupCodec.preview(buffer.toString(StandardCharsets.UTF_8),password);
-                    runOnUiThread(()->new AlertDialog.Builder(this)
+                    BackupCodec.Plan plan=BackupCodec.preview(new String(buffer.toByteArray(),StandardCharsets.UTF_8),password);
+                    runOnUiThread(()->{if(isDestroyed()||isFinishing())return;new AlertDialog.Builder(this)
                         .setTitle("Gerätewechsel bestätigen")
                         .setMessage(plan.apps+" gespeicherte Apps und "+plan.follows+" Entwickler-Follows übernehmen?\n\n"
                                 +"Bestehende Identitäten werden nicht überschrieben. Keine APK wird installiert.")
@@ -288,7 +288,7 @@ public final class MainActivity extends Activity {
                                     catch(Exception refresh){toast(message(refresh));}
                                 });
                             }catch(Exception failed){runOnUiThread(()->toast(message(failed)));}
-                        })).show());
+                        })).show();});
                 }
             }catch(Exception e){runOnUiThread(()->toast("Sicherung fehlgeschlagen: "+message(e)));}
             finally {Arrays.fill(password,(char)0);}
