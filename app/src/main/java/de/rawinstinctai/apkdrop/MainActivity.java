@@ -110,7 +110,7 @@ public final class MainActivity extends Activity {
                 UpdateScheduler.enabled(this,true);
                 ((Switch)findViewById(R.id.backgroundSwitch)).setChecked(true);
                 updateBackgroundStatus(); updateSaveButton();
-                toast(UpdateScheduler.scheduled(this)?"App übernommen. Update-Überwachung aktiv.":"App gespeichert. Automatische Prüfung konnte noch nicht geplant werden.");
+                // The inline monitoring status is authoritative. Avoid an obscuring, duplicate Toast.
             }
             catch(Exception e) { toast(message(e)); }
         });
@@ -165,6 +165,7 @@ public final class MainActivity extends Activity {
             awaitingInstaller=false;library.clearPendingInstaller();updateSaveButton();
         }
         store.resume();
+        UpdateScheduler.reconcile(this); // Retry a previously rejected job after a manifest/app upgrade.
         updateBackgroundStatus();
         library.refreshInstalled();
         if(detailBusy) refreshOnIdle=true;
@@ -278,7 +279,7 @@ public final class MainActivity extends Activity {
             ((Button)findViewById(R.id.trustButton)).setText("APK Trust Center · Nachweise ansehen +");
         }
         if(fetched) store.releaseDetails(release.slug);
-        radar.setText(ReleaseIntelligence.summary(release,installed,decision)+"\n\n"
+        radar.setText((decision.mode==InstallPolicy.Mode.CURRENT?"":ReleaseIntelligence.summary(release,installed,decision)+"\n\n")
                 +ReleaseIntelligence.radar(release,installed,library.previous(release)));
         meta.setText((installed==null?"Nicht installiert":"Installiert: "+AppLibraryController.installedVersion(installed))
                 +"\nVerfügbar: v"+release.version+" · "+formatSize(release.size)+" · "+release.channel+"\n"+release.packageName);
@@ -585,7 +586,9 @@ public final class MainActivity extends Activity {
     }
     private void updateBackgroundStatus() {
         if(backgroundStatus==null) return;
-        String text=UpdateScheduler.enabled(this)?"Automatische Prüfungen etwa alle 6 Stunden, sobald Android Netzwerk und Akku freigibt. Nur gespeicherte Apps; keine APK-Downloads."
+        String text=UpdateScheduler.enabled(this)
+                ?(UpdateScheduler.scheduled(this)?"Update-Überwachung eingeplant · etwa alle 6 Stunden, wenn Android Netzwerk und Akku freigibt.":"Update-Überwachung noch nicht eingeplant. Erneut aktivieren oder APKDrop neu öffnen.")
+                +" Nur gespeicherte Apps; keine APK-Downloads."
                 :"Automatische Prüfungen sind ausgeschaltet.";
         text+=UpdateNotifications.allowed(this)?"\nUpdate-Benachrichtigungen erlaubt.":"\nBenachrichtigungen sind aus. Updates bleiben in der App sichtbar.";
         backgroundStatus.setText(text);
