@@ -8,30 +8,59 @@ import java.util.Locale;
 
 final class ApkDownloader {
     interface Progress { void onProgress(int percent); }
+    interface ConnectionOpener { HttpURLConnection open(URL url) throws IOException; }
+    static final class Cancellation {
+        private volatile boolean cancelled;
+        private HttpURLConnection connection;
+        synchronized void attach(HttpURLConnection active) {
+            connection=active;
+            if(cancelled) active.disconnect();
+        }
+        void cancel() {
+            HttpURLConnection active;
+            synchronized(this) { cancelled=true; active=connection; }
+            if(active!=null) active.disconnect();
+        }
+        synchronized void detach(HttpURLConnection active) { if(connection==active) connection=null; }
+        void check() throws InterruptedException {
+            if(cancelled || Thread.currentThread().isInterrupted()) throw new InterruptedException("Download abgebrochen.");
+        }
+    }
     private ApkDownloader() {}
 
     static synchronized File download(Context context,InstallContract release,Progress progress) throws Exception {
+        return download(context,release,progress,new Cancellation(),url->(HttpURLConnection)url.openConnection());
+    }
+    static synchronized File download(Context context,InstallContract release,Progress progress,Cancellation cancellation) throws Exception {
+        return download(context,release,progress,cancellation,url->(HttpURLConnection)url.openConnection());
+    }
+    static synchronized File download(Context context,InstallContract release,Progress progress,Cancellation cancellation,
+                                      ConnectionOpener opener) throws Exception {
         URI uri=URI.create(release.downloadUrl);
         if(!"https".equals(uri.getScheme()) || !"apkdrop.rawinstinctai.de".equalsIgnoreCase(uri.getHost())
                 || uri.getUserInfo()!=null || uri.getFragment()!=null || uri.getQuery()!=null)
             throw new SecurityException("Unzulässige APK-Adresse.");
 
-        HttpURLConnection c=(HttpURLConnection)new URL(release.downloadUrl).openConnection();
-        c.setInstanceFollowRedirects(false);
-        c.setConnectTimeout(10000); c.setReadTimeout(30000);
-        c.setRequestProperty("Accept","application/vnd.android.package-archive");
-        c.setRequestProperty("Accept-Encoding","identity");
-        c.setRequestProperty("User-Agent","APKDrop-Companion/0.1");
+        cancellation.check();
+        HttpURLConnection c=opener.open(new URL(release.downloadUrl));
+        cancellation.attach(c);
 
-        File dir=new File(context.getCacheDir(),"apkdrop");
-        if(!dir.isDirectory() && !dir.mkdirs()) throw new IOException("Privater APKDrop-Cache konnte nicht angelegt werden.");
-        VerifiedApkFiles.prepare(dir);
-        String name=VerifiedApkFiles.newName();
-        File part=new File(dir,name+".part");
-        File verified=new File(dir,name);
-
+        File part=null,verified=null;
         try {
+            c.setInstanceFollowRedirects(false);
+            c.setConnectTimeout(10000); c.setReadTimeout(30000);
+            c.setRequestProperty("Accept","application/vnd.android.package-archive");
+            c.setRequestProperty("Accept-Encoding","identity");
+            c.setRequestProperty("User-Agent","APKDrop-Companion/0.1");
+            File dir=new File(context.getCacheDir(),"apkdrop");
+            if(!dir.isDirectory() && !dir.mkdirs()) throw new IOException("Privater APKDrop-Cache konnte nicht angelegt werden.");
+            VerifiedApkFiles.prepare(dir);
+            String name=VerifiedApkFiles.newName();
+            part=new File(dir,name+".part");
+            verified=new File(dir,name);
+            cancellation.check();
             int status=c.getResponseCode();
+            cancellation.check();
             if(status!=200) throw new IOException("APK-Download nicht verfügbar ("+status+").");
             long declared=c.getContentLengthLong();
             if(declared>0 && declared!=release.size) throw new SecurityException("Unerwartete Dateigröße.");
@@ -40,8 +69,11 @@ final class ApkDownloader {
             long count=0; int last=-1;
             try(InputStream in=c.getInputStream(); FileOutputStream out=new FileOutputStream(part)) {
                 byte[] buffer=new byte[65536];
-                for(int n;(n=in.read(buffer))!=-1;) {
-                    if(Thread.currentThread().isInterrupted()) throw new InterruptedException("Download abgebrochen.");
+                for(;;) {
+                    cancellation.check();
+                    int n=in.read(buffer);
+                    if(n==-1) break;
+                    cancellation.check();
                     count+=n;
                     if(count>release.size || count>InstallContract.MAX_BYTES)
                         throw new SecurityException("APK ist größer als erwartet.");
@@ -52,13 +84,18 @@ final class ApkDownloader {
                 out.getFD().sync();
             }
 
+            cancellation.check();
             if(count!=release.size) throw new SecurityException("APK ist unvollständig.");
             if(!hex(digest.digest()).equals(release.sha256)) throw new SecurityException("SHA-256 stimmt nicht.");
+            cancellation.check();
             if(!part.renameTo(verified)) throw new IOException("Geprüfte APK konnte nicht finalisiert werden.");
+            cancellation.check();
             return verified;
         } catch(Exception e) {
-            part.delete(); verified.delete(); throw e;
-        } finally { c.disconnect(); }
+            if(part!=null) part.delete();
+            if(verified!=null) verified.delete();
+            throw e;
+        } finally { cancellation.detach(c); c.disconnect(); }
     }
 
     private static String hex(byte[] bytes) {

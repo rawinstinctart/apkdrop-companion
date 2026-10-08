@@ -14,7 +14,7 @@ final class SlugParser {
         String text=raw.trim();
         try { return parse(text); } catch(IllegalArgumentException invalid) { /* Optional surrounding message. */ }
         java.util.regex.Matcher links=Pattern.compile(
-                "https://apkdrop\\.rawinstinctai\\.de/(?:install/)?[a-z0-9-]{3,40}/?(?![A-Za-z0-9/?#._-])",
+                "https://apkdrop\\.rawinstinctai\\.de/(?:install/)?[a-z0-9-]{3,40}/?(?=$| |[!)}](?= |$))",
                 Pattern.CASE_INSENSITIVE).matcher(text);
         if(!links.find()) throw new IllegalArgumentException("Teile einen gültigen APKDrop-Link.");
         String match=links.group();

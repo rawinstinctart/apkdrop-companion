@@ -39,16 +39,20 @@ final class AppLibraryController {
         if(!readable) return "Deine App-Liste konnte nicht geladen werden.";
         if(count()==0) return "Entdecke unabhängige Apps und speichere sie für künftige Updates.";
         int unknown=0,blocked=0;
+        boolean cached=false;
         for(AppLibrary.Entry entry:library.entries()) {
             State state=states.get(entry.slug);
             if(state==null || state.decision==null) unknown++;
-            if(state!=null && state.error!=null) blocked++;
+            if(state!=null && (state.error!=null || (state.decision!=null && state.decision.mode==InstallPolicy.Mode.BLOCKED))) blocked++;
+            if(state!=null && state.cached) cached=true;
         }
         if(blocked>0) return blocked+" App(s) mit Prüfproblemen. Details unter Meine Apps ansehen.";
         if(unknown>0) return unknown+" App(s) noch nicht aktuell geprüft. Letzte Ergebnisse sind gekennzeichnet.";
         int updates=updateCount();
-        return updates>0?updates+" neue Version(en) verfügbar. Jede Installation bleibt deine Entscheidung."
-                :"Alle gespeicherten Apps laut letzter Prüfung aktuell.";
+        if(updates>0) return updates+" neue Version(en) "+(cached
+                ?"laut gespeichertem Prüfstand verfügbar; vor dem Download wird frisch geprüft. "
+                :"laut letzter Prüfung verfügbar. ")+"Jede Installation bleibt deine Entscheidung.";
+        return "Alle gespeicherten Apps laut letzter Prüfung aktuell.";
     }
     String homePreview() {
         if(count()==0) return "Noch keine Apps gespeichert. Dein persönlicher Überblick erscheint hier.";

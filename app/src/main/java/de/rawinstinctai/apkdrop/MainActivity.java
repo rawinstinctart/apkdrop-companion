@@ -26,7 +26,8 @@ public final class MainActivity extends Activity {
     private StoreController store;
     private volatile int generation;
     private volatile boolean downloadRunning;
-    private java.util.concurrent.Future<?> activeDownload;
+    private Future<?> activeDownload;
+    private ApkDownloader.Cancellation downloadCancellation;
     private Button cancelDownloadButton;
     private boolean detailBusy,refreshOnIdle;
     private boolean receiverRegistered;
@@ -171,6 +172,8 @@ public final class MainActivity extends Activity {
 
     @Override protected void onDestroy() {
         generation++;
+        if(downloadCancellation!=null) downloadCancellation.cancel();
+        downloadCancellation=null;
         if(activeDownload!=null) activeDownload.cancel(true);
         store.close(); library.close(); io.shutdownNow(); super.onDestroy();
     }
@@ -183,8 +186,8 @@ public final class MainActivity extends Activity {
     private void handleIntent(Intent intent) {
         if(!isInstallIntent(intent)) return;
         boolean shared=Intent.ACTION_SEND.equals(intent.getAction()) && "text/plain".equals(intent.getType());
-        String raw=shared?intent.getStringExtra(Intent.EXTRA_TEXT):intent.getDataString();
         try {
+            String raw=shared?intent.getStringExtra(Intent.EXTRA_TEXT):intent.getDataString();
             String slug=shared?SlugParser.parseShared(raw):SlugParser.parse(raw);
             input.setText(slug);
             selectSingle(slug);
@@ -312,28 +315,31 @@ public final class MainActivity extends Activity {
         progress.setVisibility(View.VISIBLE); progress.setIndeterminate(false); progress.setProgress(0);
         status.setText(getString(R.string.message_mainactivity_7));
         downloadRunning=true;
+        downloadCancellation=new ApkDownloader.Cancellation();
+        final ApkDownloader.Cancellation cancellation=downloadCancellation;
         cancelDownloadButton.setVisibility(View.VISIBLE);
 
         activeDownload=io.submit(()->{
             File file=null;
             try {
                 requireFreshRelease(release);
-                if(Thread.currentThread().isInterrupted()) throw new InterruptedException("Download abgebrochen.");
+                cancellation.check();
                 file=ApkDownloader.download(this,release,pct->post(ticket,()->{
                     progress.setProgress(pct);
                     status.setText(pct+" % heruntergeladen · lokale Prüfung folgt");
-                }));
-                if(Thread.currentThread().isInterrupted()) throw new InterruptedException("Download abgebrochen.");
+                }),cancellation);
+                cancellation.check();
                 post(ticket,()->status.setText(getString(R.string.message_mainactivity_8)));
                 InstalledState fresh=InstalledState.read(this,release.packageName);
                 InstallPolicy.Result freshDecision=InstallPolicy.evaluate(release,fresh,Build.VERSION.SDK_INT,Build.SUPPORTED_ABIS);
                 if(freshDecision.mode==InstallPolicy.Mode.BLOCKED || freshDecision.mode==InstallPolicy.Mode.CURRENT)
                     throw new SecurityException(freshDecision.reason);
                 ApkVerifierUtil.verify(this,file,release,fresh);
-                if(Thread.currentThread().isInterrupted()) throw new InterruptedException("Download abgebrochen.");
+                cancellation.check();
                 final File verifiedFile=file;
                 runOnUiThread(()->{
-                    if(ticket!=generation || isFinishing() || isDestroyed() || !downloadRunning) {
+                    if(ticket!=generation || isFinishing() || isDestroyed() || !downloadRunning
+                            || cancellation!=downloadCancellation) {
                         verifiedFile.delete(); return;
                     }
                     verified(verifiedFile);
@@ -350,7 +356,10 @@ public final class MainActivity extends Activity {
         generation++;
         downloadRunning=false;
         java.util.concurrent.Future<?> pending=activeDownload;
+        ApkDownloader.Cancellation cancellation=downloadCancellation;
         activeDownload=null;
+        downloadCancellation=null;
+        if(cancellation!=null) cancellation.cancel();
         if(pending!=null) pending.cancel(true);
         cancelDownloadButton.setVisibility(View.GONE);
         setBusy(false,"");
@@ -360,7 +369,7 @@ public final class MainActivity extends Activity {
     }
 
     private void verified(File file) {
-        downloadRunning=false; activeDownload=null;
+        downloadRunning=false; activeDownload=null; downloadCancellation=null;
         cancelDownloadButton.setVisibility(View.GONE);
         verifiedApk=file;
         setBusy(false,""); actionButton.setEnabled(true);
@@ -369,7 +378,7 @@ public final class MainActivity extends Activity {
     }
 
     private void downloadError(String text) {
-        downloadRunning=false; activeDownload=null;
+        downloadRunning=false; activeDownload=null; downloadCancellation=null;
         cancelDownloadButton.setVisibility(View.GONE);
         verifiedApk=null;
         setBusy(false,""); actionButton.setEnabled(true);
@@ -377,6 +386,8 @@ public final class MainActivity extends Activity {
     }
 
     private void resetCandidate() {
+        if(downloadCancellation!=null) downloadCancellation.cancel();
+        downloadCancellation=null;
         if(activeDownload!=null) activeDownload.cancel(true);
         activeDownload=null; downloadRunning=false;
         if(cancelDownloadButton!=null) cancelDownloadButton.setVisibility(View.GONE);

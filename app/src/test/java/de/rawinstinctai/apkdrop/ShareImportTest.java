@@ -23,6 +23,9 @@ public final class ShareImportTest {
                 "https://apkdrop.rawinstinctai.de/install/pocket-notes/extra",
                 "https://apkdrop.rawinstinctai.de.evil.example/install/pocket-notes",
                 "https://apkdrop.rawinstinctai.de/install/pocket-notes#fragment",
+                "https://apkdrop.rawinstinctai.de/install/pocket-notes@evil.example",
+                "https://apkdrop.rawinstinctai.de/install/pocket-notes%2fother",
+                "https://apkdrop.rawinstinctai.de/install/pocket-notes&redirect=evil",
                 "x".repeat(4097),
                 null
         }) assertThrows(IllegalArgumentException.class,()->SlugParser.parseShared(input));
@@ -30,6 +33,12 @@ public final class ShareImportTest {
     @Test public void ambiguousSharedTextIsRejected() {
         assertThrows(IllegalArgumentException.class,()->SlugParser.parseShared(
             "https://apkdrop.rawinstinctai.de/install/app-one and https://apkdrop.rawinstinctai.de/install/app-two"));
+    }
+    @Test public void malformedSendExtraDoesNotCrash() {
+        Intent intent=new Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT,42);
+        MainActivity activity=Robolectric.buildActivity(MainActivity.class,intent).create().get();
+        assertEquals("",((TextView)activity.findViewById(R.id.urlInput)).getText().toString());
+        activity.onDestroy();
     }
     @Test public void sendIntentRoutesToInstallDetailsWithoutStartingInstaller() {
         Intent intent=new Intent(Intent.ACTION_SEND).setType("text/plain")
