@@ -8,10 +8,10 @@ set -euo pipefail
 : "${ANDROID_HOME:?Android SDK required}"
 candidate="${1:?Unsigned candidate APK required}"
 output="${2:?Signed output APK path required}"
-expected="6cf70241a63498e5e9fce78bac9abec760364cf320928347114bf109abd81e2e"
 build_tools="${APKDROP_BUILD_TOOLS:-35.0.0}"
 signer="$ANDROID_HOME/build-tools/$build_tools/apksigner"
 align="$ANDROID_HOME/build-tools/$build_tools/zipalign"
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 test -f "$candidate" && test -f "$APKDROP_KEYSTORE"
 test "$candidate" != "$output"
 test ! -e "$output"
@@ -21,10 +21,11 @@ trap 'rm -rf "$scratch"' EXIT
 "$signer" sign --ks "$APKDROP_KEYSTORE" --ks-key-alias "$APKDROP_KEY_ALIAS" \
   --ks-pass env:APKDROP_STORE_PASSWORD --key-pass env:APKDROP_KEY_PASSWORD \
   --out "$scratch/signed.apk" "$scratch/aligned.apk"
-"$signer" verify --verbose --print-certs "$scratch/signed.apk" > "$scratch/verification.txt"
-actual="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' "$scratch/verification.txt" | tr '[:upper:]' '[:lower:]')"
-test "$actual" = "$expected" || { echo 'Original signer fingerprint mismatch; output blocked.' >&2; exit 1; }
-test "$(sed -n 's/^Number of signers: //p' "$scratch/verification.txt")" = 1
+python3 "$script_dir/release-preflight.py" "$scratch/signed.apk" \
+  --sdk "$ANDROID_HOME" --build-tools "$build_tools" > "$scratch/release-check.json" || {
+  echo 'Release identity or signature check failed; output blocked.' >&2; exit 1;
+}
 cp "$scratch/signed.apk" "$output"
 sha256sum "$output"
 echo 'Original debug signature verified. Physical device acceptance remains required.'
+
