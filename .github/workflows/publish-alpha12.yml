@@ -1,0 +1,95 @@
+name: Publish original-signed Alpha 12 preview
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/publish-alpha12.yml'
+      - 'release/alpha12-signed.patch.zst.b64'
+      - 'release/reconstruct-alpha12.py'
+      - 'release/alpha12-notes.md'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-alpha12.yml'
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download exact tested unsigned Alpha 12 candidate
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 37847992303
+          name: apkdrop-companion-unsigned-preview
+          path: unsigned
+          github-token: ${{ github.token }}
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: ''
+      - name: Install official Android build tools
+        run: sdkmanager 'build-tools;35.0.0'
+      - name: Reconstruct and independently verify original-signed Alpha 12
+        run: |
+          set -euo pipefail
+          command -v zstd
+          mkdir -p dist
+          test -f unsigned/app-preview-unsigned.apk
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -p -f 4 unsigned/app-preview-unsigned.apk /tmp/alpha12-aligned.apk
+          echo '7bdb2614b4862de3a8481d1a971f54bdc42d176e65453b58f81165d99447e29f  /tmp/alpha12-aligned.apk' | sha256sum -c -
+          python3 release/reconstruct-alpha12.py /tmp/alpha12-aligned.apk release/alpha12-signed.patch.zst.b64 dist/APKDrop-Companion-v0.1.0-alpha.12-preview.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs dist/APKDrop-Companion-v0.1.0-alpha.12-preview.apk > /tmp/alpha12-signer.txt
+          grep -q '^Verified using v2 scheme (APK Signature Scheme v2): true' /tmp/alpha12-signer.txt
+          grep -q '^Verified using v3 scheme (APK Signature Scheme v3): true' /tmp/alpha12-signer.txt
+          grep -q '^Number of signers: 1' /tmp/alpha12-signer.txt
+          grep -q '^Signer #1 certificate SHA-256 digest: 6cf70241a63498e5e9fce78bac9abec760364cf320928347114bf109abd81e2e' /tmp/alpha12-signer.txt
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging dist/APKDrop-Companion-v0.1.0-alpha.12-preview.apk > /tmp/alpha12-manifest.txt
+          grep -q "package: name='de.rawinstinctai.apkdrop.debug' versionCode='15' versionName='0.1.0-alpha.12-preview'" /tmp/alpha12-manifest.txt
+          grep -q "^sdkVersion:'26'" /tmp/alpha12-manifest.txt
+          grep -q "^targetSdkVersion:'36'" /tmp/alpha12-manifest.txt
+          grep -q "^uses-permission: name='android.permission.ACCESS_NETWORK_STATE'" /tmp/alpha12-manifest.txt
+          ! grep -q '^application-debuggable' /tmp/alpha12-manifest.txt
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c 4 dist/APKDrop-Companion-v0.1.0-alpha.12-preview.apk
+          echo '2673a83cd65a1badb3e9f6a12a7720122c0a8879155863d7ba9ef9e1993ba504  dist/APKDrop-Companion-v0.1.0-alpha.12-preview.apk' | sha256sum -c -
+          test "$(wc -c < dist/APKDrop-Companion-v0.1.0-alpha.12-preview.apk)" -eq 296200
+          echo 'EXACT ORIGINAL-SIGNED ALPHA12 VERIFIED'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: original-signed-alpha12-reviewed
+          path: dist/APKDrop-Companion-v0.1.0-alpha.12-preview.apk
+          retention-days: 7
+
+  publish:
+    needs: verify
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+      actions: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: original-signed-alpha12-reviewed
+          path: dist
+      - name: Publish immutable prerelease and re-download to verify
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG='v0.1.0-alpha.12'
+          APK=$(find dist -type f -name 'APKDrop-Companion-v0.1.0-alpha.12-preview.apk' -print -quit)
+          test -n "$APK" && test -f "$APK"
+          ! gh release view "$TAG" >/dev/null 2>&1
+          echo "2673a83cd65a1badb3e9f6a12a7720122c0a8879155863d7ba9ef9e1993ba504  $APK" | sha256sum -c -
+          gh release create "$TAG" "$APK" --target 6ba9880cfe1a7dedc71856194afa182b56a8cd32 --title 'APKDrop Companion Alpha 12 Preview — Premium Experience' --notes-file release/alpha12-notes.md --prerelease
+          mkdir -p /tmp/alpha12-download-proof
+          gh release download "$TAG" --pattern 'APKDrop-Companion-v0.1.0-alpha.12-preview.apk' --dir /tmp/alpha12-download-proof
+          echo '2673a83cd65a1badb3e9f6a12a7720122c0a8879155863d7ba9ef9e1993ba504  /tmp/alpha12-download-proof/APKDrop-Companion-v0.1.0-alpha.12-preview.apk' | sha256sum -c -
+          echo 'PUBLIC SIGNED ALPHA12 GITHUB RELEASE VERIFIED'
