@@ -93,7 +93,7 @@ public final class MainActivity extends Activity {
             catch(Exception e) { toast(message(e)); }
         });
         if(state==null && queue.current()==null && library.pendingInstaller()==null
-                && getIntent()!=null && getIntent().getData()!=null) handleIntent(getIntent());
+                && isInstallIntent(getIntent())) handleIntent(getIntent());
         else {
             String slug=state==null?null:state.getString("activeSlug");
             if(slug==null) slug=queue.current();
@@ -168,11 +168,20 @@ public final class MainActivity extends Activity {
         generation++; store.close(); library.close(); io.shutdownNow(); super.onDestroy();
     }
 
+    private static boolean isInstallIntent(Intent intent) {
+        return intent!=null && (intent.getData()!=null || (Intent.ACTION_SEND.equals(intent.getAction())
+                && "text/plain".equals(intent.getType()) && intent.hasExtra(Intent.EXTRA_TEXT)));
+    }
+
     private void handleIntent(Intent intent) {
-        if(intent==null || intent.getData()==null) return;
-        String raw=intent.getDataString();
-        try { String slug=SlugParser.parse(raw); input.setText(raw); selectSingle(slug); }
-        catch(Exception e) { toast(message(e)); }
+        if(!isInstallIntent(intent)) return;
+        boolean shared=Intent.ACTION_SEND.equals(intent.getAction()) && "text/plain".equals(intent.getType());
+        String raw=shared?intent.getStringExtra(Intent.EXTRA_TEXT):intent.getDataString();
+        try {
+            String slug=shared?SlugParser.parseShared(raw):SlugParser.parse(raw);
+            input.setText(slug);
+            selectSingle(slug);
+        } catch(Exception e) { toast(message(e)); }
     }
 
     private void load(String slug) {

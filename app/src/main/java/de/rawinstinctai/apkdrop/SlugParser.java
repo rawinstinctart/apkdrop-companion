@@ -7,6 +7,21 @@ final class SlugParser {
     private static final Pattern SLUG = Pattern.compile("^[a-z0-9-]{3,40}$");
     private SlugParser() {}
 
+    /** Accept text shared from Android without trusting arbitrary hosts or URL suffixes. */
+    static String parseShared(String raw) {
+        if(raw==null || raw.length()>4096)
+            throw new IllegalArgumentException("Der geteilte Text ist zu lang.");
+        String text=raw.trim();
+        try { return parse(text); } catch(IllegalArgumentException invalid) { /* Optional surrounding message. */ }
+        java.util.regex.Matcher links=Pattern.compile(
+                "https://apkdrop\\.rawinstinctai\\.de/(?:install/)?[a-z0-9-]{3,40}/?(?![A-Za-z0-9/?#._-])",
+                Pattern.CASE_INSENSITIVE).matcher(text);
+        if(!links.find()) throw new IllegalArgumentException("Teile einen gültigen APKDrop-Link.");
+        String match=links.group();
+        if(links.find()) throw new IllegalArgumentException("Bitte nur einen APKDrop-Link gleichzeitig teilen.");
+        return parse(match);
+    }
+
     static String parse(String raw) {
         String value = raw == null ? "" : raw.trim();
         if (SLUG.matcher(value).matches()) return value;
