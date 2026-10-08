@@ -11,9 +11,16 @@ import android.view.WindowInsets;
 import android.view.DisplayCutout;
 import android.widget.*;
 import java.io.File;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.concurrent.*;
 
 public final class MainActivity extends Activity {
+    private static final int BACKUP_EXPORT=71, BACKUP_IMPORT=72;
+    private char[] pendingBackupPassword;
     private final ExecutorService io=Executors.newSingleThreadExecutor();
     private EditText input;
     private Button checkButton,actionButton,addButton;
@@ -94,6 +101,8 @@ public final class MainActivity extends Activity {
         updateBackgroundStatus(); updateDropPilotStatus(); updateQueueUi();
         try {((TextView)findViewById(R.id.appVersion)).setText("APKDrop Companion · "+getPackageManager().getPackageInfo(getPackageName(),0).versionName);}
         catch(Exception unavailable) { /* Static version label remains a fallback. */ }
+        findViewById(R.id.backupExport).setOnClickListener(v->chooseBackup(true));
+        findViewById(R.id.backupImport).setOnClickListener(v->chooseBackup(false));
         findViewById(R.id.historyButton).setOnClickListener(v->{
             TextView history=findViewById(R.id.historyText);boolean open=history.getVisibility()!=View.VISIBLE;
             history.setVisibility(open?View.VISIBLE:View.GONE);((Button)v).setText(open?"Beobachtete Versionen schließen −":"Beobachtete Versionen ansehen +");
@@ -208,9 +217,83 @@ public final class MainActivity extends Activity {
         if(downloadCancellation!=null) downloadCancellation.cancel();
         downloadCancellation=null;
         if(activeDownload!=null) activeDownload.cancel(true);
+        eraseBackupPassword();
         store.close(); library.close(); io.shutdownNow(); super.onDestroy();
     }
 
+    private void eraseBackupPassword() {
+        if(pendingBackupPassword!=null)Arrays.fill(pendingBackupPassword,(char)0);
+        pendingBackupPassword=null;
+    }
+    private void chooseBackup(boolean export) {
+        if(detailBusy || library.checking()) {toast("Bitte erst die laufende Prüfung abschließen.");return;}
+        EditText input=new EditText(this);
+        input.setSingleLine(true);
+        input.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        input.setHint("Passwort · mindestens 10 Zeichen");
+        new AlertDialog.Builder(this).setTitle(export?"Sicherung verschlüsseln":"Sicherung entschlüsseln")
+                .setMessage("Nur du kennst dieses Passwort. Ohne Passwort lässt sich die Sicherung nicht wiederherstellen.")
+                .setView(input).setNegativeButton("Abbrechen",null)
+                .setPositiveButton("Weiter",(dialog,which)->{
+                    eraseBackupPassword();
+                    char[] pass=input.getText().toString().toCharArray();
+                    input.setText("");
+                    if(pass.length<10){Arrays.fill(pass,(char)0);toast("Mindestens 10 Zeichen erforderlich.");return;}
+                    pendingBackupPassword=pass;
+                    Intent intent=new Intent(export?Intent.ACTION_CREATE_DOCUMENT:Intent.ACTION_OPEN_DOCUMENT)
+                            .addCategory(Intent.CATEGORY_OPENABLE).setType("application/json");
+                    if(export)intent.putExtra(Intent.EXTRA_TITLE,"APKDrop-Sicherung.json");
+                    try{startActivityForResult(intent,export?BACKUP_EXPORT:BACKUP_IMPORT);}
+                    catch(Exception unavailable){eraseBackupPassword();toast("Dateiauswahl ist nicht verfügbar.");}
+                }).show();
+    }
+    @Override @SuppressWarnings("deprecation")
+    protected void onActivityResult(int request,int result,Intent data) {
+        super.onActivityResult(request,result,data);
+        if(request!=BACKUP_EXPORT&&request!=BACKUP_IMPORT)return;
+        char[] password=pendingBackupPassword;
+        pendingBackupPassword=null;
+        if(password==null)return;
+        if(result!=RESULT_OK || data==null || data.getData()==null) {Arrays.fill(password,(char)0);return;}
+        android.net.Uri uri=data.getData();
+        io.execute(()->{
+            try {
+                if(request==BACKUP_EXPORT) {
+                    String backup=BackupCodec.export(this,password);
+                    try(OutputStream stream=getContentResolver().openOutputStream(uri,"w")) {
+                        if(stream==null)throw new java.io.IOException("Keine Schreibberechtigung für die Sicherung.");
+                        stream.write(backup.getBytes(StandardCharsets.UTF_8));
+                    }
+                    runOnUiThread(()->toast("Verschlüsselte Sicherung erstellt."));
+                } else {
+                    ByteArrayOutputStream buffer=new ByteArrayOutputStream();
+                    try(InputStream stream=getContentResolver().openInputStream(uri)) {
+                        if(stream==null)throw new java.io.IOException("Sicherung nicht lesbar.");
+                        byte[] chunk=new byte[4096];int n;
+                        while((n=stream.read(chunk))!=-1) {
+                            if(buffer.size()+n>320000)throw new SecurityException("Sicherung ist zu groß.");
+                            buffer.write(chunk,0,n);
+                        }
+                    }
+                    BackupCodec.Plan plan=BackupCodec.preview(buffer.toString(StandardCharsets.UTF_8),password);
+                    runOnUiThread(()->new AlertDialog.Builder(this)
+                        .setTitle("Gerätewechsel bestätigen")
+                        .setMessage(plan.apps+" gespeicherte Apps und "+plan.follows+" Entwickler-Follows übernehmen?\n\n"
+                                +"Bestehende Identitäten werden nicht überschrieben. Keine APK wird installiert.")
+                        .setNegativeButton("Abbrechen",null)
+                        .setPositiveButton("Zusammenführen",(d,w)->io.execute(()->{
+                            try {BackupCodec.apply(this,plan);
+                                runOnUiThread(()->{
+                                    try {library.reloadAfterImport();store.changed();updateSaveButton();toast("Sicherung übernommen.");}
+                                    catch(Exception refresh){toast(message(refresh));}
+                                });
+                            }catch(Exception failed){runOnUiThread(()->toast(message(failed)));}
+                        })).show());
+                }
+            }catch(Exception e){runOnUiThread(()->toast("Sicherung fehlgeschlagen: "+message(e)));}
+            finally {Arrays.fill(password,(char)0);}
+        });
+    }
     private static boolean isInstallIntent(Intent intent) {
         return intent!=null && (intent.getData()!=null || (Intent.ACTION_SEND.equals(intent.getAction())
                 && "text/plain".equals(intent.getType()) && intent.hasExtra(Intent.EXTRA_TEXT)));
