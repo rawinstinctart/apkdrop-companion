@@ -18,17 +18,29 @@ public final class StoreNavigationTest {
     private MainActivity create(Bundle state){controller=Robolectric.buildActivity(MainActivity.class).create(state);return controller.get();}
     @Test public void navigationSeparatesCatalogLibraryUpdatesAndSettings() {
         MainActivity a=create(null);
+        assertEquals(View.VISIBLE,a.findViewById(R.id.homePanel).getVisibility());
+        assertEquals(View.GONE,a.findViewById(R.id.discoverPanel).getVisibility());
+        a.findViewById(R.id.navDiscover).performClick();
         assertEquals(View.VISIBLE,a.findViewById(R.id.discoverPanel).getVisibility());assertEquals(View.GONE,a.findViewById(R.id.libraryPanel).getVisibility());
         a.findViewById(R.id.navApps).performClick();assertEquals(View.VISIBLE,a.findViewById(R.id.libraryPanel).getVisibility());assertEquals(View.GONE,a.findViewById(R.id.settingsPanel).getVisibility());
         a.findViewById(R.id.navUpdates).performClick();assertEquals("Updates",((TextView)a.findViewById(R.id.sectionTitle)).getText().toString());
         a.findViewById(R.id.navSettings).performClick();assertEquals(View.VISIBLE,a.findViewById(R.id.settingsPanel).getVisibility());assertEquals(View.GONE,a.findViewById(R.id.libraryPanel).getVisibility());
     }
     @Test public void restoresSelectedTabAndFollowsWithoutAccount() throws Exception {
-        Bundle saved=new Bundle();saved.putInt("storeTab",3);MainActivity a=create(saved);
+        Bundle saved=new Bundle();saved.putInt("storeTab",4);MainActivity a=create(saved);
         assertEquals("Einstellungen",((TextView)a.findViewById(R.id.sectionTitle)).getText().toString());
         Context c=a;DeveloperFollows follows=new DeveloperFollows(c);c.getSharedPreferences("developer-follows-v1",Context.MODE_PRIVATE).edit().clear().commit();
         follows.toggle("42","fixture-dev","Fixture Developer");assertTrue(new DeveloperFollows(c).contains("42"));
         follows.toggle("42","renamed-dev","Renamed Developer");assertEquals(0,follows.ids().length());
+    }
+    @Test public void homeProvidesRealEmptyStateAndShortcuts() {
+        MainActivity a=create(null);
+        assertEquals("0",((TextView)a.findViewById(R.id.homeAppCount)).getText().toString());
+        ((Button)a.findViewById(R.id.homeUpdates)).performClick();
+        assertEquals("Entdecken",((TextView)a.findViewById(R.id.sectionTitle)).getText().toString());
+        a.findViewById(R.id.navHome).performClick();
+        a.findViewById(R.id.homeLibrary).performClick();
+        assertEquals("Meine Apps",((TextView)a.findViewById(R.id.sectionTitle)).getText().toString());
     }
     @Test @GraphicsMode(GraphicsMode.Mode.NATIVE) public void catalogRendersNativeCardsAndKeepsInstallActionVisible() throws Exception {
         MainActivity a=create(null);java.lang.reflect.Field field=MainActivity.class.getDeclaredField("store");field.setAccessible(true);StoreController store=(StoreController)field.get(a);

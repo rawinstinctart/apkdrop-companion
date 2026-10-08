@@ -33,7 +33,7 @@
   <string name="ui_activity_main_30">APK herunterladen &amp; lokal prüfen →</string>
   <string name="ui_activity_main_31">Meine Apps</string>
   <string name="ui_activity_main_32">Updates</string>
-  <string name="ui_activity_main_33">Einstellungen</string>
+  <string name="ui_activity_main_33">Mehr</string>
   <string name="ui_item_tracked_app_34">⋮</string>
   <string name="ui_item_tracked_app_35">App-Optionen</string>
   <string name="ui_item_tracked_app_36">Details ansehen →</string>
@@ -60,4 +60,12 @@
   <string name="message_storecontroller_21">Du folgst noch keinem Entwickler. Öffne ein DropID-Profil und tippe auf Folgen.</string>
   <string name="message_storecontroller_22">Entwicklerdaten werden geladen …</string>
   <string name="message_storecontroller_23">Zusätzliche App-Details nicht verfügbar. Release-Prüfung bleibt unabhängig.</string>
+  <string name="alpha6_home_tab">Home</string>
+  <string name="alpha6_home_tagline">Deine Apps. Immer aktuell. Ohne Anmeldung.</string>
+  <string name="alpha6_updates_available">Updates verfügbar</string>
+  <string name="alpha6_apps_saved">Apps gespeichert</string>
+  <string name="alpha6_home_check">Jetzt Updates prüfen →</string>
+  <string name="alpha6_your_apps">Deine Apps</string>
+  <string name="alpha6_open_library">Alle Apps ansehen →</string>
+  <string name="alpha6_home_discover">Neue Apps entdecken →</string>
 </resources>

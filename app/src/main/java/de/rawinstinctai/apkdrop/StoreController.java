@@ -28,8 +28,8 @@ final class StoreController {
     private boolean detail,closed,started,following;
     private String category="",query="";
     private int page=1;
-    private static final int[] NAV={R.id.navDiscover,R.id.navApps,R.id.navUpdates,R.id.navSettings};
-    private static final String[] TITLES={"Entdecken","Meine Apps","Updates","Einstellungen"};
+    private static final int[] NAV={R.id.navHome,R.id.navDiscover,R.id.navApps,R.id.navUpdates,R.id.navSettings};
+    private static final String[] TITLES={"Home","Entdecken","Meine Apps","Updates","Einstellungen"};
 
     StoreController(Activity activity,AppLibraryController library,Consumer<String> select) {
         this.activity=activity;this.library=library;this.select=select;follows=new DeveloperFollows(activity);
@@ -37,6 +37,12 @@ final class StoreController {
         sectionTitle=activity.findViewById(R.id.sectionTitle);scroll=activity.findViewById(R.id.contentScroll);
         for(int i=0;i<NAV.length;i++){final int index=i;activity.findViewById(NAV[i]).setOnClickListener(v->navigate(index));}
         activity.findViewById(R.id.detailBack).setOnClickListener(v->back());
+        activity.findViewById(R.id.homeUpdates).setOnClickListener(v->{
+            if(library.count()==0) navigate(1);
+            else { navigate(3); if(!library.checking()) library.checkAll(); }
+        });
+        activity.findViewById(R.id.homeDiscover).setOnClickListener(v->navigate(1));
+        activity.findViewById(R.id.homeLibrary).setOnClickListener(v->navigate(2));
         activity.findViewById(R.id.addLinkButton).setOnClickListener(v->{
             activity.findViewById(R.id.linkPanel).setVisibility(View.VISIBLE);
             activity.findViewById(R.id.urlInput).requestFocus();scroll.post(()->scroll.fullScroll(View.FOCUS_DOWN));
@@ -58,27 +64,34 @@ final class StoreController {
         activity.findViewById(R.id.discoverFilter).setOnClickListener(v->filters(v));
         restoreTab(0);
     }
-    void restoreTab(int value) {tab=value>=0&&value<4?value:0;renderNavigation();}
+    void restoreTab(int value) {tab=value>=0&&value<5?value:0;renderNavigation();}
     int tab() {return tab;}
-    void resume() {if(tab==0&&!detail){if(following)feed();else if(!started)catalog();}}
+    void resume() {if(tab==1&&!detail){if(following)feed();else if(!started)catalog();}}
     void close() {closed=true;request++;detailRequest++;network.shutdownNow();media.shutdownNow();}
     void changed() {
-        ((Button)activity.findViewById(R.id.navUpdates)).setText(library.updateCount()>0?"Updates ("+library.updateCount()+")":"Updates");
+        int count=library.count(),updates=library.updateCount();
+        ((Button)activity.findViewById(R.id.navUpdates)).setText(updates>0?"Updates ("+updates+")":"Updates");
+        ((TextView)activity.findViewById(R.id.homeAppCount)).setText(String.valueOf(count));
+        ((TextView)activity.findViewById(R.id.homeUpdateCount)).setText(String.valueOf(updates));
+        ((TextView)activity.findViewById(R.id.homePreview)).setText(library.homePreview());
+        ((TextView)activity.findViewById(R.id.homeStatus)).setText(library.homeStatus());
+        ((Button)activity.findViewById(R.id.homeUpdates)).setText(count==0?"Apps entdecken →":"Jetzt Updates prüfen →");
     }
     private void navigate(int value) {
         if(activity.findViewById(R.id.progress).getVisibility()==View.VISIBLE) {
             Toast.makeText(activity,"Die laufende Prüfung bitte kurz abschließen lassen.",Toast.LENGTH_SHORT).show();return;
         }
         tab=value;detail=false;activity.findViewById(R.id.detailPanel).setVisibility(View.GONE);
-        renderNavigation();scroll.scrollTo(0,0);if(tab==0){if(following)feed();else if(!started)catalog();}
+        renderNavigation();scroll.scrollTo(0,0);if(tab==1){if(following)feed();else if(!started)catalog();}
     }
     private void renderNavigation() {
         sectionTitle.setText(TITLES[tab]);
-        activity.findViewById(R.id.discoverPanel).setVisibility(!detail&&tab==0?View.VISIBLE:View.GONE);
-        activity.findViewById(R.id.libraryPanel).setVisibility(!detail&&(tab==1||tab==2)?View.VISIBLE:View.GONE);
-        activity.findViewById(R.id.settingsPanel).setVisibility(!detail&&tab==3?View.VISIBLE:View.GONE);
+        activity.findViewById(R.id.homePanel).setVisibility(!detail&&tab==0?View.VISIBLE:View.GONE);
+        activity.findViewById(R.id.discoverPanel).setVisibility(!detail&&tab==1?View.VISIBLE:View.GONE);
+        activity.findViewById(R.id.libraryPanel).setVisibility(!detail&&(tab==2||tab==3)?View.VISIBLE:View.GONE);
+        activity.findViewById(R.id.settingsPanel).setVisibility(!detail&&tab==4?View.VISIBLE:View.GONE);
         activity.findViewById(R.id.linkPanel).setVisibility(View.GONE);
-        library.updatesOnly(tab==2);
+        library.updatesOnly(tab==3);
         for(int i=0;i<NAV.length;i++){View v=activity.findViewById(NAV[i]);v.setSelected(i==tab);((Button)v).setTextColor(activity.getColor(i==tab?R.color.lime:R.color.muted));}
         changed();
     }
@@ -134,7 +147,7 @@ final class StoreController {
     }
     void profile(String handle) {
         try {StoreClient.handle(handle);}catch(Exception e){error(e);return;}
-        tab=0;detail=false;activity.findViewById(R.id.detailPanel).setVisibility(View.GONE);renderNavigation();
+        tab=1;detail=false;activity.findViewById(R.id.detailPanel).setVisibility(View.GONE);renderNavigation();
         final int ticket=++request;((ThreadPoolExecutor)media).getQueue().clear();results.removeAllViews();resultStatus.setText(activity.getString(R.string.message_storecontroller_19));
         submit(()->{
             JSONObject p=StoreClient.get("/api/dropid/"+handle+".json");JSONObject github=p.getJSONObject("github");String id=github.getString("id");
