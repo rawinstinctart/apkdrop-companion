@@ -174,7 +174,7 @@ final class AppLibraryController {
         if(!readable) throw new IllegalStateException("Die lokale App-Liste kann gerade nicht gespeichert werden.");
         if(detailBusy || checking) return;
         AppLibrary next=library.add(new AppLibrary.Entry(release.slug,release.appName,release.packageName,release.signers));
-        store.save(next); library=next; generation++; UpdateScheduler.reconcile(activity);
+        store.save(next); library=next; generation++; UpdateScheduler.reconcile(activity); DropPilot.reconcile(activity);
         State state=new State(installed,release,decision,null,false,System.currentTimeMillis());
         states.put(release.slug,state); persist(next.find(release.slug),state);
         render();
@@ -391,7 +391,7 @@ final class AppLibraryController {
                         try {
                             AppLibrary next=library.remove(entry.slug); store.save(next); library=next;
                             generation++; states.remove(entry.slug); snapshots.prune(next);
-                            UpdateNotifications.remove(activity,entry.slug); UpdateScheduler.reconcile(activity); render();
+                            UpdateNotifications.remove(activity,entry.slug); UpdateScheduler.reconcile(activity);DropPilot.reconcile(activity);render();
                         } catch(Exception e) { Toast.makeText(activity,message(e),Toast.LENGTH_LONG).show(); }
                     }).show();
             return true;

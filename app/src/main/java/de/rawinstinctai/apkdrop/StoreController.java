@@ -121,6 +121,11 @@ final class StoreController {
         ((TextView)activity.findViewById(R.id.homeUpdateCount)).setText(String.valueOf(updates));
         ((TextView)activity.findViewById(R.id.homePreview)).setText(library.homePreview());
         ((TextView)activity.findViewById(R.id.homeStatus)).setText(library.homeStatus());
+        TextView pilot=activity.findViewById(R.id.homePilotStatus);
+        pilot.setText(DropPilot.enabled(activity)
+                ?(DropPilot.scheduled(activity)?"DropPilot aktiv · Updates werden auf WLAN und Ladekabel vorbereitet."
+                :"DropPilot aktiviert · Hintergrundjob noch nicht eingeplant."):"");
+        pilot.setVisibility(DropPilot.enabled(activity)?View.VISIBLE:View.GONE);
         ((Button)activity.findViewById(R.id.homeUpdates)).setText(library.checking()?"Prüfung abbrechen":count==0?"Apps entdecken →":updates>0?updates+" Updates gemeinsam prüfen →":"Jetzt Updates prüfen →");
         LinearLayout actions=activity.findViewById(R.id.homeAppActions);actions.removeAllViews();
         for(AppLibrary.Entry entry:library.homeEntries()) actions.addView(homeCard(entry));

@@ -91,6 +91,16 @@ class ReleasePolicyTest(unittest.TestCase):
         self.assertNotIn("android.permission.ACCESS_NETWORK_STATE", p.LEGACY_COMPANION_PERMISSIONS)
         self.assertIn("android.permission.ACCESS_NETWORK_STATE", p.COMPANION_PERMISSIONS)
 
+    def test_alpha10_pins_unchanged_signer_and_requires_new_version(self):
+        profile = p.policy("alpha10-preview")
+        self.assertEqual(profile["versionCode"], 13)
+        self.assertEqual(profile["versionName"], "0.1.0-alpha.10-preview")
+        self.assertEqual(profile["certificateSha256"], p.DEBUG_CERT)
+        self.assertFalse(profile["debuggable"])
+        self.assertGreater(profile["versionCode"], p.policy("alpha9.1-preview")["versionCode"])
+        with self.assertRaises(ValueError):
+            p.policy("alpha10-preview", version_code=12)
+
     def test_unknown_profile_does_not_fall_through_to_production(self):
         with self.assertRaises(ValueError):
             p.policy("typo", "a" * 64, 8, "0.1.0")

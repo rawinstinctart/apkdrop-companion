@@ -84,7 +84,14 @@ public final class MainActivity extends Activity {
             else startActivity(new Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
                     .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE,getPackageName()));
         });
-        UpdateScheduler.reconcile(this); updateBackgroundStatus(); updateQueueUi();
+        Switch pilot=findViewById(R.id.dropPilotSwitch);
+        pilot.setChecked(DropPilot.enabled(this));
+        pilot.setOnCheckedChangeListener((button,enabled)->{
+            DropPilot.enabled(this,enabled);
+            updateDropPilotStatus();
+        });
+        UpdateScheduler.reconcile(this); DropPilot.reconcile(this);
+        updateBackgroundStatus(); updateDropPilotStatus(); updateQueueUi();
         try {((TextView)findViewById(R.id.appVersion)).setText("APKDrop Companion · "+getPackageManager().getPackageInfo(getPackageName(),0).versionName);}
         catch(Exception unavailable) { /* Static version label remains a fallback. */ }
         findViewById(R.id.historyButton).setOnClickListener(v->{
@@ -166,7 +173,8 @@ public final class MainActivity extends Activity {
         }
         store.resume();
         UpdateScheduler.reconcile(this); // Retry a previously rejected job after a manifest/app upgrade.
-        updateBackgroundStatus();
+        DropPilot.reconcile(this);
+        updateBackgroundStatus(); updateDropPilotStatus();
         library.refreshInstalled();
         if(detailBusy) refreshOnIdle=true;
         else refreshCurrent();
@@ -326,6 +334,8 @@ public final class MainActivity extends Activity {
         actionButton.setVisibility(actionable?View.VISIBLE:View.GONE);
         actionButton.setEnabled(actionable);
         actionButton.setText(getString(R.string.ui_activity_main_30));
+        if(actionable && prior==null && DropPilot.candidate(this,release)!=null)
+            actionButton.setText("DropPilot · Update vorbereitet, lokal prüfen →");
         if(actionable && prior!=null && prior.isFile()) {
             verifiedApk=prior; actionButton.setText(getString(R.string.message_mainactivity_5));
             status.setText(getString(R.string.message_mainactivity_6));
@@ -350,16 +360,52 @@ public final class MainActivity extends Activity {
             new AlertDialog.Builder(this)
                     .setTitle("Sensible Berechtigungen erkannt")
                     .setMessage(currentRelease.appName+" deklariert folgende sensible Berechtigung(en):\n\n"+join(currentDecision.sensitiveAdded)
-                            +"\n\nDie APK wird erst nach deiner Bestätigung geladen und anschließend lokal geprüft."
+                            +"\n\nDie APK wird erst nach deiner Bestätigung verarbeitet und vor Androids Installer lokal geprüft."
                             +"\n\nDiese Bestätigung erteilt der App keine Android-Berechtigung.")
                     .setNegativeButton("Abbrechen",null)
                     .setPositiveButton("Prüfung starten",(dialog,which)->{
-                        if(ticket==generation && release==currentRelease && !detailBusy) downloadAndVerify();
+                        if(ticket==generation && release==currentRelease && !detailBusy) startAcquisition();
                     })
                     .show();
             return;
         }
-        downloadAndVerify();
+        startAcquisition();
+    }
+
+    private void startAcquisition() {
+        File prepared=DropPilot.candidate(this,currentRelease);
+        if(prepared!=null && currentDecision.mode==InstallPolicy.Mode.UPDATE)verifyPrepared(prepared);
+        else downloadAndVerify();
+    }
+
+    private void verifyPrepared(File prepared) {
+        final int ticket=generation;
+        final InstallContract release=currentRelease;
+        setBusy(true,"DropPilot · Vorbereiteten Download erneut lokal prüfen …");
+        actionButton.setEnabled(false);
+        io.submit(()->{
+            File candidate=null;
+            try {
+                requireFreshRelease(release);
+                InstalledState installed=InstalledState.read(this,release.packageName);
+                if(InstallPolicy.evaluate(release,installed,Build.VERSION.SDK_INT,Build.SUPPORTED_ABIS).mode!=InstallPolicy.Mode.UPDATE)
+                    throw new SecurityException("Dieser Release ist kein aktuelles Update mehr.");
+                File directory=new File(getCacheDir(),"apkdrop");
+                if(!directory.isDirectory()&&!directory.mkdirs())throw new java.io.IOException("Privater APK-Speicher nicht verfügbar.");
+                VerifiedApkFiles.prepare(directory);
+                candidate=new File(directory,VerifiedApkFiles.newName());
+                java.nio.file.Files.copy(prepared.toPath(),candidate.toPath());
+                ApkVerifierUtil.verify(this,candidate,release,installed);
+                requireFreshRelease(release);
+                final File ready=candidate;
+                runOnUiThread(()->{
+                    if(ticket!=generation || isDestroyed() || isFinishing()) {ready.delete();return;}
+                    verified(ready); // Still requires a separate tap for Android's installer.
+                });
+                candidate=null;
+            }catch(Exception e){post(ticket,()->downloadError(message(e)));}
+            finally {if(candidate!=null)candidate.delete();}
+        });
     }
 
     private void downloadAndVerify() {
@@ -583,6 +629,13 @@ public final class MainActivity extends Activity {
         queueStatus.setText("Update-Runde · "+queue.size()+" verbleibend\nJede Installation bestätigst du in Android.");
         findViewById(R.id.queueSkip).setEnabled(!detailBusy);
         findViewById(R.id.queueCancel).setEnabled(!detailBusy);
+    }
+    private void updateDropPilotStatus() {
+        TextView text=findViewById(R.id.dropPilotStatus);
+        if(!DropPilot.enabled(this))text.setText("Aus · Keine Hintergrunddownloads. Auf Wunsch einschalten.");
+        else text.setText(DropPilot.scheduled(this)
+                ?"Aktiv · Nur WLAN, beim Laden, mit ausreichend Akku. Maximal eine vorbereitete APK bis 64 MiB. Android plant den Zeitpunkt."
+                :"Aktiviert, aber noch nicht eingeplant. Bitte gespeicherte Apps und Android-Einstellungen prüfen.");
     }
     private void updateBackgroundStatus() {
         if(backgroundStatus==null) return;
