@@ -13,6 +13,12 @@ class PublisherProfileTest(unittest.TestCase):
              profile, "Preview", "/tmp/missing-release-notes.md", "e92ff1b57f5ae6709ff6d3b6f86acac1471aaf8d"],
             capture_output=True, text=True, check=False)
 
+    def test_signer_accepts_alpha12_profiles_without_changing_public_release_gate(self):
+        signer = (Path(__file__).parents[1] / "sign-existing-debug.sh").read_text()
+        self.assertIn("alpha12-debug|alpha12-preview) ;;", signer)
+        self.assertIn("alpha12-preview|production)", PUBLISHER.read_text())
+        self.assertNotIn("alpha12-debug|production)", PUBLISHER.read_text())
+
     def test_debug_profile_is_rejected_and_preview_profile_is_supported(self):
         debug = self.run_publisher("alpha7-debug")
         self.assertEqual(debug.returncode, 2)
