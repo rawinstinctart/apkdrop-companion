@@ -76,7 +76,8 @@ jobs:
         run: |
           set -euo pipefail
           TAG='v0.1.0-alpha.11'
-          APK='dist/APKDrop-Companion-v0.1.0-alpha.11-preview.apk'
+          APK=$(find dist -type f -name 'APKDrop-Companion-v0.1.0-alpha.11-preview.apk' -print -quit)
+          test -n "$APK" && test -f "$APK"
           ! gh release view "$TAG" >/dev/null 2>&1
           printf 'd05665a7340eff6dc88c8d3d563f31444477ff2b1e7470b82676051d924895c5  %s\n' "$APK" | sha256sum -c -
           gh release create "$TAG" "$APK" --target 9cda1de42fd57db9ce2a76537a862d279384f293 --title 'APKDrop Companion Alpha 11 Preview — DropPilot & Gerätewechsel' --notes-file release/alpha11-notes.md --prerelease
