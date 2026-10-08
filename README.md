@@ -14,6 +14,15 @@ The Alpha 4.1 OEM JobScheduler crash fix from main is preserved. Alpha 5 uses ve
 
 Signing, real Android device acceptance and production App Links remain separate release gates. See [Alpha 5 verification](docs/alpha5-verification.md). GitHub CI produces an explicitly unsigned candidate and validation reports; sign in the original-key environment with `scripts/sign-existing-debug.sh`. No private signing material is stored here.
 
+The signing script now checks the complete Alpha 5 artifact identity before emitting output. Run the same independent check with Python 3.11+:
+
+```bash
+python3 scripts/release-preflight.py APKDrop-Companion-alpha5-debug.apk \
+  --report alpha5-release-check.json
+```
+
+`ANDROID_HOME` must point to an SDK with build-tools 35.0.0. Exit 0 means only the signed artifact passed; physical device acceptance and hosted CI remain open. Reports are created without overwriting previous evidence. For the separately signed production APK, use the explicit production profile described in [the release handoff](docs/alpha5-release-handoff.md). Debug keys and debuggable APKs cannot pass that profile.
+
 ## Alpha 4: Smart Update Center
 
 Alpha 4 adds local release explanations, a last-known release cache, metadata-only background checks and an explicit update round. No new runtime dependency, account, Google service, analytics or AI request is used.
@@ -107,4 +116,5 @@ The app declares `https://apkdrop.rawinstinctai.de/install/<slug>` with Android 
 ## Privacy
 
 APKDrop has no account requirement, analytics identifier, advertising SDK, device fingerprinting or hidden telemetry. It declares `QUERY_ALL_PACKAGES` to compare arbitrary target packages. Package queries are limited to the active install contract and explicitly saved entries; APKDrop does not enumerate or upload the installed-app inventory. The saved list stays in private preferences and backups remain disabled.
+
 
