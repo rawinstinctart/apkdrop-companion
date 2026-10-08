@@ -101,6 +101,14 @@ class ReleasePolicyTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             p.policy("alpha10-preview", version_code=12)
 
+    def test_alpha11_preserves_certificate_and_requires_new_build(self):
+        expected=p.policy("alpha11-preview")
+        self.assertEqual(expected["versionCode"],14)
+        self.assertEqual(expected["versionName"],"0.1.0-alpha.11-preview")
+        self.assertEqual(expected["certificateSha256"],p.DEBUG_CERT)
+        self.assertFalse(expected["debuggable"])
+        self.assertGreater(expected["versionCode"],p.policy("alpha10-preview")["versionCode"])
+
     def test_unknown_profile_does_not_fall_through_to_production(self):
         with self.assertRaises(ValueError):
             p.policy("typo", "a" * 64, 8, "0.1.0")

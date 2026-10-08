@@ -146,6 +146,12 @@ final class AppLibraryController {
     }
 
     void onUpdates(Consumer<List<String>> callback) { startUpdates=callback; }
+    void reloadAfterImport() throws Exception {
+        if(detailBusy || checking)throw new IllegalStateException("Warte, bis die laufende Prüfung beendet ist.");
+        AppLibrary restored=store.read();
+        generation++; states.clear(); icons.clear(); library=restored;
+        snapshots.prune(restored);render();refreshInstalled();
+    }
     InstallContract previous(InstallContract release) {
         AppLibrary.Entry entry=library.find(release.slug); if(entry==null) return null;
         try { ReleaseSnapshot snapshot=snapshots.read(entry); return snapshot==null?null:snapshot.release!=null && snapshot.release.versionCode<release.versionCode?snapshot.release:snapshot.previous; }
