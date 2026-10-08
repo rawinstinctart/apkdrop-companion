@@ -45,8 +45,7 @@ public class Alpha12ExperienceTest {
         assertTrue(shortText.length()<ReleaseNotes.render(original).length());
         assertEquals(View.GONE,activity.findViewById(R.id.radarText).getVisibility());
         assertEquals(View.GONE,activity.findViewById(R.id.trustSummary).getVisibility());
-        activity.findViewById(R.id.homePanel).setVisibility(View.GONE);
-        activity.findViewById(R.id.detailPanel).setVisibility(View.VISIBLE);
+        java.lang.reflect.Field store=MainActivity.class.getDeclaredField("store");store.setAccessible(true);((StoreController)store.get(activity)).showDetail();
         activity.findViewById(R.id.releaseCard).setVisibility(View.VISIBLE);
         render(activity,"alpha12-detail");
         activity.findViewById(R.id.notesButton).performClick();assertEquals(ReleaseNotes.render(original).toString(),notes.getText().toString());
@@ -74,6 +73,26 @@ public class Alpha12ExperienceTest {
         DropPilot.enabled(context,false);DropPilot.stage(context,next,"FAKE");
         assertTrue(DropPilot.headline(context).startsWith("Aus"));
         assertFalse(DropPilot.headline(context).contains("FAKE"));
+    }
+    @Test @Config(sdk=26) public void preparedDownloadRequiresExistingFilePinnedIdentityAndOlderInstalledApp() throws Exception {
+        byte[] certificate={1,2,3,4};
+        String signer=java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(certificate));
+        android.content.pm.PackageInfo info=new android.content.pm.PackageInfo();info.packageName="de.example.frey";info.versionCode=1;info.versionName="1.0";
+        info.signatures=new android.content.pm.Signature[]{new android.content.pm.Signature(certificate)};
+        info.applicationInfo=new android.content.pm.ApplicationInfo();info.applicationInfo.packageName=info.packageName;
+        org.robolectric.Shadows.shadowOf(context.getPackageManager()).installPackage(info);
+        AppLibrary.Entry pin=new AppLibrary.Entry("sample-app","FREY",info.packageName,Set.of(signer));
+        new AppLibraryStore(context).save(new AppLibrary().add(pin));DropPilot.enabled(context,true);
+        InstallContract release=new InstallContract(pin.slug,pin.name,"r2","1.1",2,pin.packageName,26,35,List.of(),Set.of(),pin.signers,"b".repeat(64),4,"beta","","","","");
+        java.io.File dir=DropPilot.directory(context);assertTrue(dir.isDirectory()||dir.mkdirs());java.io.File file=new java.io.File(dir,VerifiedApkFiles.newName());
+        try(java.io.FileOutputStream out=new java.io.FileOutputStream(file)){out.write(new byte[]{1,2,3,4});}
+        long run=DropPilot.begin(context);assertTrue(DropPilot.record(context,pin,release,file,run));DropPilot.finish(context,run,"prepared");
+        assertEquals(pin.slug,DropPilot.preparedSlug(context));
+        assertTrue(DropPilot.headline(context).contains("Update vorbereitet"));
+        info.versionCode=2;org.robolectric.Shadows.shadowOf(context.getPackageManager()).installPackage(info);assertNull(DropPilot.preparedSlug(context));
+        info.versionCode=1;org.robolectric.Shadows.shadowOf(context.getPackageManager()).installPackage(info);assertEquals(pin.slug,DropPilot.preparedSlug(context));
+        assertTrue(file.delete());assertNull(DropPilot.preparedSlug(context));
+        assertFalse(DropPilot.record(context,pin,release,file,run));
     }
     @Test public void processDeathNeverLeavesAFalseRunningOrReadyClaim() {
         DropPilot.enabled(context,true);

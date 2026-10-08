@@ -34,7 +34,14 @@ public final class DropPilotJob extends JobService {
                         InstallPolicy.Result decision=InstallPolicy.evaluate(release,installed,Build.VERSION.SDK_INT,Build.SUPPORTED_ABIS);
                         if(decision.mode!=InstallPolicy.Mode.UPDATE)continue;
                         if(release.size>DropPilot.LIMIT){if(!retry)outcome="oversize";continue;}
-                        if(DropPilot.candidate(this,release)!=null){outcome="prepared";break;}
+                        File cached=DropPilot.candidate(this,release);
+                        if(cached!=null) {
+                            file=cached;
+                            ApkVerifierUtil.verify(this,cached,release,installed);
+                            cancel.check();
+                            if(!DropPilot.record(this,pin,release,cached,runTicket))throw new SecurityException("DropPilot wurde deaktiviert.");
+                            file=null;outcome="prepared";break;
+                        }
                         android.os.StatFs disk=new android.os.StatFs(getCacheDir().getAbsolutePath());
                         if(disk.getAvailableBytes()<release.size*2+10L*1024*1024){if(!retry)outcome="storage";continue;}
                         File dir=DropPilot.directory(this);

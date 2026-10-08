@@ -438,7 +438,7 @@ public final class MainActivity extends Activity {
         actionButton.setEnabled(actionable);
         actionButton.setText(getString(R.string.ui_activity_main_30));
         if(actionable && prior==null && DropPilot.candidate(this,release)!=null)
-            actionButton.setText("DropPilot · Update vorbereitet, lokal prüfen →");
+            actionButton.setText("Vorbereitetes Update prüfen →");
         if(actionable && prior!=null && prior.isFile()) {
             verifiedApk=prior; actionButton.setText(getString(R.string.message_mainactivity_5));
             status.setText(getString(R.string.message_mainactivity_6));
