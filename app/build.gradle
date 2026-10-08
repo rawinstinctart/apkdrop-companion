@@ -8,8 +8,8 @@ android {
         applicationId "de.rawinstinctai.apkdrop"
         minSdk 26
         targetSdk 36
-        versionCode 5
-        versionName "0.1.0-alpha.4.1"
+        versionCode 6
+        versionName "0.1.0-alpha.5"
     }
 
     compileOptions {
@@ -37,3 +37,4 @@ dependencies {
     testImplementation "org.json:json:20240303"
     testImplementation "org.robolectric:robolectric:4.17"
 }
+

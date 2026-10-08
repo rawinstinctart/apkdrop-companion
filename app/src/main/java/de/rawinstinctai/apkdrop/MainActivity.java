@@ -23,6 +23,7 @@ public final class MainActivity extends Activity {
     private boolean awaitingInstaller;
     private ProgressBar progress;
     private AppLibraryController library;
+    private StoreController store;
     private int generation;
     private boolean detailBusy,refreshOnIdle;
     private boolean receiverRegistered;
@@ -46,6 +47,8 @@ public final class MainActivity extends Activity {
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state); setContentView(R.layout.activity_main);
         applySystemInsets();
+        if(Build.VERSION.SDK_INT>=33) getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
+                android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT,this::backAction);
         input=findViewById(R.id.urlInput); checkButton=findViewById(R.id.checkButton); actionButton=findViewById(R.id.actionButton);
         addButton=findViewById(R.id.addButton); notes=findViewById(R.id.notesText);
         card=findViewById(R.id.releaseCard); badge=findViewById(R.id.statusBadge);
@@ -53,6 +56,8 @@ public final class MainActivity extends Activity {
         permissions=findViewById(R.id.permissionsText); status=findViewById(R.id.statusText); progress=findViewById(R.id.progress);
         library=new AppLibraryController(this,io,this::selectSingle,this::updateSaveButton);
         library.onUpdates(this::startUpdates);
+        store=new StoreController(this,library,this::selectSingle);
+        store.restoreTab(state==null?0:state.getInt("storeTab",0));
         radar=findViewById(R.id.radarText); queueStatus=findViewById(R.id.queueStatus);
         queue=new AppLibraryStore(this).queue(); awaitingInstaller=library.pendingLaunched();
         findViewById(R.id.queueSkip).setOnClickListener(v->{ if(!detailBusy) nextUpdate(); });
@@ -131,6 +136,7 @@ public final class MainActivity extends Activity {
 
     @Override protected void onResume() {
         super.onResume();
+        store.resume();
         updateBackgroundStatus();
         library.refreshInstalled();
         if(detailBusy) refreshOnIdle=true;
@@ -154,11 +160,12 @@ public final class MainActivity extends Activity {
 
     @Override protected void onSaveInstanceState(Bundle state) {
         if(currentRelease!=null) state.putString("activeSlug",currentRelease.slug);
+        state.putInt("storeTab",store.tab());
         super.onSaveInstanceState(state);
     }
 
     @Override protected void onDestroy() {
-        generation++; library.close(); io.shutdownNow(); super.onDestroy();
+        generation++; store.close(); library.close(); io.shutdownNow(); super.onDestroy();
     }
 
     private void handleIntent(Intent intent) {
@@ -169,6 +176,7 @@ public final class MainActivity extends Activity {
     }
 
     private void load(String slug) {
+        store.showDetail();
         final int ticket=++generation;
         final AppLibrary.Entry saved=library.find(slug);
         if(slug.equals(queue.current()) && saved==null) { showError("Diese App ist nicht mehr in Meine Apps. Überspringe sie in der Update-Runde."); return; }
@@ -197,17 +205,21 @@ public final class MainActivity extends Activity {
         File prior=keepVerified?verifiedApk:null;
         currentRelease=release; currentInstalled=installed; currentDecision=decision; verifiedApk=null;
         title.setText(release.appName);
+        if(fetched) store.releaseDetails(release.slug);
         radar.setText(ReleaseIntelligence.summary(release,installed,decision)+"\n\n"
                 +ReleaseIntelligence.radar(release,installed,library.previous(release)));
         meta.setText((installed==null?"Nicht installiert":"Installiert: "+AppLibraryController.installedVersion(installed))
                 +"\nVerfügbar: v"+release.version+" · "+formatSize(release.size)+" · "+release.channel+"\n"+release.packageName);
-        String signer=release.signers.iterator().next();
-        proof.setText("SHA-256  "+release.sha256.substring(0,16)+"…"
-                +"\nSIGNER   "+signer.substring(0,16)+"…"
+        String signer=String.join("\n",release.signers);
+        proof.setText("Nachweise im Release-Vertrag (vor Download noch nicht lokal verifiziert)\n\nSHA-256  "+release.sha256
+                +"\nSIGNER   "+signer
                 +"\nSDK      "+release.minSdk+" → "+(release.targetSdk==0?"—":release.targetSdk));
 
         StringBuilder p=new StringBuilder();
-        if(installed==null) p.append("Deklarierte Berechtigungen: ").append(release.permissions.size());
+        if(installed==null) {
+            p.append("Deklarierte Berechtigungen: ").append(release.permissions.size()).append("\n");
+            for(String permission:release.permissions) p.append("• ").append(human(permission)).append("\n");
+        }
         else if(release.permissions.equals(installed.permissions)) p.append("✓ Keine neuen Berechtigungen gegenüber der installierten Version.");
         else {
             java.util.Set<String> added=new java.util.LinkedHashSet<>(release.permissions); added.removeAll(installed.permissions);
@@ -233,17 +245,17 @@ public final class MainActivity extends Activity {
 
         boolean actionable=false;
         switch(decision.mode) {
-            case INSTALL -> { badge.setText("NEUE APP"); actionable=true; }
-            case UPDATE -> { badge.setText("UPDATE"); actionable=true; }
-            case CURRENT -> badge.setText("AKTUELL");
-            case BLOCKED -> badge.setText("BLOCKIERT");
+            case INSTALL -> { badge.setText(getString(R.string.message_mainactivity_1)); actionable=true; }
+            case UPDATE -> { badge.setText(getString(R.string.message_mainactivity_2)); actionable=true; }
+            case CURRENT -> badge.setText(getString(R.string.message_mainactivity_3));
+            case BLOCKED -> badge.setText(getString(R.string.message_mainactivity_4));
         }
         actionButton.setVisibility(actionable?View.VISIBLE:View.GONE);
         actionButton.setEnabled(actionable);
-        actionButton.setText("APK herunterladen & lokal prüfen →");
+        actionButton.setText(getString(R.string.ui_activity_main_30));
         if(actionable && prior!=null && prior.isFile()) {
-            verifiedApk=prior; actionButton.setText("Android-Installation öffnen →");
-            status.setText("APK lokal geprüft. Tippe auf Android-Installation öffnen, um fortzufahren.");
+            verifiedApk=prior; actionButton.setText(getString(R.string.message_mainactivity_5));
+            status.setText(getString(R.string.message_mainactivity_6));
         }
         if(fetched) library.rememberChecked(release,installed,decision);
         setBusy(false,"");
@@ -282,13 +294,13 @@ public final class MainActivity extends Activity {
         setBusy(true,"APK wird in privaten App-Speicher geladen …");
         actionButton.setEnabled(false);
         progress.setVisibility(View.VISIBLE); progress.setIndeterminate(false); progress.setProgress(0);
-        status.setText("APK wird in privaten App-Speicher geladen …");
+        status.setText(getString(R.string.message_mainactivity_7));
 
         io.execute(()->{
             try {
                 requireFreshRelease(release);
-                File file=ApkDownloader.download(this,release,pct->post(ticket,()->progress.setProgress(pct)));
-                post(ticket,()->status.setText("Prüfe SHA-256, APK-Signatur und Android-Identität lokal …"));
+                File file=ApkDownloader.download(this,release,pct->post(ticket,()->{progress.setProgress(pct);status.setText(pct+" % heruntergeladen · lokale Prüfung folgt");}));
+                post(ticket,()->status.setText(getString(R.string.message_mainactivity_8)));
                 InstalledState fresh=InstalledState.read(this,release.packageName);
                 InstallPolicy.Result freshDecision=InstallPolicy.evaluate(release,fresh,Build.VERSION.SDK_INT,Build.SUPPORTED_ABIS);
                 if(freshDecision.mode==InstallPolicy.Mode.BLOCKED || freshDecision.mode==InstallPolicy.Mode.CURRENT)
@@ -302,14 +314,14 @@ public final class MainActivity extends Activity {
     private void verified(File file) {
         verifiedApk=file;
         setBusy(false,""); actionButton.setEnabled(true);
-        actionButton.setText("Android-Installation öffnen →");
-        status.setText("✓ Lokal verifiziert: Hash, APK-Signatur, Package, Version, SDK und Berechtigungen stimmen.");
+        actionButton.setText(getString(R.string.message_mainactivity_5));
+        status.setText(getString(R.string.message_mainactivity_9));
     }
 
     private void downloadError(String text) {
         verifiedApk=null;
         setBusy(false,""); actionButton.setEnabled(true);
-        actionButton.setText("Erneut prüfen →"); status.setText(text);
+        actionButton.setText(getString(R.string.message_mainactivity_10)); status.setText(text);
     }
 
     private void resetCandidate() {
@@ -330,11 +342,12 @@ public final class MainActivity extends Activity {
     }
 
     private void showError(String text) {
-        resetCandidate(); setBusy(false,""); card.setVisibility(View.VISIBLE); badge.setText("STOP");
-        radar.setText(""); title.setText("Nicht verfügbar"); meta.setText(""); proof.setText(""); permissions.setText(""); notes.setVisibility(View.GONE); status.setText(text);
+        resetCandidate(); setBusy(false,""); card.setVisibility(View.VISIBLE); badge.setText(getString(R.string.message_mainactivity_11));
+        radar.setText(getString(R.string.message_mainactivity_12)); title.setText(getString(R.string.message_mainactivity_13)); meta.setText(getString(R.string.message_mainactivity_12)); proof.setText(getString(R.string.message_mainactivity_12)); permissions.setText(getString(R.string.message_mainactivity_12)); notes.setVisibility(View.GONE); status.setText(text);
     }
 
     private void updateSaveButton() {
+        if(store!=null) store.changed();
         if(library==null || addButton==null) return;
         boolean saved=currentRelease!=null && library.find(currentRelease.slug)!=null;
         addButton.setVisibility(currentRelease==null?View.GONE:View.VISIBLE);
@@ -446,5 +459,13 @@ public final class MainActivity extends Activity {
     private static String message(Exception e) {
         String value=e.getMessage(); return value==null||value.trim().isEmpty()?"Vorgang fehlgeschlagen. Bitte erneut versuchen.":value;
     }
+    // Android 13+ uses the registered gesture callback; older Android uses this method.
+    @android.annotation.SuppressLint("GestureBackNavigation")
+    @Override public void onBackPressed() {backAction();}
+    private void backAction() {
+        if(detailBusy) {toast("Die laufende Prüfung bitte kurz abschließen lassen.");return;}
+        if(!store.back()) finish();
+    }
     private void toast(String text) { Toast.makeText(this,text,Toast.LENGTH_LONG).show(); }
 }
+

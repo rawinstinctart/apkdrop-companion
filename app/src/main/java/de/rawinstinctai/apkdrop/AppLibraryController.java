@@ -31,6 +31,9 @@ final class AppLibraryController {
     private volatile long generation;
     private boolean detailBusy,checking,readable=true,refreshPending;
     private String listError="";
+    private boolean updatesOnly;
+    void updatesOnly(boolean value) {if(updatesOnly!=value){updatesOnly=value;render();}}
+    int updateCount() {int count=0;for(State s:states.values())if(s.error==null&&s.decision!=null&&s.decision.mode==InstallPolicy.Mode.UPDATE)count++;return count;}
 
     private static final class State {
         final InstalledState installed;
@@ -194,6 +197,7 @@ final class AppLibraryController {
             if(state==null || state.decision==null) unknown++;
             else if(state.decision.mode==InstallPolicy.Mode.UPDATE) updates++;
             else if(state.decision.mode==InstallPolicy.Mode.CURRENT) current++;
+            if(updatesOnly && state!=null && state.error==null && state.decision!=null && state.decision.mode!=InstallPolicy.Mode.UPDATE && state.decision.mode!=InstallPolicy.Mode.BLOCKED) continue;
             View row=activity.getLayoutInflater().inflate(R.layout.item_tracked_app,list,false);
             ImageView icon=row.findViewById(R.id.trackedIcon);
             TextView name=row.findViewById(R.id.trackedName),version=row.findViewById(R.id.trackedVersion);
@@ -211,17 +215,17 @@ final class AppLibraryController {
                     ? "Installiert: "+installedVersion(state.installed):state.error!=null?"Installationsstand nicht verfügbar":"Nicht installiert");
             badge.setTextColor(activity.getColor(R.color.muted));
             String reason;
-            if(state==null) { badge.setText("NOCH NICHT GEPRÜFT"); reason="Tippe auf Alle prüfen oder öffne die App-Details."; }
+            if(state==null) { badge.setText(activity.getString(R.string.message_applibrarycontroller_14)); reason="Tippe auf Alle prüfen oder öffne die App-Details."; }
             else if(state.error!=null) {
                 badge.setText(state.blocked?"BLOCKIERT":"PRÜFUNG FEHLGESCHLAGEN");
                 badge.setTextColor(activity.getColor(R.color.danger)); reason=state.error;
-            } else if(state.decision==null) { badge.setText("NOCH NICHT GEPRÜFT"); reason="Der installierte Stand ist erfasst. Prüfe jetzt den verfügbaren Release."; }
+            } else if(state.decision==null) { badge.setText(activity.getString(R.string.message_applibrarycontroller_14)); reason="Der installierte Stand ist erfasst. Prüfe jetzt den verfügbaren Release."; }
             else {
                 switch(state.decision.mode) {
                     case UPDATE -> badge.setText(state.decision.sensitiveAdded.isEmpty()?"UPDATE VERFÜGBAR":"NEUE SENSIBLE BERECHTIGUNG");
-                    case CURRENT -> badge.setText("AKTUELL");
-                    case INSTALL -> badge.setText("NICHT INSTALLIERT");
-                    case BLOCKED -> badge.setText("BLOCKIERT");
+                    case CURRENT -> badge.setText(activity.getString(R.string.message_mainactivity_3));
+                    case INSTALL -> badge.setText(activity.getString(R.string.message_applibrarycontroller_15));
+                    case BLOCKED -> badge.setText(activity.getString(R.string.message_mainactivity_4));
                 }
                 badge.setTextColor(activity.getColor(state.decision.mode==InstallPolicy.Mode.BLOCKED?R.color.danger:R.color.lime));
                 reason="Verfügbar: v"+state.release.version+"\n"+ReleaseIntelligence.summary(state.release,state.installed,state.decision);
@@ -239,8 +243,9 @@ final class AppLibraryController {
             list.addView(row);
         }
         int count=library.entries().size();
-        empty.setVisibility(count==0?View.VISIBLE:View.GONE);
-        empty.setText(readable?"Noch keine Apps gespeichert. Prüfe unten einen APKDrop-Link und tippe auf Zu meinen Apps hinzufügen.":listError);
+        empty.setVisibility(count==0 || (updatesOnly && list.getChildCount()==0)?View.VISIBLE:View.GONE);
+        empty.setText(readable?"Noch keine Apps gespeichert. Öffne Entdecken oder prüfe einen APKDrop-Link und tippe auf Zu meinen Apps hinzufügen.":listError);
+        if(updatesOnly && count>0 && list.getChildCount()==0) empty.setText(activity.getString(R.string.message_applibrarycontroller_16));
         String text=count+" "+(count==1?"App":"Apps");
         if(updates>0) text+=" · "+updates+" "+(updates==1?"Update verfügbar":"Updates verfügbar");
         else if(count>0 && current==count) text+=" · Alle Apps aktuell";
@@ -320,3 +325,4 @@ final class AppLibraryController {
     }
     private static String message(Exception e) { return e.getMessage()==null?"Prüfung fehlgeschlagen. Bitte erneut versuchen.":e.getMessage(); }
 }
+
