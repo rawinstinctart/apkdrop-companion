@@ -140,3 +140,7 @@ The app declares `https://apkdrop.rawinstinctai.de/install/<slug>` with Android 
 APKDrop has no account requirement, analytics identifier, advertising SDK, device fingerprinting or hidden telemetry. It declares `QUERY_ALL_PACKAGES` to compare arbitrary target packages. Package queries are limited to the active install contract and explicitly saved entries; APKDrop does not enumerate or upload the installed-app inventory. The saved list stays in private preferences and backups remain disabled.
 
 
+
+## Alpha 12 — Premium Experience
+
+The app detail page now has compact version/status information, native formatted release notes with More/Less, and expandable comparison/evidence sections. DropPilot shows real background-run history, download progress and observed waiting conditions instead of a generic active label. Cached downloads remain bound to pinned app identities and are checked again before installation. See [Alpha 12 acceptance](docs/alpha12-acceptance.md).

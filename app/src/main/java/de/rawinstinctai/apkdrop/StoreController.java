@@ -67,6 +67,7 @@ final class StoreController {
             View proof=activity.findViewById(R.id.proofText),permissions=activity.findViewById(R.id.permissionsText);
             boolean open=proof.getVisibility()!=View.VISIBLE;proof.setVisibility(open?View.VISIBLE:View.GONE);
             permissions.setVisibility(open?View.VISIBLE:View.GONE);
+            activity.findViewById(R.id.trustSummary).setVisibility(open?View.VISIBLE:View.GONE);
             ((Button)v).setText(open?"APK Trust Center · Nachweise schließen −":"APK Trust Center · Nachweise ansehen +");
         });
         activity.findViewById(R.id.developerOnboarding).setOnClickListener(v->openWeb("/onboarding"));
@@ -122,9 +123,7 @@ final class StoreController {
         ((TextView)activity.findViewById(R.id.homePreview)).setText(library.homePreview());
         ((TextView)activity.findViewById(R.id.homeStatus)).setText(library.homeStatus());
         TextView pilot=activity.findViewById(R.id.homePilotStatus);
-        pilot.setText(DropPilot.enabled(activity)
-                ?(DropPilot.scheduled(activity)?"DropPilot aktiv · Updates werden auf WLAN und Ladekabel vorbereitet."
-                :"DropPilot aktiviert · Hintergrundjob noch nicht eingeplant."):"");
+        pilot.setText("DropPilot · "+DropPilot.headline(activity));
         pilot.setVisibility(DropPilot.enabled(activity)?View.VISIBLE:View.GONE);
         ((Button)activity.findViewById(R.id.homeUpdates)).setText(library.checking()?"Prüfung abbrechen":count==0?"Apps entdecken →":updates>0?updates+" Updates gemeinsam prüfen →":"Jetzt Updates prüfen →");
         LinearLayout actions=activity.findViewById(R.id.homeAppActions);actions.removeAllViews();

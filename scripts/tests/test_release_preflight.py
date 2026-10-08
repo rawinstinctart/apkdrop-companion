@@ -109,6 +109,16 @@ class ReleasePolicyTest(unittest.TestCase):
         self.assertFalse(expected["debuggable"])
         self.assertGreater(expected["versionCode"],p.policy("alpha10-preview")["versionCode"])
 
+    def test_alpha12_keeps_original_identity_and_non_debuggable_preview(self):
+        expected=p.policy("alpha12-preview")
+        self.assertEqual(expected["versionCode"],15)
+        self.assertEqual(expected["versionName"],"0.1.0-alpha.12-preview")
+        self.assertEqual(expected["certificateSha256"],p.DEBUG_CERT)
+        self.assertFalse(expected["debuggable"])
+        self.assertGreater(expected["versionCode"],p.policy("alpha11-preview")["versionCode"])
+        with self.assertRaises(ValueError):
+            p.policy("alpha12-preview",version_code=14)
+
     def test_unknown_profile_does_not_fall_through_to_production(self):
         with self.assertRaises(ValueError):
             p.policy("typo", "a" * 64, 8, "0.1.0")
