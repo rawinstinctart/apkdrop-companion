@@ -15,7 +15,7 @@ class PublisherProfileTest(unittest.TestCase):
 
     def test_signer_accepts_alpha12_profiles_without_changing_public_release_gate(self):
         signer = (Path(__file__).parents[1] / "sign-existing-debug.sh").read_text()
-        self.assertIn("alpha12-debug|alpha12-preview) ;;", signer)
+        self.assertIn("alpha12-debug|alpha12-preview|alpha13-debug|alpha13-preview) ;;", signer)
         self.assertIn("alpha12-preview|production)", PUBLISHER.read_text())
         self.assertNotIn("alpha12-debug|production)", PUBLISHER.read_text())
 
