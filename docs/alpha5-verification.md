@@ -34,6 +34,8 @@ Proxy settings used to resolve dependencies are temporary environment-specific b
 1. Sign the candidate in the environment holding the original debug key, using `scripts/sign-existing-debug.sh`. This environment has no original private key; the candidate is intentionally unsigned and is not installable.
 2. Physically upgrade Alpha 4.1 to Alpha 5 with the unchanged signer. Check launch, navigation, real catalog/profile data, offline/retry behavior, permission changes, installer cancellation/success and a two-app update round. JVM rendering cannot substitute for these device checks.
 3. Produce a separately signed production APK before setting `COMPANION_PACKAGE`, `COMPANION_CERT_SHA256` and `COMPANION_DOWNLOAD_URL`. Debug signing is not production signing. The production App Links gate remains disabled.
-4. GitHub-hosted Android CI has previously been blocked by exhausted included minutes. Its quota/billing was not changed; local native validation is the evidence here.
+4. GitHub-hosted Android CI has previously been blocked by exhausted included minutes. The new [Alpha 5 run](https://github.com/rawinstinctart/apkdrop-companion/actions/runs/37758642079) also fails before any job steps; GitHub exposes no logs for that job. The exact current failure annotation is unavailable through this connector. Its quota/billing was not changed; local native validation is the evidence here. This is not a green hosted CI result.
+
+Companion PR #3 and platform PR #32 are merged into main. The platform Worker is deployed and its health, Discover, public DropID and native store metadata were checked live. Production App Links and install landing remain gated and return 404.
 
 No public beta APK is released by this change. The code and website integration are preparatory until signing and physical acceptance are complete.
