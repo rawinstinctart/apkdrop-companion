@@ -43,17 +43,51 @@ final class AppLibraryController {
         if(state!=null&&state.error!=null)status="Prüfung fehlgeschlagen";
         return entry.name+" · "+status+(state!=null&&state.cached?" (letzter Stand)":"");
     }
+    String displayName(AppLibrary.Entry entry) {
+        State state=states.get(entry.slug);return state!=null&&state.release!=null?state.release.appName:entry.name;
+    }
+    android.graphics.drawable.Drawable appIcon(AppLibrary.Entry entry) {
+        try {return activity.getPackageManager().getApplicationIcon(entry.packageName);}
+        catch(Exception missing){return new AppPlaceholder(entry.name);}
+    }
+    String homeVersion(AppLibrary.Entry entry) {
+        State state=states.get(entry.slug);
+        return state!=null&&state.installed!=null?installedVersion(state.installed):state!=null&&state.release!=null?"v"+state.release.version:"Version noch prüfen";
+    }
+    String homeEntryStatus(AppLibrary.Entry entry) {
+        String label=homeEntryLabel(entry);return label.substring(entry.name.length()+3);
+    }
+    String recentChecks() {
+        List<AppLibrary.Entry> entries=new ArrayList<>(library.entries());
+        entries.sort(Comparator.comparingLong((AppLibrary.Entry e)->states.containsKey(e.slug)?states.get(e.slug).checkedAt:0).reversed());
+        StringBuilder out=new StringBuilder();int shown=0;
+        for(AppLibrary.Entry e:entries) {
+            State state=states.get(e.slug);if(state==null||state.checkedAt<=0)continue;
+            if(shown++==3)break;if(out.length()>0)out.append("\n\n");
+            out.append(displayName(e)).append(" · ").append(homeEntryStatus(e)).append("\n")
+                    .append(DateFormat.getDateTimeInstance(DateFormat.SHORT,DateFormat.SHORT).format(new Date(state.checkedAt)));
+        }
+        return out.length()==0?"Deine Prüfungen erscheinen hier, sobald du eine gespeicherte App prüfst.":out.toString();
+    }
+    String observedHistory(InstallContract current) {
+        InstallContract previous=previous(current);
+        String now="Aktueller Release · v"+current.version+" (Build "+current.versionCode+")";
+        if(previous==null)return now+"\nNoch keine frühere Version auf diesem Gerät beobachtet.";
+        return now+"\n\nZuvor beobachtet · v"+previous.version+" (Build "+previous.versionCode+")"
+                +(previous.notes.isBlank()?"":"\n"+previous.notes)+"\n\nLokaler Verlauf. Keine vollständige GitHub-Versionshistorie.";
+    }
     String homeStatus() {
         if(checking) return "Deine gespeicherten Apps werden gerade auf Updates geprüft. Du kannst die Prüfung abbrechen.";
         if(!readable) return "Deine App-Liste konnte nicht geladen werden.";
         if(count()==0) return "Entdecke unabhängige Apps und speichere sie für künftige Updates.";
-        int unknown=0,blocked=0;
+        int unknown=0,blocked=0,notInstalled=0;
         boolean cached=false;
         for(AppLibrary.Entry entry:library.entries()) {
             State state=states.get(entry.slug);
             if(state==null || state.decision==null) unknown++;
             if(state!=null && (state.error!=null || (state.decision!=null && state.decision.mode==InstallPolicy.Mode.BLOCKED))) blocked++;
             if(state!=null && state.cached) cached=true;
+            if(state!=null && state.decision!=null && state.decision.mode==InstallPolicy.Mode.INSTALL)notInstalled++;
         }
         if(blocked>0) return blocked+" App(s) mit Prüfproblemen. Details unter Meine Apps ansehen.";
         if(unknown>0) return unknown+" App(s) noch nicht aktuell geprüft. Letzte Ergebnisse sind gekennzeichnet.";
@@ -61,6 +95,7 @@ final class AppLibraryController {
         if(updates>0) return updates+" neue Version(en) "+(cached
                 ?"laut gespeichertem Prüfstand verfügbar; vor dem Download wird frisch geprüft. "
                 :"laut letzter Prüfung verfügbar. ")+"Jede Installation bleibt deine Entscheidung.";
+        if(notInstalled>0)return notInstalled+" gespeicherte App(s) noch nicht installiert. Öffne ihre Details, wenn du loslegen möchtest.";
         return "Alle gespeicherten Apps laut letzter Prüfung aktuell.";
     }
     String homePreview() {
@@ -255,7 +290,7 @@ final class AppLibraryController {
             image=icons.get(entry.packageName);
             if(image==null) {
                 try { image=activity.getPackageManager().getApplicationIcon(entry.packageName); }
-                catch(Exception missing) { image=activity.getDrawable(android.R.drawable.sym_def_app_icon); }
+                catch(Exception missing) { image=new AppPlaceholder(entry.name); }
                 icons.put(entry.packageName,image);
             }
             icon.setImageDrawable(image); icon.setContentDescription(entry.name);
@@ -263,7 +298,7 @@ final class AppLibraryController {
                     ? "Installiert: "+installedVersion(state.installed):state.error!=null?"Installationsstand nicht verfügbar":"Nicht installiert");
             badge.setTextColor(activity.getColor(R.color.muted));
             String reason;
-            if(state==null) { badge.setText(activity.getString(R.string.message_applibrarycontroller_14)); reason="Tippe auf Alle prüfen oder öffne die App-Details."; }
+            if(state==null) { badge.setText(activity.getString(R.string.message_applibrarycontroller_14)); reason="Öffne die Details oder prüfe unter Updates."; }
             else if(state.error!=null) {
                 badge.setText(state.blocked?"BLOCKIERT":"PRÜFUNG FEHLGESCHLAGEN");
                 badge.setTextColor(activity.getColor(R.color.danger)); reason=state.error;
@@ -276,11 +311,12 @@ final class AppLibraryController {
                     case BLOCKED -> badge.setText(activity.getString(R.string.message_mainactivity_4));
                 }
                 badge.setTextColor(activity.getColor(state.decision.mode==InstallPolicy.Mode.BLOCKED?R.color.danger:R.color.lime));
-                reason="Verfügbar: v"+state.release.version+"\n"+ReleaseIntelligence.summary(state.release,state.installed,state.decision);
+                reason="Verfügbar: v"+state.release.version;
+                if(state.decision.mode==InstallPolicy.Mode.BLOCKED)reason+="\n"+state.decision.reason;
                 if(state.checkedAt>0) reason+="\nZuletzt geprüft: "+DateFormat.getDateTimeInstance(DateFormat.SHORT,DateFormat.SHORT).format(new Date(state.checkedAt));
             }
             if(state!=null && state.cached) {
-                reason+="\nLetzter bekannter Release. Vor Download wird frisch geprüft.";
+                reason+="\nGespeicherter Stand · vor Download erneute Prüfung.";
             }
             detail.setText(reason);
             Button open=row.findViewById(R.id.trackedOpen); open.setEnabled(!detailBusy&&!checking);
@@ -301,9 +337,10 @@ final class AppLibraryController {
         if(!readable) text="App-Liste nicht verfügbar";
         if(!checking) summary.setText(text);
         if(!listError.isEmpty() && readable && !checking) summary.setText(text+"\n"+listError);
-        updatesButton.setVisibility(updates>0?View.VISIBLE:View.GONE);
+        updatesButton.setVisibility(updatesOnly&&updates>0?View.VISIBLE:View.GONE);
         updatesButton.setText(updates+" "+(updates==1?"Update":"Updates")+" gemeinsam prüfen →");
         updatesButton.setEnabled(!detailBusy&&!checking);
+        checkAll.setVisibility(updatesOnly?View.VISIBLE:View.GONE);
         checkAll.setText(checking?"Prüfung abbrechen":"Alle auf Updates prüfen →");
         checkAll.setEnabled(!detailBusy&&readable&&count>0);
         changed.run();

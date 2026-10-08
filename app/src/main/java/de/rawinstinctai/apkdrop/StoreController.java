@@ -34,7 +34,9 @@ final class StoreController {
     private final LinearLayout results;
     private final TextView resultStatus,sectionTitle;
     private final ScrollView scroll;
-    private int tab,request,detailRequest;
+    private int tab,request,detailRequest,homeRequest;
+    private long homeFeedAt;
+    private String homeFeedIds="";
     private volatile boolean closed;
     private boolean detail,started,following;
     private String category="",query="";
@@ -69,7 +71,7 @@ final class StoreController {
         });
         activity.findViewById(R.id.developerOnboarding).setOnClickListener(v->openWeb("/onboarding"));
         activity.findViewById(R.id.discoverSearch).setOnClickListener(v->{
-            activeProfile=null;query=((EditText)activity.findViewById(R.id.discoverInput)).getText().toString().trim();page=1;following=false;catalog();
+            hideKeyboard();activeProfile=null;query=((EditText)activity.findViewById(R.id.discoverInput)).getText().toString().trim();page=1;following=false;renderCategories();catalog();
         });
         ((EditText)activity.findViewById(R.id.discoverInput)).setOnEditorActionListener((v,id,event)->{
             activity.findViewById(R.id.discoverSearch).performClick();return true;
@@ -77,16 +79,17 @@ final class StoreController {
         activity.findViewById(R.id.followingButton).setOnClickListener(v->{activeProfile=null;following=true;feed();});
         activity.findViewById(R.id.discoverRefresh).setOnClickListener(v->{if(activeProfile!=null)profile(activeProfile);else if(following)feed();else catalog();});
         activity.findViewById(R.id.discoverReset).setOnClickListener(v->{
-            query="";category="";page=1;following=false;activeProfile=null;sortByName=false;
+            query="";category="";page=1;following=false;activeProfile=null;sortByName=false;renderCategories();
             ((EditText)activity.findViewById(R.id.discoverInput)).setText("");
-            ((Button)activity.findViewById(R.id.discoverFilter)).setText("Alle Kategorien · App-Standard");
-            ((Button)activity.findViewById(R.id.discoverSort)).setText("Sortierung · Katalog");catalog();
+            ((Button)activity.findViewById(R.id.discoverFilter)).setText("Alle Kategorien");
+            ((Button)activity.findViewById(R.id.discoverSort)).setText("Sortierung");catalog();
         });
         activity.findViewById(R.id.discoverSort).setOnClickListener(v->{
-            sortByName=!sortByName;((Button)v).setText(sortByName?"Sortierung · Name A–Z (diese Seite)":"Sortierung · Katalog");
+            sortByName=!sortByName;((Button)v).setText(sortByName?"Name A–Z":"Sortierung");
             if(catalogData!=null)renderCatalogState();
         });
         activity.findViewById(R.id.discoverFilter).setOnClickListener(v->filters(v));
+        renderCategories();
         restoreTab(0);
     }
     void restoreTab(int value) {tab=value>=0&&value<5?value:0;renderNavigation();}
@@ -105,12 +108,12 @@ final class StoreController {
             if(activeProfile!=null)try {StoreClient.handle(activeProfile);}catch(Exception bad){activeProfile=null;}
         }
         ((EditText)activity.findViewById(R.id.discoverInput)).setText(query);
-        ((Button)activity.findViewById(R.id.discoverFilter)).setText(categoryName(category)+" · App-Standard");
-        ((Button)activity.findViewById(R.id.discoverSort)).setText(sortByName?"Sortierung · Name A–Z (diese Seite)":"Sortierung · Katalog");
-        restoreTab(state==null?0:state.getInt("storeTab",0));
+        ((Button)activity.findViewById(R.id.discoverFilter)).setText(categoryName(category));
+        ((Button)activity.findViewById(R.id.discoverSort)).setText(sortByName?"Name A–Z":"Sortierung");
+        renderCategories();restoreTab(state==null?0:state.getInt("storeTab",0));
     }
-    void resume() {if(tab==1&&!detail){if(activeProfile!=null)profile(activeProfile);else if(following)feed();else if(!started)catalog();}}
-    void close() {closed=true;request++;detailRequest++;network.shutdownNow();media.shutdownNow();images.evictAll();}
+    void resume() {if(tab==0&&!detail)homeFeed();if(tab==1&&!detail){if(activeProfile!=null)profile(activeProfile);else if(following)feed();else if(!started)catalog();}}
+    void close() {closed=true;request++;detailRequest++;homeRequest++;network.shutdownNow();media.shutdownNow();images.evictAll();}
     void changed() {
         int count=library.count(),updates=library.updateCount();
         ((Button)activity.findViewById(R.id.navUpdates)).setText(updates>0?"Updates ("+updates+")":"Updates");
@@ -120,31 +123,34 @@ final class StoreController {
         ((TextView)activity.findViewById(R.id.homeStatus)).setText(library.homeStatus());
         ((Button)activity.findViewById(R.id.homeUpdates)).setText(library.checking()?"Prüfung abbrechen":count==0?"Apps entdecken →":updates>0?updates+" Updates gemeinsam prüfen →":"Jetzt Updates prüfen →");
         LinearLayout actions=activity.findViewById(R.id.homeAppActions);actions.removeAllViews();
-        for(AppLibrary.Entry entry:library.homeEntries()) actions.addView(button(library.homeEntryLabel(entry)+" →",()->select.accept(entry.slug)));
+        for(AppLibrary.Entry entry:library.homeEntries()) actions.addView(homeCard(entry));
+        LinearLayout checks=activity.findViewById(R.id.homeActivity);checks.removeAllViews();checks.addView(label(library.recentChecks(),12));
         ((TextView)activity.findViewById(R.id.homePreview)).setVisibility(count==0?View.VISIBLE:View.GONE);
-        try {((Button)activity.findViewById(R.id.homeFollowing)).setText("Meine Entwickler ("+follows.ids().length()+") & Releases →");}catch(Exception unavailable){}
+        try {((Button)activity.findViewById(R.id.homeFollowing)).setText("Entwickler & Releases · "+follows.ids().length()+" gefolgt →");}catch(Exception unavailable){}
         activity.findViewById(R.id.homeUpdates).setEnabled(activity.findViewById(R.id.progress).getVisibility()!=View.VISIBLE);
     }
     private void navigate(int value) {
         if(activity.findViewById(R.id.progress).getVisibility()==View.VISIBLE) {
             Toast.makeText(activity,"Die laufende Prüfung bitte kurz abschließen lassen.",Toast.LENGTH_SHORT).show();return;
         }
-        tab=value;detail=false;activity.findViewById(R.id.detailPanel).setVisibility(View.GONE);
-        renderNavigation();scroll.scrollTo(0,0);if(tab==1){if(activeProfile!=null)profile(activeProfile);else if(following)feed();else if(!started)catalog();}
+        hideKeyboard();tab=value;detail=false;activity.findViewById(R.id.detailPanel).setVisibility(View.GONE);
+        renderNavigation();scroll.scrollTo(0,0);if(tab==0)homeFeed();if(tab==1){if(activeProfile!=null)profile(activeProfile);else if(following)feed();else if(!started)catalog();}
     }
     private void renderNavigation() {
-        sectionTitle.setText(TITLES[tab]);
+        sectionTitle.setText(TITLES[tab]);sectionTitle.setVisibility(!detail&&tab==0?View.GONE:View.VISIBLE);
+        activity.findViewById(R.id.homeHeadline).setVisibility(tab==0?View.VISIBLE:View.GONE);
         activity.findViewById(R.id.homePanel).setVisibility(!detail&&tab==0?View.VISIBLE:View.GONE);
         activity.findViewById(R.id.discoverPanel).setVisibility(!detail&&tab==1?View.VISIBLE:View.GONE);
         activity.findViewById(R.id.libraryPanel).setVisibility(!detail&&(tab==2||tab==3)?View.VISIBLE:View.GONE);
         activity.findViewById(R.id.settingsPanel).setVisibility(!detail&&tab==4?View.VISIBLE:View.GONE);
         activity.findViewById(R.id.linkPanel).setVisibility(View.GONE);
         library.updatesOnly(tab==3);
-        for(int i=0;i<NAV.length;i++){View v=activity.findViewById(NAV[i]);v.setSelected(i==tab);((Button)v).setTextColor(activity.getColor(i==tab?R.color.lime:R.color.muted));}
+        for(int i=0;i<NAV.length;i++){View v=activity.findViewById(NAV[i]);v.setSelected(i==tab);((Button)v).setTextColor(activity.getColor(i==tab?R.color.lime:R.color.muted));
+            for(android.graphics.drawable.Drawable d:((Button)v).getCompoundDrawables())if(d!=null)d.mutate().setTint(activity.getColor(i==tab?R.color.lime:R.color.muted));}
         changed();
     }
     void showDetail() {
-        detail=true;renderNavigation();sectionTitle.setText(activity.getString(R.string.message_storecontroller_17));
+        hideKeyboard();detail=true;renderNavigation();sectionTitle.setText(activity.getString(R.string.message_storecontroller_17));
         activity.findViewById(R.id.detailPanel).setVisibility(View.VISIBLE);scroll.scrollTo(0,0);
     }
     boolean back() {if(!detail)return false;if(activity.findViewById(R.id.progress).getVisibility()==View.VISIBLE){Toast.makeText(activity,"Die laufende Prüfung bitte kurz abschließen lassen.",Toast.LENGTH_SHORT).show();return true;}detail=false;detailRequest++;renderNavigation();activity.findViewById(R.id.detailPanel).setVisibility(View.GONE);return true;}
@@ -161,13 +167,13 @@ final class StoreController {
         String[] values={"","communication","productivity","tools","privacy","media","games","education","other"};
         String[] names={"Alle Kategorien","Kommunikation","Produktivität","Tools","Privacy","Medien","Spiele","Lernen","Andere"};
         for(int i=0;i<values.length;i++){final String value=values[i],name=names[i];menu.getMenu().add(name).setOnMenuItemClickListener(item->{
-            activeProfile=null;category=value;page=1;following=false;((Button)anchor).setText(name+" · App-Standard");catalog();return true;
+            activeProfile=null;category=value;page=1;following=false;((Button)anchor).setText(name);renderCategories();catalog();return true;
         });}menu.show();
     }
     private void catalog() {
         activeProfile=null;following=false;started=true;catalogControls(true);
         final int ticket=++request;((ThreadPoolExecutor)media).getQueue().clear();
-        results.removeAllViews();catalogData=null;resultStatus.setText(activity.getString(R.string.message_storecontroller_18));
+        results.removeAllViews();skeletons();catalogData=null;resultStatus.setText(activity.getString(R.string.message_storecontroller_18));
         String q=encode(query.substring(0,Math.min(100,query.length())));
         final String path="/api/discover?q="+q+"&category="+category+"&page="+page;
         network.execute(()->{
@@ -188,8 +194,10 @@ final class StoreController {
         });
     }
     private void catalogControls(boolean visible) {
+        activity.findViewById(R.id.categoryScroll).setVisibility(visible?View.VISIBLE:View.GONE);
+        activity.findViewById(R.id.discoverFilter).setVisibility(visible?View.VISIBLE:View.GONE);
         activity.findViewById(R.id.discoverSort).setVisibility(visible?View.VISIBLE:View.GONE);
-        activity.findViewById(R.id.discoverReset).setVisibility(visible?View.VISIBLE:View.GONE);
+        activity.findViewById(R.id.discoverReset).setVisibility(visible&&(!query.isEmpty()||!category.isEmpty()||sortByName)?View.VISIBLE:View.GONE);
     }
     void renderCatalog(JSONObject data) {
         catalogData=data;catalogCached=false;catalogAt=System.currentTimeMillis();renderCatalogState();
@@ -197,7 +205,7 @@ final class StoreController {
     private void renderCatalogState() {
         JSONObject data=catalogData;
         try {CatalogCache.validate(data);}catch(Exception bad){throw new SecurityException("Ungültiger App-Katalog.",bad);}
-        JSONArray apps=data.optJSONArray("apps");results.removeAllViews();
+        JSONArray apps=data.optJSONArray("apps");results.removeAllViews();catalogControls(true);
         resultStatus.setText(data.optInt("total")+" Apps · Seite "+data.optInt("page",1)+" / "+data.optInt("pages",1)
                 +(catalogCached?"\nGespeicherter Katalog · "+java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT,java.text.DateFormat.SHORT).format(new java.util.Date(catalogAt))+"\nApp-Details und Downloads brauchen eine neue Online-Prüfung.":""));
         java.util.List<JSONObject> entries=new java.util.ArrayList<>();for(int i=0;i<apps.length();i++)entries.add(apps.optJSONObject(i));
@@ -213,14 +221,15 @@ final class StoreController {
         try {
             String slug=StoreClient.slug(app.getString("slug")),name=bounded(app.optString("name",slug),160);
             LinearLayout card=card();LinearLayout heading=new LinearLayout(activity);heading.setGravity(Gravity.CENTER_VERTICAL);
-            ImageView icon=icon(52);heading.addView(icon);TextView title=label(name,20);title.setPadding(dp(12),0,0,0);heading.addView(title,new LinearLayout.LayoutParams(0,-2,1));card.addView(heading);
+            ImageView icon=icon(52);icon.setImageDrawable(new AppPlaceholder(name));heading.addView(icon);TextView title=label(name,20);title.setPadding(dp(12),0,0,0);heading.addView(title,new LinearLayout.LayoutParams(0,-2,1));card.addView(heading);
             loadImage(app.optString("iconUrl",""),icon);
-            String description=bounded(app.optString("description"),400);if(!description.isEmpty())card.addView(label(description,14));
+            String description=bounded(app.optString("description"),400);if(!description.isEmpty()){TextView summary=label(description,13);summary.setMaxLines(3);summary.setEllipsize(android.text.TextUtils.TruncateAt.END);card.addView(summary);}
             JSONObject latest=app.optJSONObject("latest");String version=latest!=null?latest.optString("version"):app.optString("version");
             if(!version.isEmpty())card.addView(label("v"+bounded(version,120)+" · "+app.optString("channel","App-Standard"),12));
+            card.addView(label(categoryName(app.optString("category"))+" · "+(app.optBoolean("signatureVerified")?"Signatur im Katalog geprüft":"Signaturstatus in Details"),11));
             JSONObject developer=app.optJSONObject("developer");
-            if(developer!=null){String handle=StoreClient.handle(developer.getString("handle"));card.addView(button("@"+handle+" · DropID ↗",()->profile(handle)));}
-            card.addView(button("App ansehen & prüfen →",()->select.accept(slug)));parent.addView(card);
+            if(developer!=null){String handle=StoreClient.handle(developer.getString("handle"));card.addView(textAction("@"+handle+" · DropID ↗",()->profile(handle)));}
+            card.addView(textAction("App ansehen & prüfen →",()->select.accept(slug)));parent.addView(card);
         } catch(Exception ignored) {parent.addView(label("Ein App-Eintrag konnte nicht angezeigt werden.",13));}
     }
     void profile(String handle) {
@@ -282,12 +291,21 @@ final class StoreController {
         }
         if(shown==0) feedRows.addView(label(newOnly?"Alles angesehen. Neue Releases erscheinen hier beim nächsten Aktualisieren.":"Aktuell keine öffentlichen Releases. Deine Follows bleiben lokal gespeichert.",14));
     }
+    void clearReleaseDetails() {
+        detailRequest++;
+        ((ImageView)activity.findViewById(R.id.detailIcon)).setImageDrawable(new AppPlaceholder("App"));
+        activity.findViewById(R.id.detailIcon).setTag(null);
+        ((TextView)activity.findViewById(R.id.developerText)).setText("");
+        activity.findViewById(R.id.developerButton).setVisibility(View.GONE);
+        ((LinearLayout)activity.findViewById(R.id.screenshotList)).removeAllViews();
+        activity.findViewById(R.id.screenshotScroll).setVisibility(View.GONE);activity.findViewById(R.id.mediaCaption).setVisibility(View.GONE);
+    }
     void releaseDetails(String slug) {
         final int ticket=++detailRequest;((ThreadPoolExecutor)media).getQueue().clear();
         TextView publisher=activity.findViewById(R.id.developerText);publisher.setText(activity.getString(R.string.message_storecontroller_22));
         activity.findViewById(R.id.developerButton).setVisibility(View.GONE);
-        LinearLayout gallery=activity.findViewById(R.id.screenshotList);gallery.removeAllViews();activity.findViewById(R.id.screenshotScroll).setVisibility(View.GONE);
-        ImageView icon=activity.findViewById(R.id.detailIcon);icon.setTag(null);icon.setImageResource(R.drawable.ic_apkdrop);
+        LinearLayout gallery=activity.findViewById(R.id.screenshotList);gallery.removeAllViews();activity.findViewById(R.id.screenshotScroll).setVisibility(View.GONE);activity.findViewById(R.id.mediaCaption).setVisibility(View.GONE);
+        ImageView icon=activity.findViewById(R.id.detailIcon);icon.setTag(null);icon.setImageDrawable(new AppPlaceholder(((TextView)activity.findViewById(R.id.titleText)).getText().toString()));
         network.execute(()->{
             try {
                 JSONObject data=StoreClient.get("/api/"+StoreClient.slug(slug)+"/store.json");
@@ -298,9 +316,10 @@ final class StoreController {
                     if(developer!=null)try{String handle=StoreClient.handle(developer.getString("handle"));View b=activity.findViewById(R.id.developerButton);b.setVisibility(View.VISIBLE);b.setOnClickListener(v->profile(handle));}catch(Exception ignored){}
                     JSONArray screenshots=data.optJSONArray("screenshots");if(screenshots!=null)for(int i=0;i<Math.min(6,screenshots.length());i++){
                         ImageView shot=new ImageView(activity);shot.setContentDescription("Entwickler-Screenshot "+(i+1));shot.setAdjustViewBounds(true);shot.setScaleType(ImageView.ScaleType.FIT_CENTER);
-                        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(dp(160),dp(285));lp.setMargins(0,0,dp(12),0);gallery.addView(shot,lp);loadImage(screenshots.optString(i),shot);
+                        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(dp(160),dp(285));lp.setMargins(0,0,dp(12),0);gallery.addView(shot,lp);String imageUrl=screenshots.optString(i);loadImage(imageUrl,shot);shot.setOnClickListener(v->showScreenshot(imageUrl));
                     }
                     activity.findViewById(R.id.screenshotScroll).setVisibility(gallery.getChildCount()>0?View.VISIBLE:View.GONE);
+                    activity.findViewById(R.id.mediaCaption).setVisibility(gallery.getChildCount()>0?View.VISIBLE:View.GONE);
                 });
             } catch(Exception e) {activity.runOnUiThread(()->{if(!closed&&ticket==detailRequest)publisher.setText(activity.getString(R.string.message_storecontroller_23));});}
         });
@@ -320,12 +339,76 @@ final class StoreController {
             }catch(Exception unavailable){/* Optional media cannot authorize or block installation. */}
         });
     }
+    private void homeFeed() {
+        LinearLayout panel=activity.findViewById(R.id.homeFeed);
+        try {
+            JSONArray ids=follows.ids();
+            String identity=ids.toString();if(!identity.equals(homeFeedIds)){homeRequest++;homeFeedAt=0;homeFeedIds=identity;}
+            if(ids.length()==0){homeRequest++;homeFeedAt=0;panel.removeAllViews();panel.addView(label("Folge einem Entwickler über DropID. Seine öffentlichen Releases erscheinen hier.",12));return;}
+            if(System.currentTimeMillis()-homeFeedAt<5*60*1000)return;
+            homeFeedAt=System.currentTimeMillis();final int ticket=++homeRequest;
+            panel.removeAllViews();panel.addView(label("Releases werden geladen …",12));
+            network.execute(()->{
+                try {
+                    JSONArray feed=StoreClient.following(ids).getJSONArray("feed");if(feed.length()>60)throw new SecurityException("Release-Liste zu groß.");
+                    activity.runOnUiThread(()->{if(closed||ticket!=homeRequest)return;panel.removeAllViews();
+                        int shown=0;for(int i=0;i<feed.length()&&shown<2;i++){
+                            JSONObject item=feed.optJSONObject(i);if(item==null)continue;
+                            try {String slug=StoreClient.slug(item.getString("slug"));shown++;
+                                panel.addView(textAction(bounded(item.optString("name"),160)+" · "+bounded(item.optString("version"),120)
+                                        +(readState.unseen(item)?" · Neu →":" →"),()->{
+                                    try{readState.mark(new JSONArray().put(item));homeFeedAt=0;}catch(Exception e){error(e);}select.accept(slug);
+                                }));
+                            }catch(Exception invalid){}
+                        }
+                        if(shown==0)panel.addView(label("Aktuell keine öffentlichen Releases deiner Entwickler.",12));
+                    });
+                }catch(Exception e){activity.runOnUiThread(()->{if(closed||ticket!=homeRequest)return;homeFeedAt=0;panel.removeAllViews();panel.addView(textAction("Releases nicht erreichbar · Erneut versuchen ↻",this::homeFeed));});}
+            });
+        }catch(Exception e){panel.removeAllViews();panel.addView(label("Gefolgte Entwickler konnten nicht gelesen werden.",12));}
+    }
+    private void hideKeyboard() {
+        View focus=activity.getCurrentFocus();if(focus!=null){
+            ((android.view.inputmethod.InputMethodManager)activity.getSystemService(android.content.Context.INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(focus.getWindowToken(),0);focus.clearFocus();}
+    }
+    private void renderCategories() {
+        LinearLayout chips=activity.findViewById(R.id.categoryChips);chips.removeAllViews();
+        for(String value:new String[]{"","communication","productivity","tools","privacy","media","games","education","other"}) {
+            Button chip=button(value.isEmpty()?"Alle":categoryName(value),()->{
+                category=value;page=1;following=false;activeProfile=null;
+                ((Button)activity.findViewById(R.id.discoverFilter)).setText(categoryName(value));renderCategories();catalog();
+            });
+            chip.setMinWidth(dp(48));chip.setMinimumWidth(dp(48));chip.setTextSize(12);chip.setSelected(category.equals(value));chip.setTextColor(activity.getColor(category.equals(value)?R.color.lime_dark:R.color.muted));
+            chip.setBackgroundResource(R.drawable.bg_chip);chip.setPadding(dp(14),0,dp(14),0);
+            LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-2,dp(48));lp.rightMargin=dp(8);chips.addView(chip,lp);
+        }
+    }
+    private Button textAction(String value,Runnable action) {
+        Button b=button(value,action);b.setBackgroundResource(android.R.color.transparent);b.setGravity(Gravity.START|Gravity.CENTER_VERTICAL);b.setPadding(0,0,0,0);return b;
+    }
+    private LinearLayout homeCard(AppLibrary.Entry entry) {
+        LinearLayout c=card();c.setOrientation(LinearLayout.HORIZONTAL);c.setGravity(Gravity.CENTER_VERTICAL);c.setPadding(dp(14),dp(14),dp(14),dp(14));
+        ImageView icon=icon(42);icon.setImageDrawable(library.appIcon(entry));c.addView(icon);
+        LinearLayout lines=new LinearLayout(activity);lines.setOrientation(LinearLayout.VERTICAL);lines.setPadding(dp(12),0,0,0);
+        TextView name=label(library.displayName(entry),16);name.setTypeface(null,android.graphics.Typeface.BOLD);name.setTextColor(activity.getColor(R.color.text));name.setPadding(0,0,0,dp(4));lines.addView(name);
+        TextView state=label(library.homeVersion(entry)+" · "+library.homeEntryStatus(entry),12);state.setPadding(0,0,0,0);lines.addView(state);c.addView(lines,new LinearLayout.LayoutParams(0,-2,1));
+        c.addView(label("→",18));c.setFocusable(true);c.setContentDescription(library.displayName(entry)+" · "+library.homeEntryStatus(entry)+" · Details öffnen");
+        c.setOnClickListener(v->{v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);select.accept(entry.slug);});return c;
+    }
+    private void skeletons() {
+        for(int i=0;i<2;i++){LinearLayout c=card();c.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);
+            View bar=new View(activity);bar.setBackgroundColor(activity.getColor(R.color.surface_alt));c.addView(bar,new LinearLayout.LayoutParams(-1,dp(52)));results.addView(c);}
+    }
+    private void showScreenshot(String url) {
+        ImageView full=new ImageView(activity);full.setAdjustViewBounds(true);full.setScaleType(ImageView.ScaleType.FIT_CENTER);full.setContentDescription("Screenshot vom Entwickler");
+        loadImage(url,full);new AlertDialog.Builder(activity).setView(full).setPositiveButton("Schließen",null).show();
+    }
     private interface Work {void run() throws Exception;}
     private void submit(Work work,int ticket){network.execute(()->{try{work.run();}catch(Exception e){post(ticket,()->{resultStatus.setText(message(e));results.addView(button("Erneut versuchen",()->{if(activeProfile!=null)profile(activeProfile);else if(following)feed();else catalog();}));});}});}
     private void post(int ticket,Runnable fn){activity.runOnUiThread(()->{if(!closed&&ticket==request&&!activity.isDestroyed())fn.run();});}
     private LinearLayout card(){LinearLayout c=new LinearLayout(activity);c.setOrientation(LinearLayout.VERTICAL);c.setPadding(dp(18),dp(18),dp(18),dp(18));c.setBackgroundResource(R.drawable.bg_card);LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2);p.topMargin=dp(14);c.setLayoutParams(p);return c;}
-    private TextView label(String value,int size){TextView t=new TextView(activity);t.setText(value);t.setTextSize(size);t.setTextColor(activity.getColor(size>=20?R.color.text:R.color.muted));t.setPadding(0,dp(8),0,dp(8));if(size>=20)t.setTypeface(null,android.graphics.Typeface.BOLD);return t;}
-    private Button button(String value,Runnable action){Button b=new Button(activity);b.setText(value);b.setTextSize(14);b.setAllCaps(false);b.setMinHeight(dp(48));b.setTextColor(activity.getColor(R.color.lime));b.setBackgroundResource(R.drawable.bg_input);b.setOnClickListener(v->action.run());LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2);p.topMargin=dp(10);b.setLayoutParams(p);return b;}
+    private TextView label(String value,int size){TextView t=new TextView(activity);t.setText(value);t.setTextSize(size);t.setTextColor(activity.getColor(size>=20?R.color.text:R.color.muted));t.setPadding(0,dp(4),0,dp(4));if(size>=20)t.setTypeface(null,android.graphics.Typeface.BOLD);return t;}
+    private Button button(String value,Runnable action){Button b=new Button(activity);b.setText(value);b.setTextSize(14);b.setAllCaps(false);b.setMinHeight(dp(48));b.setTextColor(activity.getColor(R.color.lime));b.setBackgroundResource(R.drawable.bg_compact);b.setOnClickListener(v->action.run());LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2);p.topMargin=dp(10);b.setLayoutParams(p);return b;}
     private ImageView icon(int size){ImageView v=new ImageView(activity);v.setImageResource(R.drawable.ic_apkdrop);v.setLayoutParams(new LinearLayout.LayoutParams(dp(size),dp(size)));v.setContentDescription("App-Icon");return v;}
     private void openWeb(String path){try{activity.startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse(StoreClient.ORIGIN+path)));}catch(Exception e){error(e);}}
     private void error(Exception e){Toast.makeText(activity,message(e),Toast.LENGTH_LONG).show();}

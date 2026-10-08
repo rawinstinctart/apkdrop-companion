@@ -81,10 +81,15 @@ public final class MainActivity extends Activity {
                     .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE,getPackageName()));
         });
         UpdateScheduler.reconcile(this); updateBackgroundStatus(); updateQueueUi();
+        try {((TextView)findViewById(R.id.appVersion)).setText("APKDrop Companion · "+getPackageManager().getPackageInfo(getPackageName(),0).versionName);}
+        catch(Exception unavailable) { /* Static version label remains a fallback. */ }
+        findViewById(R.id.historyButton).setOnClickListener(v->{
+            TextView history=findViewById(R.id.historyText);boolean open=history.getVisibility()!=View.VISIBLE;
+            history.setVisibility(open?View.VISIBLE:View.GONE);((Button)v).setText(open?"Beobachtete Versionen schließen −":"Beobachtete Versionen ansehen +");
+        });
 
         checkButton.setOnClickListener(v->{
-            try { selectSingle(SlugParser.parse(input.getText().toString())); }
-            catch(Exception e) { toast(message(e)); }
+            importLink(input.getText().toString(),false);
         });
         actionButton.setOnClickListener(v->onAction());
         cancelDownloadButton=findViewById(R.id.cancelDownload);
@@ -189,10 +194,22 @@ public final class MainActivity extends Activity {
         boolean shared=Intent.ACTION_SEND.equals(intent.getAction()) && "text/plain".equals(intent.getType());
         try {
             String raw=shared?intent.getStringExtra(Intent.EXTRA_TEXT):intent.getDataString();
-            String slug=shared?SlugParser.parseShared(raw):SlugParser.parse(raw);
-            input.setText(slug);
-            selectSingle(slug);
+            importLink(raw,shared);
         } catch(Exception e) { toast(message(e)); }
+    }
+
+    private void importLink(String raw,boolean shared) {
+        if(detailBusy || library.checking()){toast("Die laufende Prüfung bitte zuerst abschließen.");return;}
+        try {selectSingle(shared?SlugParser.parseShared(raw):SlugParser.parse(raw));return;}
+        catch(IllegalArgumentException invalid) { /* Try the narrowly supported GitHub path. */ }
+        try {LinkImport.repository(raw);}catch(Exception invalid){toast(message(invalid));return;}
+        store.showDetail();final int ticket=++generation;resetCandidate();card.setVisibility(View.VISIBLE);
+        setBusy(true,"Suche die bestätigte APKDrop-App zum GitHub-Repository …");
+        io.execute(()->{
+            try {String slug=LinkImport.resolve(raw);post(ticket,()->{
+                setBusy(false,"");toast("Repository zugeordnet. Prüfe den aktuellen APKDrop-Release.");selectSingle(slug);
+            });}catch(Exception failed){post(ticket,()->showError(message(failed)));}
+        });
     }
 
     private void load(String slug) {
@@ -225,7 +242,10 @@ public final class MainActivity extends Activity {
         File prior=keepVerified?verifiedApk:null;
         if(fetched)verificationIssue="";
         currentRelease=release; currentInstalled=installed; currentDecision=decision; verifiedApk=null;
-        title.setText(release.appName);
+        title.setText(release.appName);findViewById(R.id.historyButton).setVisibility(View.VISIBLE);findViewById(R.id.trustButton).setEnabled(true);findViewById(R.id.receiptButton).setEnabled(true);
+        TextView history=findViewById(R.id.historyText);history.setText(library.observedHistory(release));
+        if(fetched){history.setVisibility(View.GONE);((Button)findViewById(R.id.historyButton)).setText("Beobachtete Versionen ansehen +");}
+
         if(fetched) {
             proof.setVisibility(View.GONE);permissions.setVisibility(View.GONE);
             ((Button)findViewById(R.id.trustButton)).setText("APK Trust Center · Nachweise ansehen +");
@@ -400,6 +420,12 @@ public final class MainActivity extends Activity {
         if(activeDownload!=null) activeDownload.cancel(true);
         activeDownload=null; downloadRunning=false;
         if(cancelDownloadButton!=null) cancelDownloadButton.setVisibility(View.GONE);
+        if(store!=null)store.clearReleaseDetails();
+        title.setText("App wird geprüft …");badge.setText("PRÜFUNG AUSSTEHEND");meta.setText("");radar.setText("");notes.setVisibility(View.GONE);
+        proof.setText("");permissions.setText("");notes.setText("");
+        proof.setVisibility(View.GONE);permissions.setVisibility(View.GONE);findViewById(R.id.historyText).setVisibility(View.GONE);
+        ((TextView)findViewById(R.id.historyText)).setText("");findViewById(R.id.historyButton).setVisibility(View.GONE);
+        findViewById(R.id.trustButton).setEnabled(false);findViewById(R.id.receiptButton).setEnabled(false);
         currentRelease=null; currentInstalled=null; currentDecision=null; verifiedApk=null;verificationIssue="";updateTrust(false);
         actionButton.setVisibility(View.GONE);
         addButton.setVisibility(View.GONE);
@@ -425,7 +451,7 @@ public final class MainActivity extends Activity {
 
     private void showError(String text) {
         resetCandidate(); setBusy(false,""); card.setVisibility(View.VISIBLE); badge.setText(getString(R.string.message_mainactivity_11));
-        radar.setText(getString(R.string.message_mainactivity_12)); title.setText(getString(R.string.message_mainactivity_13)); meta.setText(getString(R.string.message_mainactivity_12)); proof.setText(getString(R.string.message_mainactivity_12)); permissions.setText(getString(R.string.message_mainactivity_12)); notes.setVisibility(View.GONE); status.setText(text);
+        radar.setText(getString(R.string.message_mainactivity_12)); title.setText(getString(R.string.message_mainactivity_13)); meta.setText(getString(R.string.message_mainactivity_12)); proof.setText(getString(R.string.message_mainactivity_12)); permissions.setText(getString(R.string.message_mainactivity_12)); notes.setVisibility(View.GONE);findViewById(R.id.historyText).setVisibility(View.GONE); status.setText(text);
     }
 
     private void updateSaveButton() {

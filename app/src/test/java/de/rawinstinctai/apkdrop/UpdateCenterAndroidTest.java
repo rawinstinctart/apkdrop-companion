@@ -23,7 +23,9 @@ import static org.robolectric.Shadows.shadowOf;
 public final class UpdateCenterAndroidTest {
     private Context context;
     private ActivityController<MainActivity> activity;
-    @Before public void prepare() {
+    @Before public void prepare() throws Exception {
+        java.lang.reflect.Method scale=android.animation.ValueAnimator.class.getDeclaredMethod("setDurationScale",float.class);
+        scale.setAccessible(true);scale.invoke(null,0f);
         context=RuntimeEnvironment.getApplication();
         for(String name:List.of("apkdrop-library","apkdrop-release-snapshots","apkdrop-updates","apkdrop-notifications"))
             context.getSharedPreferences(name,Context.MODE_PRIVATE).edit().clear().commit();
@@ -61,7 +63,7 @@ public final class UpdateCenterAndroidTest {
         LinearLayout rows=target.findViewById(R.id.libraryList); assertEquals(1,rows.getChildCount());
         TextView badge=rows.getChildAt(0).findViewById(R.id.trackedBadge);
         TextView detail=rows.getChildAt(0).findViewById(R.id.trackedDetail);
-        assertEquals("UPDATE VERFÜGBAR",badge.getText().toString()); assertTrue(detail.getText().toString().contains("Letzter bekannter Release"));
+        assertEquals("UPDATE VERFÜGBAR",badge.getText().toString()); assertTrue(detail.getText().toString().contains("Gespeicherter Stand"));
     }
     @Test @Config(qualifiers="w432dp-h960dp-xhdpi")
     @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
