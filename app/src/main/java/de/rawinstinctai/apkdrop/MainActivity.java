@@ -61,7 +61,7 @@ public final class MainActivity extends Activity {
         library=new AppLibraryController(this,io,this::selectSingle,this::updateSaveButton);
         library.onUpdates(this::startUpdates);
         store=new StoreController(this,library,this::selectSingle);
-        store.restoreTab(state==null?0:state.getInt("storeTab",0));
+        store.restoreState(state);
         radar=findViewById(R.id.radarText); queueStatus=findViewById(R.id.queueStatus);
         queue=new AppLibraryStore(this).queue(); awaitingInstaller=library.pendingLaunched();
         findViewById(R.id.queueSkip).setOnClickListener(v->{ if(!detailBusy) nextUpdate(); });
@@ -166,7 +166,7 @@ public final class MainActivity extends Activity {
 
     @Override protected void onSaveInstanceState(Bundle state) {
         if(currentRelease!=null) state.putString("activeSlug",currentRelease.slug);
-        state.putInt("storeTab",store.tab());
+        store.saveState(state);
         super.onSaveInstanceState(state);
     }
 
@@ -224,6 +224,10 @@ public final class MainActivity extends Activity {
         File prior=keepVerified?verifiedApk:null;
         currentRelease=release; currentInstalled=installed; currentDecision=decision; verifiedApk=null;
         title.setText(release.appName);
+        if(fetched) {
+            proof.setVisibility(View.GONE);permissions.setVisibility(View.GONE);
+            ((Button)findViewById(R.id.trustButton)).setText("APK Trust Center · Nachweise ansehen +");
+        }
         if(fetched) store.releaseDetails(release.slug);
         radar.setText(ReleaseIntelligence.summary(release,installed,decision)+"\n\n"
                 +ReleaseIntelligence.radar(release,installed,library.previous(release)));
@@ -276,6 +280,7 @@ public final class MainActivity extends Activity {
             verifiedApk=prior; actionButton.setText(getString(R.string.message_mainactivity_5));
             status.setText(getString(R.string.message_mainactivity_6));
         }
+        updateTrust(verifiedApk!=null);
         if(fetched) library.rememberChecked(release,installed,decision);
         setBusy(false,"");
         updateQueueUi();
@@ -310,10 +315,10 @@ public final class MainActivity extends Activity {
     private void downloadAndVerify() {
         final int ticket=generation;
         final InstallContract release=currentRelease;
-        setBusy(true,"APK wird in privaten App-Speicher geladen …");
+        setBusy(true,"Schritt 1/3 · Release vor Download erneut prüfen …");
         actionButton.setEnabled(false);
         progress.setVisibility(View.VISIBLE); progress.setIndeterminate(false); progress.setProgress(0);
-        status.setText(getString(R.string.message_mainactivity_7));
+        status.setText("Schritt 1/3 · Release vor Download erneut prüfen …");
         downloadRunning=true;
         downloadCancellation=new ApkDownloader.Cancellation();
         final ApkDownloader.Cancellation cancellation=downloadCancellation;
@@ -326,10 +331,10 @@ public final class MainActivity extends Activity {
                 cancellation.check();
                 file=ApkDownloader.download(this,release,pct->post(ticket,()->{
                     progress.setProgress(pct);
-                    status.setText(pct+" % heruntergeladen · lokale Prüfung folgt");
+                    status.setText("Schritt 2/3 · Download "+pct+" % von "+formatSize(release.size)+"\nAnschließend folgen Hash-, Signatur- und Paketprüfung.");
                 }),cancellation);
                 cancellation.check();
-                post(ticket,()->status.setText(getString(R.string.message_mainactivity_8)));
+                post(ticket,()->{progress.setIndeterminate(true);status.setText("Schritt 3/3 · APK lokal prüfen …");});
                 InstalledState fresh=InstalledState.read(this,release.packageName);
                 InstallPolicy.Result freshDecision=InstallPolicy.evaluate(release,fresh,Build.VERSION.SDK_INT,Build.SUPPORTED_ABIS);
                 if(freshDecision.mode==InstallPolicy.Mode.BLOCKED || freshDecision.mode==InstallPolicy.Mode.CURRENT)
@@ -365,13 +370,14 @@ public final class MainActivity extends Activity {
         setBusy(false,"");
         actionButton.setEnabled(true);
         actionButton.setText(getString(R.string.ui_activity_main_30));
+        updateTrust(false);
         status.setText("Download abgebrochen. Du kannst erneut beginnen.");
     }
 
     private void verified(File file) {
         downloadRunning=false; activeDownload=null; downloadCancellation=null;
         cancelDownloadButton.setVisibility(View.GONE);
-        verifiedApk=file;
+        verifiedApk=file;updateTrust(true);
         setBusy(false,""); actionButton.setEnabled(true);
         actionButton.setText(getString(R.string.message_mainactivity_5));
         status.setText(getString(R.string.message_mainactivity_9));
@@ -380,7 +386,7 @@ public final class MainActivity extends Activity {
     private void downloadError(String text) {
         downloadRunning=false; activeDownload=null; downloadCancellation=null;
         cancelDownloadButton.setVisibility(View.GONE);
-        verifiedApk=null;
+        verifiedApk=null;updateTrust(false);
         setBusy(false,""); actionButton.setEnabled(true);
         actionButton.setText(getString(R.string.message_mainactivity_10)); status.setText(text);
     }
@@ -391,9 +397,16 @@ public final class MainActivity extends Activity {
         if(activeDownload!=null) activeDownload.cancel(true);
         activeDownload=null; downloadRunning=false;
         if(cancelDownloadButton!=null) cancelDownloadButton.setVisibility(View.GONE);
-        currentRelease=null; currentInstalled=null; currentDecision=null; verifiedApk=null;
+        currentRelease=null; currentInstalled=null; currentDecision=null; verifiedApk=null;updateTrust(false);
         actionButton.setVisibility(View.GONE);
         addButton.setVisibility(View.GONE);
+    }
+
+    private void updateTrust(boolean verified) {
+        ((TextView)findViewById(R.id.trustSummary)).setText(TrustSummary.describe(currentRelease,currentDecision,verified));
+        if(currentRelease!=null) proof.setText((verified?"Nachweise der lokal verifizierten APK":"Nachweise im Release-Vertrag (vor Download noch nicht lokal verifiziert)")
+                +"\n\nSHA-256  "+currentRelease.sha256+"\nSIGNER   "+String.join("\n",currentRelease.signers)
+                +"\nSDK      "+currentRelease.minSdk+" → "+(currentRelease.targetSdk==0?"—":currentRelease.targetSdk));
     }
 
     private void setBusy(boolean busy,String text) {
@@ -458,7 +471,7 @@ public final class MainActivity extends Activity {
                         library.pendingInstaller(release.slug);
                         boolean launched=InstallerHandoff.open(this,file);
                         awaitingInstaller=launched; library.pendingLaunched(launched);
-                        setBusy(false,""); actionButton.setEnabled(true);
+                        setBusy(false,""); actionButton.setEnabled(true);updateTrust(true);
                         status.setText(launched?"Android übernimmt jetzt die Installation. Der Status wird bei deiner Rückkehr aktualisiert."
                                 :"Erlaube APKDrop einmal als Installationsquelle und kehre danach zurück.");
                     } catch(Exception e) { library.clearPendingInstaller(); downloadError(message(e)); }

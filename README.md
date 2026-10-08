@@ -2,6 +2,14 @@
 
 Native Android companion for verified APKDrop installs and updates.
 
+## Alpha 7: useful everyday shortcuts (source candidate)
+
+Home now opens the three most relevant saved apps directly, starts the existing guided update overview when updates are known, cancels metadata checks, and offers link import and developer shortcuts. Discover keeps search/category/page/feed choice across rotation, adds reset, manual refresh and name sorting within the current page. Four bounded catalog responses remain readable for up to seven days offline with timestamp and explicit fresh-check requirement. Public display metadata never authorizes an APK download; withdrawn (404/410), malformed or security-invalid live responses clear the cached display.
+
+Following distinguishes unseen releases from explicitly viewed items, offers a new-only view and explicit mark-as-read, and preserves follow removal offline. Read history stays bounded and local. Trust Center now summarizes pending versus completed local APK verification, permissions and blocked reasons. The download labels fresh contract, download and local verification separately. Optional images use a 12 MiB memory cache.
+
+The non-debuggable preview keeps the original alpha package/certificate, now versionCode **9**, `0.1.0-alpha.7-preview`. Preflight defaults to `alpha7-preview`; all historical alpha profiles remain available. Original-key signing, a physical-device upgrade test and publication remain separate steps. See [Alpha 7 acceptance and signing](docs/alpha7-acceptance.md).
+
 ## Alpha 6.1: non-debuggable preview (source prepared)
 
 The `preview` build type uses release settings with debugging disabled, retains the installed alpha package `de.rawinstinctai.apkdrop.debug` and pins the original alpha certificate for in-place updates. Its identity is versionCode **8**, versionName `0.1.0-alpha.6.1-preview`. It is unsigned in CI and must be signed in the original-key environment before publishing. The `alpha6.1-preview` preflight rejects debuggable APKs, identity/signature mismatches and unexpected or missing permissions.
@@ -12,7 +20,7 @@ This is build hardening, not a guaranteed fix for Google's unknown-developer Pla
 
 Alpha 6 introduces a native Home with live, **locally derived** app/update counts and three clear shortcuts; Android `ACTION_SEND` text/plain handling for APKDrop links; and a visible cancel control while downloading/verifying an APK. Cancelled operations discard their candidate and **never** count as a verified or installed release. The signature/identity checks and Android system installer remain mandatory.
 
-The debug package stays `de.rawinstinctai.apkdrop.debug`, Alpha 6 versionCode **7**, versionName `0.1.0-alpha.6-debug`. Use `--profile alpha6` for the published Alpha 6 APK and `--profile alpha5` for historical Alpha 5 verification. The current default profile is `alpha6.1-preview`; development debug builds use `alpha6.1-debug`. The prior original debug signer must still be used for an in-place upgrade. This branch has **not** passed physical Android acceptance, original-key signing, or hosted CI merely by changing source.
+The debug package stays `de.rawinstinctai.apkdrop.debug`, Alpha 6 versionCode **7**, versionName `0.1.0-alpha.6-debug`. Use `--profile alpha6` for the published Alpha 6 APK and `--profile alpha5` for historical Alpha 5 verification. The Alpha 6.1 profiles are `alpha6.1-preview` and `alpha6.1-debug`; the current Alpha 7 default is `alpha7-preview`. The prior original debug signer must still be used for an in-place upgrade. This branch has **not** passed physical Android acceptance, original-key signing, or hosted CI merely by changing source.
 
 See [Alpha 6 acceptance plan](docs/alpha6-acceptance.md). Source development and signing are intentionally separate; no Cloudflare publication is part of this change.
 

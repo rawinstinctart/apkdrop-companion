@@ -61,7 +61,9 @@ final class StoreClient {
         c.setRequestProperty("Accept-Encoding","identity");return c;
     }
     private static void requireResponse(HttpURLConnection c,String type) throws Exception {
-        if(c.getResponseCode()!=200) throw new IOException(c.getResponseCode()==404?"Aktuell nicht öffentlich verfügbar.":"Verbindung fehlgeschlagen. Bitte erneut versuchen.");
+        int code=c.getResponseCode();
+        if(code==404 || code==410)throw new SecurityException("Aktuell nicht öffentlich verfügbar.");
+        if(code!=200) throw new IOException("Verbindung fehlgeschlagen. Bitte erneut versuchen.");
         if(c.getContentType()==null || !c.getContentType().toLowerCase(Locale.ROOT).startsWith(type)) throw new SecurityException("Unerwarteter Antworttyp.");
     }
     private static byte[] read(HttpURLConnection c,int max) throws Exception {

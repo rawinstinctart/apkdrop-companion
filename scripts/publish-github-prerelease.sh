@@ -18,7 +18,7 @@ TAG=$1
 APK=$(realpath "$2")
 PROFILE=$3
 case "$PROFILE" in
-  alpha5|alpha6|alpha6.1-preview|production) ;;
+  alpha5|alpha6|alpha6.1-preview|alpha7-preview|production) ;;
   *) echo 'Unknown release profile.' >&2; exit 2 ;;
 esac
 TITLE=$4
@@ -78,7 +78,7 @@ python3 -m unittest discover -s scripts/tests -v
 
 BUILD_VARIANT=Debug
 LINT_VARIANT=debug
-if [[ "$PROFILE" == alpha6.1-preview ]]; then
+if [[ "$PROFILE" == alpha6.1-preview || "$PROFILE" == alpha7-preview ]]; then
   BUILD_VARIANT=Preview
   LINT_VARIANT=preview
 elif [[ "$PROFILE" == production ]]; then

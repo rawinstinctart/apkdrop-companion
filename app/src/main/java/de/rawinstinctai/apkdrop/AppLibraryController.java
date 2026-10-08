@@ -35,7 +35,16 @@ final class AppLibraryController {
     void updatesOnly(boolean value) {if(updatesOnly!=value){updatesOnly=value;render();}}
     int updateCount() {int count=0;for(State s:states.values())if(s.error==null&&s.decision!=null&&s.decision.mode==InstallPolicy.Mode.UPDATE)count++;return count;}
     int count() {return library.entries().size();}
+    List<AppLibrary.Entry> homeEntries() {List<AppLibrary.Entry> entries=sortedEntries();return entries.subList(0,Math.min(3,entries.size()));}
+    String homeEntryLabel(AppLibrary.Entry entry) {
+        State state=states.get(entry.slug);
+        String status=state==null||state.decision==null?"Noch prüfen":state.decision.mode==InstallPolicy.Mode.UPDATE?"Update verfügbar":
+                state.decision.mode==InstallPolicy.Mode.CURRENT?"Aktuell":state.decision.mode==InstallPolicy.Mode.BLOCKED?"Blockiert":"Nicht installiert";
+        if(state!=null&&state.error!=null)status="Prüfung fehlgeschlagen";
+        return entry.name+" · "+status+(state!=null&&state.cached?" (letzter Stand)":"");
+    }
     String homeStatus() {
+        if(checking) return "Deine gespeicherten Apps werden gerade auf Updates geprüft. Du kannst die Prüfung abbrechen.";
         if(!readable) return "Deine App-Liste konnte nicht geladen werden.";
         if(count()==0) return "Entdecke unabhängige Apps und speichere sie für künftige Updates.";
         int unknown=0,blocked=0;
@@ -309,7 +318,7 @@ final class AppLibraryController {
         return entries;
     }
 
-    private void updateOverview() {
+    void updateOverview() {
         if(detailBusy || checking) return;
         List<String> slugs=new ArrayList<>(); StringBuilder overview=new StringBuilder();
         for(AppLibrary.Entry entry:sortedEntries()) {

@@ -49,6 +49,18 @@ class ReleasePolicyTest(unittest.TestCase):
                 with self.subTest(profile=profile, kwargs=kwargs), self.assertRaises(ValueError):
                     p.policy(profile, **kwargs)
 
+    def test_alpha7_preserves_original_signer_and_rejects_old_preview(self):
+        expected = p.policy("alpha7-preview")
+        self.assertEqual(expected["versionCode"], 9)
+        self.assertEqual(expected["versionName"], "0.1.0-alpha.7-preview")
+        self.assertEqual(expected["certificateSha256"], p.DEBUG_CERT)
+        self.assertFalse(expected["debuggable"])
+        self.assertTrue(p.policy("alpha7-debug")["debuggable"])
+        for overrides in ({"version_code": 8}, {"expected_cert": "a" * 64}, {"version_name": "other"}):
+            with self.assertRaises(ValueError):
+                p.policy("alpha7-preview", **overrides)
+        self.assertGreater(expected["versionCode"], p.policy("alpha6.1-preview")["versionCode"])
+
     def test_unknown_profile_does_not_fall_through_to_production(self):
         with self.assertRaises(ValueError):
             p.policy("typo", "a" * 64, 8, "0.1.0")
