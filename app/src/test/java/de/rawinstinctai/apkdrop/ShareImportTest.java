@@ -33,6 +33,8 @@ public final class ShareImportTest {
     @Test public void ambiguousSharedTextIsRejected() {
         assertThrows(IllegalArgumentException.class,()->SlugParser.parseShared(
             "https://apkdrop.rawinstinctai.de/install/app-one and https://apkdrop.rawinstinctai.de/install/app-two"));
+        assertThrows(IllegalArgumentException.class,()->SlugParser.parseShared(
+            "https://apkdrop.rawinstinctai.de/install/app-one and https://github.com/fixture-dev/example/releases/latest"));
     }
     @Test public void malformedSendExtraDoesNotCrash() {
         Intent intent=new Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT,42);
