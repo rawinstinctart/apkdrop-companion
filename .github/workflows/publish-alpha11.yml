@@ -1,0 +1,86 @@
+name: Publish original-signed Alpha 11 preview
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/publish-alpha11.yml'
+      - 'release/alpha11-signed.patch.zst.b64'
+      - 'release/reconstruct-alpha11.py'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-alpha11.yml'
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Obtain exact tested unsigned CI artifact
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 37843053925
+          name: apkdrop-companion-unsigned-preview
+          path: unsigned
+          github-token: ${{ github.token }}
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: ''
+      - name: Install official build tools
+        run: sdkmanager 'build-tools;35.0.0'
+      - name: Verify, reconstruct and independently inspect signed APK
+        run: |
+          set -euo pipefail
+          command -v zstd
+          mkdir -p dist
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -p -f 4 unsigned/app-preview-unsigned.apk /tmp/alpha11-aligned.apk
+          python3 release/reconstruct-alpha11.py /tmp/alpha11-aligned.apk release/alpha11-signed.patch.zst.b64 dist/APKDrop-Companion-v0.1.0-alpha.11-preview.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs dist/APKDrop-Companion-v0.1.0-alpha.11-preview.apk > /tmp/apk-verify.log
+          grep -q '^Verified using v2 scheme (APK Signature Scheme v2): true' /tmp/apk-verify.log
+          grep -q '^Verified using v3 scheme (APK Signature Scheme v3): true' /tmp/apk-verify.log
+          grep -q '^Number of signers: 1' /tmp/apk-verify.log
+          grep -q '^Signer #1 certificate SHA-256 digest: 6cf70241a63498e5e9fce78bac9abec760364cf320928347114bf109abd81e2e' /tmp/apk-verify.log
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging dist/APKDrop-Companion-v0.1.0-alpha.11-preview.apk > /tmp/apk-manifest.log
+          grep -q "package: name='de.rawinstinctai.apkdrop.debug' versionCode='14' versionName='0.1.0-alpha.11-preview'" /tmp/apk-manifest.log
+          grep -q "^uses-permission: name='android.permission.ACCESS_NETWORK_STATE'" /tmp/apk-manifest.log
+          ! grep -q '^application-debuggable' /tmp/apk-manifest.log
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c 4 dist/APKDrop-Companion-v0.1.0-alpha.11-preview.apk
+          printf 'd05665a7340eff6dc88c8d3d563f31444477ff2b1e7470b82676051d924895c5  dist/APKDrop-Companion-v0.1.0-alpha.11-preview.apk\n' | sha256sum -c -
+      - uses: actions/upload-artifact@v4
+        with:
+          name: original-signed-alpha11-reviewed
+          path: dist/APKDrop-Companion-v0.1.0-alpha.11-preview.apk
+          retention-days: 7
+  publish:
+    needs: verify
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+      actions: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: original-signed-alpha11-reviewed
+          path: dist
+      - uses: actions/checkout@v4
+      - name: Publish signed pre-release and verify downloadable APK
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG='v0.1.0-alpha.11'
+          APK='dist/APKDrop-Companion-v0.1.0-alpha.11-preview.apk'
+          ! gh release view "$TAG" >/dev/null 2>&1
+          printf 'd05665a7340eff6dc88c8d3d563f31444477ff2b1e7470b82676051d924895c5  %s\n' "$APK" | sha256sum -c -
+          gh release create "$TAG" "$APK" --target 9cda1de42fd57db9ce2a76537a862d279384f293 --title 'APKDrop Companion Alpha 11 Preview — DropPilot & Gerätewechsel' --notes-file release/alpha11-notes.md --prerelease
+          mkdir -p /tmp/download-proof
+          gh release download "$TAG" --pattern 'APKDrop-Companion-v0.1.0-alpha.11-preview.apk' --dir /tmp/download-proof
+          printf 'd05665a7340eff6dc88c8d3d563f31444477ff2b1e7470b82676051d924895c5  /tmp/download-proof/APKDrop-Companion-v0.1.0-alpha.11-preview.apk\n' | sha256sum -c -
+          echo 'PUBLIC SIGNED ALPHA11 GITHUB RELEASE VERIFIED'
