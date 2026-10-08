@@ -14,7 +14,7 @@ SIGNATURE = ("Verifies\nVerified using v1 scheme (JAR signing): false\n"
 MANIFEST = ("package: name='de.rawinstinctai.apkdrop.debug' versionCode='6' "
             "versionName='0.1.0-alpha.5-debug'\nsdkVersion:'26'\ntargetSdkVersion:'36'\n"
             "application-debuggable\n")
-MANIFEST += "".join("uses-permission: name='" + name + "'\n" for name in sorted(p.COMPANION_PERMISSIONS))
+MANIFEST += "".join("uses-permission: name='" + name + "'\n" for name in sorted(p.LEGACY_COMPANION_PERMISSIONS))
 
 
 class ReleasePolicyTest(unittest.TestCase):
@@ -81,6 +81,15 @@ class ReleasePolicyTest(unittest.TestCase):
         for overrides in ({"version_code": 10}, {"expected_cert": "a" * 64}, {"version_name": "other"}):
             with self.assertRaises(ValueError):
                 p.policy("alpha9-preview", **overrides)
+
+    def test_alpha91_requires_network_permission_and_preserves_legacy_profiles(self):
+        identity = p.policy("alpha9.1-preview")
+        self.assertEqual(identity["versionCode"], 12)
+        self.assertEqual(identity["versionName"], "0.1.0-alpha.9.1-preview")
+        self.assertEqual(identity["certificateSha256"], p.DEBUG_CERT)
+        self.assertFalse(identity["debuggable"])
+        self.assertNotIn("android.permission.ACCESS_NETWORK_STATE", p.LEGACY_COMPANION_PERMISSIONS)
+        self.assertIn("android.permission.ACCESS_NETWORK_STATE", p.COMPANION_PERMISSIONS)
 
     def test_unknown_profile_does_not_fall_through_to_production(self):
         with self.assertRaises(ValueError):
@@ -225,6 +234,15 @@ class ArtifactGateTest(unittest.TestCase):
                 result = self.inspect_with(manifest=manifest)
                 self.assertEqual(result["artifactStatus"], "blocked")
                 self.assertEqual(result["checks"]["permissions"], "blocked")
+
+    def test_alpha91_requires_network_permission_without_changing_alpha5_gate(self):
+        preview = MANIFEST.replace("versionCode=\'6\'", "versionCode=\'12\'").replace(
+            "0.1.0-alpha.5-debug", "0.1.0-alpha.9.1-preview").replace("application-debuggable\\n", "")
+        expected = p.policy("alpha9.1-preview")
+        self.assertEqual(self.inspect_with(manifest=preview, expected=expected)["checks"]["permissions"], "blocked")
+        with_network = preview + "uses-permission: name=\'android.permission.ACCESS_NETWORK_STATE\'\\n"
+        self.assertEqual(self.inspect_with(manifest=with_network, expected=expected)["artifactStatus"], "passed")
+        self.assertEqual(self.inspect_with()["artifactStatus"], "passed")
 
     def test_tool_failure_is_not_success(self):
         with patch.object(p, "run_tool", side_effect=ValueError("apksigner verification failed.")):
