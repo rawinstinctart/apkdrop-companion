@@ -2,6 +2,18 @@
 
 Native Android companion for verified APKDrop installs and updates.
 
+## Alpha 5: native store
+
+Alpha 5 adds separate Entdecken, Meine Apps, Updates and Einstellungen tabs. The catalog uses APKDrop's opt-in Discover API; app cards open the existing fresh-contract installation flow. Updates show a count and keep the guided round's skip/stop controls visible during app review.
+
+Public DropID profiles and developer follows work without an account. Follows use immutable GitHub IDs, stay in private backup-disabled preferences and can be removed even when a profile is no longer public. The release feed shows currently public releases; opening one checks the app's effective default channel. It never silently switches channels or installs from feed metadata.
+
+The APK Trust Center distinguishes publisher/repository evidence, release-contract facts and the actual local APK verification result. Full signer/hash evidence and permission declarations are expandable. App icons and developer screenshots are optional display media; the Android client accepts only APKDrop image routes. The server proxies bounded PNG/JPEG/WebP screenshots only from the app's linked public GitHub repository, without redirects. A missing image or profile cannot authorize installation.
+
+The Alpha 4.1 OEM JobScheduler crash fix from main is preserved. Alpha 5 uses versionCode 6 (`0.1.0-alpha.5-debug` for the debug package).
+
+Signing, real Android device acceptance and production App Links remain separate release gates. See [Alpha 5 verification](docs/alpha5-verification.md). GitHub CI produces an explicitly unsigned candidate and validation reports; sign in the original-key environment with `scripts/sign-existing-debug.sh`. No private signing material is stored here.
+
 ## Alpha 4: Smart Update Center
 
 Alpha 4 adds local release explanations, a last-known release cache, metadata-only background checks and an explicit update round. No new runtime dependency, account, Google service, analytics or AI request is used.
@@ -78,7 +90,7 @@ Requirements:
 gradle :app:testDebugUnitTest :app:assembleDebug
 ```
 
-The GitHub Actions workflow performs the same test/build and publishes the debug APK only as a short-lived workflow artifact when runner capacity is available. Current Actions runs are blocked by exhausted included minutes; billing is unchanged. Alpha 3 requires the isolated native build described in [the verification record](docs/alpha3-verification.md).
+The GitHub Actions workflow tests, lints and builds an unsigned debug candidate and publishes short-lived validation artifacts when runner capacity is available. Current Actions runs are blocked by exhausted included minutes; billing is unchanged. Alpha 3 requires the isolated native build described in [the verification record](docs/alpha3-verification.md).
 
 ## Release signing
 
@@ -95,3 +107,4 @@ The app declares `https://apkdrop.rawinstinctai.de/install/<slug>` with Android 
 ## Privacy
 
 APKDrop has no account requirement, analytics identifier, advertising SDK, device fingerprinting or hidden telemetry. It declares `QUERY_ALL_PACKAGES` to compare arbitrary target packages. Package queries are limited to the active install contract and explicitly saved entries; APKDrop does not enumerate or upload the installed-app inventory. The saved list stays in private preferences and backups remain disabled.
+
