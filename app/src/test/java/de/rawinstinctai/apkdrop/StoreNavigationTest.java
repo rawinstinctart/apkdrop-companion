@@ -110,6 +110,21 @@ public final class StoreNavigationTest {
             java.io.File file=new java.io.File(dir,"alpha5-discover.png");android.graphics.Bitmap image=android.graphics.Bitmap.createBitmap(720,1600,android.graphics.Bitmap.Config.ARGB_8888);root.draw(new android.graphics.Canvas(image));try(java.io.OutputStream out=new java.io.FileOutputStream(file)){image.compress(android.graphics.Bitmap.CompressFormat.PNG,100,out);}image.recycle();}
         org.json.JSONObject invalid=new org.json.JSONObject(data.toString()).put("schema","unknown");assertThrows(SecurityException.class,()->store.renderCatalog(invalid));
     }
+    @Test public void developerProfileShowsPremiumAvatarFallbackWithoutUnverifiedNetworkRequests() throws Exception {
+        MainActivity a=create(null);
+        java.lang.reflect.Field field=MainActivity.class.getDeclaredField("store");field.setAccessible(true);
+        StoreController store=(StoreController)field.get(a);
+        LinearLayout list=a.findViewById(R.id.discoverList);list.removeAllViews();
+        // Legacy "owner" identities and missing images still receive a polished monogram.
+        store.renderDeveloperHeader("RawInstinctAI","rawinstinctart","owner","https://avatars.githubusercontent.com/u/999?v=4");
+        assertEquals(1,list.getChildCount());
+        LinearLayout header=(LinearLayout)list.getChildAt(0);
+        FrameLayout portrait=(FrameLayout)header.getChildAt(0);
+        assertEquals("R",((TextView)portrait.getChildAt(0)).getText().toString());
+        assertEquals(View.GONE,portrait.getChildAt(1).getVisibility());
+        assertTrue(((LinearLayout)header.getChildAt(1)).getChildAt(0) instanceof TextView);
+        assertEquals("RawInstinctAI",((TextView)((LinearLayout)header.getChildAt(1)).getChildAt(0)).getText().toString());
+    }
     @Test @GraphicsMode(GraphicsMode.Mode.NATIVE) public void largeTextKeepsNavigationInsideWindow() throws Exception {
         RuntimeEnvironment.setFontScale(1.4f);MainActivity a=create(null);a.findViewById(R.id.navSettings).performClick();
         View root=a.findViewById(R.id.pageRoot);root.measure(View.MeasureSpec.makeMeasureSpec(720,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(1600,View.MeasureSpec.EXACTLY));root.layout(0,0,720,1600);
