@@ -19,19 +19,19 @@ import static org.junit.Assert.*;
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk=26,qualifiers="w360dp-h800dp-xhdpi",shadows={ShareTakeoverTest.Contracts.class,ShareTakeoverTest.PublicStore.class})
 public class ShareTakeoverTest {
-    static volatile boolean expired,hold;
+    static volatile boolean expired,hold,holdContract;
     static final List<String> fetched=Collections.synchronizedList(new ArrayList<>());
     private ActivityController<MainActivity> controller;
     private Context context;
     @Before public void prepare() throws Exception {
         java.lang.reflect.Method scale=android.animation.ValueAnimator.class.getDeclaredMethod("setDurationScale",float.class);
         scale.setAccessible(true);scale.invoke(null,0f);
-        context=RuntimeEnvironment.getApplication();expired=false;hold=false;fetched.clear();
+        context=RuntimeEnvironment.getApplication();expired=false;hold=false;holdContract=false;fetched.clear();
         for(String name:List.of("apkdrop-library","apkdrop-release-snapshots","apkdrop-updates","apkdrop-notifications"))
             context.getSharedPreferences(name,Context.MODE_PRIVATE).edit().clear().commit();
         context.getSystemService(JobScheduler.class).cancelAll();
     }
-    @After public void close(){hold=false;if(controller!=null)controller.destroy();}
+    @After public void close(){hold=false;holdContract=false;if(controller!=null)controller.destroy();}
     private MainActivity share(String link) {
         Intent intent=new Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT,"Diese App: "+link);
         controller=Robolectric.buildActivity(MainActivity.class,intent).create();return controller.get();
@@ -113,6 +113,30 @@ public class ShareTakeoverTest {
             new android.text.SpannableString("Diese App:\nhttps://apkdrop.rawinstinctai.de/install/test-app\nViel Spaß!"));
         controller=Robolectric.buildActivity(MainActivity.class,intent).create();MainActivity a=controller.get();ready(a);takeOver(a);
     }
+    @Test public void restoringAnInFlightUpdateDoesNotTreatItAsANewShare() throws Exception {
+        AppLibraryStore pins=new AppLibraryStore(context);
+        pins.save(pins.read().add(new AppLibrary.Entry("test-app","Test App","de.example.app",Set.of("a".repeat(64)))));
+        pins.queue(new UpdateQueue(List.of("test-app")));holdContract=true;
+        controller=Robolectric.buildActivity(MainActivity.class).create();
+        Bundle state=new Bundle();controller.saveInstanceState(state).destroy();
+        assertNull(state.getString("pendingLink"));holdContract=false;
+        controller=Robolectric.buildActivity(MainActivity.class).create(state);
+        long until=System.nanoTime()+TimeUnit.SECONDS.toNanos(5);
+        while(System.nanoTime()<until){Shadows.shadowOf(Looper.getMainLooper()).idle();
+            if(((TextView)controller.get().findViewById(R.id.titleText)).getText().toString().equals("Test App"))break;Thread.sleep(5);}
+        assertEquals("test-app",pins.queue().current());
+        assertEquals(View.VISIBLE,controller.get().findViewById(R.id.queueCard).getVisibility());
+    }
+    @Test public void shareArrivingDuringARequestSurvivesRestartAndOpensWhenIdle() throws Exception {
+        holdContract=true;MainActivity a=share("https://apkdrop.rawinstinctai.de/install/test-app");
+        String next="https://github.com/fixture-dev/example/releases/latest";
+        a.onNewIntent(new Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT,next));
+        Bundle state=new Bundle();controller.saveInstanceState(state).destroy();assertEquals(next,state.getString("deferredLink"));
+        holdContract=false;controller=Robolectric.buildActivity(MainActivity.class).create(state);a=controller.get();
+        long until=System.nanoTime()+TimeUnit.SECONDS.toNanos(5);
+        while(System.nanoTime()<until){Shadows.shadowOf(Looper.getMainLooper()).idle();if(fetched.contains("/api/dropid/fixture-dev.json"))break;Thread.sleep(5);}
+        assertTrue(fetched.contains("/api/dropid/fixture-dev.json"));ready(a);takeOver(a);
+    }
     private void render(MainActivity a,String name) throws Exception {
         String dir=System.getProperty("apkdrop.preview.dir");if(dir==null)return;
         View root=a.findViewById(R.id.pageRoot);root.measure(View.MeasureSpec.makeMeasureSpec(720,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(1600,View.MeasureSpec.EXACTLY));root.layout(0,0,720,1600);
@@ -121,8 +145,9 @@ public class ShareTakeoverTest {
     }
     @Implements(value=ContractClient.class,isInAndroidSdk=false)
     public static class Contracts {
-        @Implementation protected static InstallContract fetch(String slug) {
+        @Implementation protected static InstallContract fetch(String slug) throws Exception {
             fetched.add("contract:"+slug);
+            while(holdContract){if(Thread.currentThread().isInterrupted())throw new InterruptedException();Thread.sleep(5);}
             return new InstallContract(slug,"Test App","r2","1.2",2,"de.example.app",26,36,List.of(),Set.of(),Set.of("a".repeat(64)),"b".repeat(64),100,"stable","", "https://apkdrop.rawinstinctai.de/"+slug+"/releases/r2.apk","https://apkdrop.rawinstinctai.de/"+slug+"/receipt","");
         }
     }

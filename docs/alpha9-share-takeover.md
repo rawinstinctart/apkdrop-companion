@@ -20,6 +20,9 @@ Pending shared links survive saved-instance-state restoration. The top activity
 accepts new shares through `singleTop`. A new share takes precedence over an old
 update queue when no installer handoff is pending. Existing pending-installer recovery
 continues to take precedence during a cold launch.
+The latest incoming link is retained while a check, download or installer is busy,
+survives saved-state restoration and opens after the activity returns to idle.
+Internal queue/installer requests restore through their own persisted state.
 
 Tests cover APKDrop and verified GitHub shares through the real parser/resolver,
 details, one-tap pinning, scheduler and storage flow using fixture network responses.
