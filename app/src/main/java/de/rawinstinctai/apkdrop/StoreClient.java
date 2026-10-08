@@ -26,6 +26,21 @@ final class StoreClient {
             throw new SecurityException("Unzulässige Bildadresse.");
         return u;
     }
+    /** Only the public DropID owner's immutable GitHub ID may select a GitHub avatar. */
+    static URI avatarUri(String value, String githubId) {
+        if(githubId==null || !githubId.matches("[1-9][0-9]{0,19}") || value==null)
+            throw new SecurityException("Unzulässige Entwicklerbild-Adresse.");
+        final URI u;
+        try { u=URI.create(value); }catch(IllegalArgumentException malformed) {
+            throw new SecurityException("Unzulässige Entwicklerbild-Adresse.");
+        }
+        if(!"https".equals(u.getScheme()) || !"avatars.githubusercontent.com".equals(u.getHost())
+                || u.getUserInfo()!=null || u.getPort()!=-1 || u.getFragment()!=null
+                || !("/u/"+githubId).equals(u.getRawPath())
+                || (u.getRawQuery()!=null && !"v=4".equals(u.getRawQuery())))
+            throw new SecurityException("Unzulässige Entwicklerbild-Adresse.");
+        return u;
+    }
     static JSONObject get(String path) throws Exception { return json(path,null); }
     static JSONObject following(org.json.JSONArray ids) throws Exception {
         return json("/api/following",new JSONObject().put("slugs",new org.json.JSONArray()).put("developerIds",ids));
@@ -45,8 +60,10 @@ final class StoreClient {
             return new JSONObject(new String(read(c,1048576),StandardCharsets.UTF_8));
         } finally {c.disconnect();}
     }
-    static byte[] image(String value) throws Exception {
-        HttpURLConnection c=connect(imageUri(value));
+    static byte[] image(String value) throws Exception {return imageBytes(imageUri(value));}
+    static byte[] avatar(String value,String githubId) throws Exception {return imageBytes(avatarUri(value,githubId));}
+    private static byte[] imageBytes(URI checkedUri) throws Exception {
+        HttpURLConnection c=connect(checkedUri);
         try {
             c.setRequestProperty("Accept","image/png,image/jpeg,image/webp");requireResponse(c,"image/");
             String type=c.getContentType().split(";")[0].toLowerCase(Locale.ROOT);

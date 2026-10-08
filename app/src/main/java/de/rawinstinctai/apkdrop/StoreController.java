@@ -245,13 +245,52 @@ final class StoreController {
             if(!"apkdrop.dropid.v1".equals(p.optString("schema")) || !p.optBoolean("published") || !handle.equals(p.optString("handle")) || !DeveloperFollows.validId(id))throw new SecurityException("Entwicklerprofil nicht verfügbar.");
             final String name=bounded(p.getString("name"),160);final boolean saved=follows.contains(id);
             post(ticket,()->{
-                resultStatus.setText("DropID · @"+handle);results.addView(label(name,28));results.addView(label(bounded(p.optString("bio"),400),14));
+                resultStatus.setText("DropID · @"+handle);
+                renderDeveloperHeader(name,handle,id,p.optString("avatarUrl",""));
+                results.addView(label(bounded(p.optString("bio"),400),14));
                 results.addView(label("GitHub-Identität: "+("verified".equals(github.optString("status"))?"bestätigt":"Prüfung abgelaufen")+"\nBestätigt am: "+bounded(github.optString("verifiedAt"),80)+"\nDies bestätigt keine amtliche Identität oder Malware-Sicherheit.",12));
                 results.addView(button(saved?"Entwickler nicht mehr folgen":"Entwickler folgen +",()->{try{follows.toggle(id,handle,name);profile(handle);}catch(Exception e){error(e);}}));
                 results.addView(button("← Alle Apps entdecken",()->{following=false;catalog();}));results.addView(label("Veröffentlichte Apps",22));
                 JSONArray apps=p.optJSONArray("apps");if(apps!=null)for(int i=0;i<Math.min(100,apps.length());i++)appCard(apps.optJSONObject(i),results);
             });
         },ticket);
+    }
+    /** Profile picture is display-only and cannot influence DropID verification or installs. */
+    void renderDeveloperHeader(String name,String handle,String githubId,String avatarUrl) {
+        LinearLayout header=new LinearLayout(activity);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        header.setPadding(0,dp(10),0,dp(12));
+        FrameLayout portrait=new FrameLayout(activity);
+        LinearLayout.LayoutParams portraitSize=new LinearLayout.LayoutParams(dp(76),dp(76));
+        portraitSize.rightMargin=dp(16);
+        android.graphics.drawable.GradientDrawable background=new android.graphics.drawable.GradientDrawable();
+        background.setColor(0xFF242D1C);
+        background.setCornerRadius(dp(22));
+        background.setStroke(dp(1),0xFF37432D);
+        portrait.setBackground(background);
+        portrait.setClipToOutline(true);
+        portrait.setContentDescription("Entwicklerprofil von "+name);
+        TextView initial=new TextView(activity);
+        String first=name.trim().isEmpty()?"?":name.trim().substring(0,1).toUpperCase(java.util.Locale.ROOT);
+        initial.setText(first);
+        initial.setTextColor(activity.getColor(R.color.lime));
+        initial.setTextSize(30);
+        initial.setGravity(Gravity.CENTER);
+        initial.setTypeface(null,android.graphics.Typeface.BOLD);
+        portrait.addView(initial,new FrameLayout.LayoutParams(-1,-1));
+        ImageView avatar=new ImageView(activity);
+        avatar.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        avatar.setVisibility(View.GONE);
+        avatar.setContentDescription("GitHub-Profilbild von "+name);
+        portrait.addView(avatar,new FrameLayout.LayoutParams(-1,-1));
+        header.addView(portrait,portraitSize);
+        LinearLayout info=new LinearLayout(activity);
+        info.setOrientation(LinearLayout.VERTICAL);
+        info.addView(label(name,24));
+        info.addView(label("@"+handle+" · GitHub-Profil",12));
+        header.addView(info,new LinearLayout.LayoutParams(0,-2,1));
+        results.addView(header);
+        loadDeveloperAvatar(avatarUrl,githubId,avatar);
     }
     private void feed() {
         activeProfile=null;following=true;catalogControls(false);
@@ -328,18 +367,23 @@ final class StoreController {
             } catch(Exception e) {activity.runOnUiThread(()->{if(!closed&&ticket==detailRequest)publisher.setText(activity.getString(R.string.message_storecontroller_23));});}
         });
     }
-    private void loadImage(String url,ImageView view) {
+    private void loadImage(String url,ImageView view) {loadImage(url,null,view);}
+    private void loadDeveloperAvatar(String url,String githubId,ImageView view) {loadImage(url,githubId,view);}
+    private void loadImage(String url,String githubId,ImageView view) {
         if(url==null||url.isEmpty()||url.equals("null"))return;
-        try{StoreClient.imageUri(url);}catch(Exception invalid){return;}
-        view.setTag(url);Bitmap cached=images.get(url);if(cached!=null){view.setImageBitmap(cached);return;}
+        try {if(githubId==null)StoreClient.imageUri(url);else StoreClient.avatarUri(url,githubId);}
+        catch(Exception invalid){return;}
+        view.setTag(url);Bitmap cached=images.get(url);
+        if(cached!=null){view.setImageBitmap(cached);view.setVisibility(View.VISIBLE);return;}
         media.execute(()->{
-            try{byte[] bytes=StoreClient.image(url);BitmapFactory.Options bounds=new BitmapFactory.Options();bounds.inJustDecodeBounds=true;BitmapFactory.decodeByteArray(bytes,0,bytes.length,bounds);
+            try{byte[] bytes=githubId==null?StoreClient.image(url):StoreClient.avatar(url,githubId);
+                BitmapFactory.Options bounds=new BitmapFactory.Options();bounds.inJustDecodeBounds=true;BitmapFactory.decodeByteArray(bytes,0,bytes.length,bounds);
                 if(bounds.outWidth<1||bounds.outHeight<1||bounds.outWidth>12000||bounds.outHeight>12000)return;
                 BitmapFactory.Options options=new BitmapFactory.Options();options.inSampleSize=1;
                 while(Math.max(bounds.outWidth,bounds.outHeight)/options.inSampleSize>1200)options.inSampleSize*=2;
                 Bitmap image=BitmapFactory.decodeByteArray(bytes,0,bytes.length,options);if(image==null)return;
                 if(closed)return;images.put(url,image);
-                activity.runOnUiThread(()->{if(!closed&&url.equals(view.getTag()))view.setImageBitmap(image);});
+                activity.runOnUiThread(()->{if(!closed&&url.equals(view.getTag())){view.setImageBitmap(image);view.setVisibility(View.VISIBLE);}});
             }catch(Exception unavailable){/* Optional media cannot authorize or block installation. */}
         });
     }
