@@ -164,6 +164,20 @@ class ArtifactGateTest(unittest.TestCase):
             result = p.inspect(self.apk, self.root, p.policy("alpha5"))
         self.assertEqual(result["checks"]["artifactUnchanged"], "blocked")
 
+    def test_permission_max_sdk_below_min_sdk_is_blocked(self):
+        capped = MANIFEST.replace(
+            "uses-permission: name='android.permission.INTERNET'\n",
+            "uses-permission: name='android.permission.INTERNET' maxSdkVersion='25'\n")
+        result = self.inspect_with(manifest=capped)
+        self.assertEqual(result["artifactStatus"], "blocked")
+        self.assertTrue(any("maxSdkVersion is below the supported minSdk" in error for error in result["errors"]))
+
+    def test_permission_max_sdk_at_min_sdk_remains_allowed(self):
+        capped = MANIFEST.replace(
+            "uses-permission: name='android.permission.INTERNET'\n",
+            "uses-permission: name='android.permission.INTERNET' maxSdkVersion='26'\n")
+        self.assertEqual(self.inspect_with(manifest=capped)["artifactStatus"], "passed")
+
     def test_unexpected_sensitive_or_missing_permissions_block_artifact(self):
         for manifest in [
             MANIFEST + "uses-permission: name='android.permission.READ_SMS'\n",

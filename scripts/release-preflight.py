@@ -35,6 +35,39 @@ def signature_facts(output):
     return {"signers": 1, "certificateSha256": certificate(fingerprints[0])}
 
 
+def permission_facts(output, min_sdk):
+    permissions = []
+    for line in output.splitlines():
+        if not line.startswith("uses-permission"):
+            continue
+        name_marker = "name='"
+        name_start = line.find(name_marker)
+        if name_start < 0:
+            raise ValueError("Unable to parse a declared Android permission.")
+        name_start += len(name_marker)
+        name_end = line.find("'", name_start)
+        if name_end < 0:
+            raise ValueError("Unable to parse a declared Android permission.")
+        name = line[name_start:name_end]
+        attributes = line[name_end + 1:]
+        max_marker = "maxSdkVersion='"
+        if "maxSdkVersion" in attributes:
+            max_start = attributes.find(max_marker)
+            if max_start < 0 or attributes.find(max_marker, max_start + len(max_marker)) >= 0:
+                raise ValueError("Unable to parse a permission maxSdkVersion.")
+            max_start += len(max_marker)
+            max_end = attributes.find("'", max_start)
+            if max_end < 0:
+                raise ValueError("Unable to parse a permission maxSdkVersion.")
+            raw_max = attributes[max_start:max_end]
+            if not raw_max.isdecimal():
+                raise ValueError("A permission maxSdkVersion is not numeric.")
+            if int(raw_max) < min_sdk:
+                raise ValueError("A permission maxSdkVersion is below the supported minSdk.")
+        permissions.append(name)
+    return sorted(set(permissions))
+
+
 def manifest_facts(output):
     package = re.search(r"^package: name='([^']+)' versionCode='([0-9]+)' versionName='([^']+)'", output, re.M)
     minimum = re.search(r"^sdkVersion:'([0-9]+)'\s*$", output, re.M)
@@ -45,7 +78,7 @@ def manifest_facts(output):
             "versionName": package.group(3), "minSdk": int(minimum.group(1)),
             "targetSdk": int(target.group(1)),
             "debuggable": bool(re.search(r"^application-debuggable\s*$", output, re.M)),
-            "permissions": sorted(set(re.findall(r"^uses-permission(?:-sdk-\d+)?: name='([^']+)'", output, re.M)))}
+            "permissions": permission_facts(output, int(minimum.group(1)))}
 
 
 def policy(profile, expected_cert=None, version_code=None, version_name=None):
