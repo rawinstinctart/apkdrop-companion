@@ -8,6 +8,12 @@ set -euo pipefail
 : "${ANDROID_HOME:?Android SDK required}"
 candidate="${1:?Unsigned candidate APK required}"
 output="${2:?Signed output APK path required}"
+# Preserve the historical two-argument Alpha 6 call; new previews select their pinned profile.
+profile="${3:-alpha6}"
+case "$profile" in
+  alpha5|alpha6|alpha6.1-debug|alpha6.1-preview) ;;
+  *) echo 'Only original-key alpha profiles are supported.' >&2; exit 2 ;;
+esac
 build_tools="${APKDROP_BUILD_TOOLS:-35.0.0}"
 signer="$ANDROID_HOME/build-tools/$build_tools/apksigner"
 align="$ANDROID_HOME/build-tools/$build_tools/zipalign"
@@ -22,7 +28,7 @@ trap 'rm -rf "$scratch"' EXIT
   --ks-pass env:APKDROP_STORE_PASSWORD --key-pass env:APKDROP_KEY_PASSWORD \
   --out "$scratch/signed.apk" "$scratch/aligned.apk"
 python3 "$script_dir/release-preflight.py" "$scratch/signed.apk" \
-  --sdk "$ANDROID_HOME" --build-tools "$build_tools" > "$scratch/release-check.json" || {
+  --profile "$profile" --sdk "$ANDROID_HOME" --build-tools "$build_tools" > "$scratch/release-check.json" || {
   echo 'Release identity or signature check failed; output blocked.' >&2; exit 1;
 }
 cp "$scratch/signed.apk" "$output"

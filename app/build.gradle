@@ -8,8 +8,8 @@ android {
         applicationId "de.rawinstinctai.apkdrop"
         minSdk 26
         targetSdk 36
-        versionCode 7
-        versionName "0.1.0-alpha.6"
+        versionCode 8
+        versionName "0.1.0-alpha.6.1"
     }
 
     compileOptions {
@@ -27,6 +27,14 @@ android {
         release {
             minifyEnabled false
             // Release signing stays external. Never commit a keystore or password.
+        }
+        preview {
+            initWith release
+            // Keep the installed alpha package and original signer for in-place upgrades.
+            applicationIdSuffix ".debug"
+            versionNameSuffix "-preview"
+            debuggable false
+            signingConfig null
         }
     }
 }

@@ -12,6 +12,11 @@ import sys
 DEBUG_CERT = "6cf70241a63498e5e9fce78bac9abec760364cf320928347114bf109abd81e2e"
 DEBUG_PACKAGE = "de.rawinstinctai.apkdrop.debug"
 PRODUCTION_PACKAGE = "de.rawinstinctai.apkdrop"
+COMPANION_PERMISSIONS = frozenset({
+    "android.permission.INTERNET", "android.permission.RECEIVE_BOOT_COMPLETED",
+    "android.permission.POST_NOTIFICATIONS", "android.permission.REQUEST_INSTALL_PACKAGES",
+    "android.permission.QUERY_ALL_PACKAGES",
+})
 
 
 def certificate(value):
@@ -30,6 +35,40 @@ def signature_facts(output):
     return {"signers": 1, "certificateSha256": certificate(fingerprints[0])}
 
 
+def permission_facts(output, min_sdk):
+    permissions = []
+    for line in output.splitlines():
+        if not line.startswith("uses-permission"):
+            continue
+        name_marker = "name='"
+        name_start = line.find(name_marker)
+        if name_start < 0:
+            raise ValueError("Unable to parse a declared Android permission.")
+        name_start += len(name_marker)
+        name_end = line.find("'", name_start)
+        if name_end < 0:
+            raise ValueError("Unable to parse a declared Android permission.")
+        name = line[name_start:name_end]
+        attributes = line[name_end + 1:]
+        max_marker = "maxSdkVersion='"
+        if "maxSdkVersion" in attributes:
+            max_start = attributes.find(max_marker)
+            if max_start < 0 or attributes.find(max_marker, max_start + len(max_marker)) >= 0:
+                raise ValueError("Unable to parse a permission maxSdkVersion.")
+            max_start += len(max_marker)
+            max_end = attributes.find("'", max_start)
+            if max_end < 0:
+                raise ValueError("Unable to parse a permission maxSdkVersion.")
+            raw_max = attributes[max_start:max_end]
+            if not raw_max.isdecimal():
+                raise ValueError("A permission maxSdkVersion is not numeric.")
+            if int(raw_max) < min_sdk:
+                raise ValueError("A permission maxSdkVersion is below the supported minSdk.")
+            raise ValueError("A reviewed Companion permission must not be capped by maxSdkVersion.")
+        permissions.append(name)
+    return sorted(set(permissions))
+
+
 def manifest_facts(output):
     package = re.search(r"^package: name='([^']+)' versionCode='([0-9]+)' versionName='([^']+)'", output, re.M)
     minimum = re.search(r"^sdkVersion:'([0-9]+)'\s*$", output, re.M)
@@ -39,7 +78,8 @@ def manifest_facts(output):
     return {"package": package.group(1), "versionCode": int(package.group(2)),
             "versionName": package.group(3), "minSdk": int(minimum.group(1)),
             "targetSdk": int(target.group(1)),
-            "debuggable": bool(re.search(r"^application-debuggable\s*$", output, re.M))}
+            "debuggable": bool(re.search(r"^application-debuggable\s*$", output, re.M)),
+            "permissions": permission_facts(output, int(minimum.group(1)))}
 
 
 def policy(profile, expected_cert=None, version_code=None, version_name=None):
@@ -53,6 +93,15 @@ def policy(profile, expected_cert=None, version_code=None, version_name=None):
             raise ValueError("Alpha 6 identity is fixed; overrides are not accepted.")
         return {"package": DEBUG_PACKAGE, "certificateSha256": DEBUG_CERT,
                 "versionCode": 7, "versionName": "0.1.0-alpha.6-debug", "debuggable": True}
+    if profile in ("alpha6.1-debug", "alpha6.1-preview"):
+        if any(value is not None for value in (expected_cert, version_code, version_name)):
+            raise ValueError("Alpha 6.1 identity is fixed; overrides are not accepted.")
+        is_debug = profile == "alpha6.1-debug"
+        return {"package": DEBUG_PACKAGE, "certificateSha256": DEBUG_CERT,
+                "versionCode": 8, "versionName": "0.1.0-alpha.6.1-" + ("debug" if is_debug else "preview"),
+                "debuggable": is_debug}
+    if profile != "production":
+        raise ValueError("Unknown release profile.")
     if expected_cert is None or version_code is None or not version_name:
         raise ValueError("Production requires an explicit certificate, version code and version name.")
     expected_cert = certificate(expected_cert)
@@ -105,6 +154,10 @@ def inspect(apk, tools, expected):
         report["checks"]["sdk"] = "passed" if sdk_ok else "blocked"
         if not sdk_ok:
             report["errors"].append("Companion minSdk 26 and targetSdk 36 are required.")
+        permissions_ok = set(manifest["permissions"]) == COMPANION_PERMISSIONS
+        report["checks"]["permissions"] = "passed" if permissions_ok else "blocked"
+        if not permissions_ok:
+            report["errors"].append("Companion permissions do not match the reviewed allowlist.")
         after = digest(apk)
         report["checks"]["artifactUnchanged"] = "passed" if before == after else "blocked"
         if before != after:
@@ -119,7 +172,7 @@ def inspect(apk, tools, expected):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("apk", type=Path)
-    parser.add_argument("--profile", choices=["alpha5", "alpha6", "production"], default="alpha6")
+    parser.add_argument("--profile", choices=["alpha5", "alpha6", "alpha6.1-debug", "alpha6.1-preview", "production"], default="alpha6.1-preview")
     parser.add_argument("--sdk", default=os.environ.get("ANDROID_HOME") or os.environ.get("ANDROID_SDK_ROOT"))
     parser.add_argument("--build-tools", default="35.0.0")
     parser.add_argument("--expected-cert-sha256")
