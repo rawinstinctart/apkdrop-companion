@@ -29,13 +29,27 @@ gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug :app:lintDebug \
 
 Proxy settings used to resolve dependencies are temporary environment-specific build settings outside the repository. They are not application configuration.
 
+## Signed debug candidate — HIOS evidence, 8 October 2026
+
+The user supplied `alpha5-final-report.txt` and `alpha5-release-check(1).json` for clean source commit `4c21b61478e75307d27a5eb1152f023f35306e29`. HIOS reports successful assembly, 87 native tests, 17 release-preflight tests and lint with 0 errors / 37 warnings.
+
+- Signed file: `/tmp/APKDrop-Companion-alpha5-debug.apk`, 327,772 bytes.
+- SHA-256: `dd64fa7ad4b04c50951d852e7322335a57cfcc8ba5764931e5b1219087bb925d`.
+- Package `de.rawinstinctai.apkdrop.debug`; versionCode 6; versionName `0.1.0-alpha.5-debug`; minSdk 26; targetSdk 36.
+- Actual apksigner verification: reported PASS, one signer and a valid v2 signature. Certificate SHA-256: `6cf70241a63498e5e9fce78bac9abec760364cf320928347114bf109abd81e2e`.
+- Release-preflight: reported exit 0, artifactStatus passed; signature, identity, SDK and artifact-unchanged checks passed.
+- Existing Gradle debug signing configuration reused. An external init guard pinned only storeFile to the verified original keystore, retained alias/password configuration, and checked the original file baseline before and after. No replacement key was created.
+
+This resolves the earlier manual-script password-variable blocker through the established Gradle route. The earlier unsigned hashes describe historical builds. These are uploaded HIOS results; the signed APK binary was not attached for independent re-verification here.
+
+The user-provided phone screenshot shows Discover with the real FREY catalog entry and the four navigation tabs. It is visual evidence for that screen, not proof of APK identity, an upgrade, completed installation or update acceptance.
+
 ## Still open — release gates
 
-1. Sign the candidate in the environment holding the original debug key, using `scripts/sign-existing-debug.sh`. This environment has no original private key; the candidate is intentionally unsigned and is not installable.
-2. Physically upgrade Alpha 4.1 to Alpha 5 with the unchanged signer. Check launch, navigation, real catalog/profile data, offline/retry behavior, permission changes, installer cancellation/success and a two-app update round. JVM rendering cannot substitute for these device checks.
-3. Produce a separately signed production APK before setting `COMPANION_PACKAGE`, `COMPANION_CERT_SHA256` and `COMPANION_DOWNLOAD_URL`. Debug signing is not production signing. The production App Links gate remains disabled.
-4. GitHub-hosted Android CI has previously been blocked by exhausted included minutes. The new [Alpha 5 run](https://github.com/rawinstinctart/apkdrop-companion/actions/runs/37758642079) also fails before any job steps; GitHub exposes no logs for that job. The exact current failure annotation is unavailable through this connector. Its quota/billing was not changed; local native validation is the evidence here. This is not a green hosted CI result.
+1. Physically upgrade Alpha 4.1 to Alpha 5 with the unchanged signer. Check launch, navigation, real catalog/profile data, offline/retry behavior, permission changes, installer cancellation/success and a two-app update round. JVM rendering cannot substitute for these device checks.
+2. Produce a separately signed production APK before setting `COMPANION_PACKAGE`, `COMPANION_CERT_SHA256` and `COMPANION_DOWNLOAD_URL`. Debug signing is not production signing. The production App Links gate remains disabled.
+3. GitHub-hosted Android CI has previously been blocked by exhausted included minutes. The new [Alpha 5 run](https://github.com/rawinstinctart/apkdrop-companion/actions/runs/37758642079) also fails before any job steps; GitHub exposes no logs for that job. The exact current failure annotation is unavailable through this connector. Its quota/billing was not changed; local native validation is the evidence here. This is not a green hosted CI result.
 
 Companion PR #3 and platform PR #32 are merged into main. The platform Worker is deployed and its health, Discover, public DropID and native store metadata were checked live. Production App Links and install landing remain gated and return 404.
 
-No public beta APK is released by this change. The code and website integration are preparatory until signing and physical acceptance are complete.
+The original-signed debug candidate is ready according to the supplied HIOS evidence. No public beta APK is published by this documentation update. Physical acceptance, hosted CI resolution and the separate production artifact/App Links gates remain open.
