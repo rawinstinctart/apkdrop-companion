@@ -18,7 +18,7 @@ TAG=$1
 APK=$(realpath "$2")
 PROFILE=$3
 case "$PROFILE" in
-  alpha5|alpha6|alpha6.1-debug|alpha6.1-preview|production) ;;
+  alpha5|alpha6|alpha6.1-preview|production) ;;
   *) echo 'Unknown release profile.' >&2; exit 2 ;;
 esac
 TITLE=$4
