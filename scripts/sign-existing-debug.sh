@@ -11,7 +11,7 @@ output="${2:?Signed output APK path required}"
 # Preserve the historical two-argument Alpha 6 call; new previews select their pinned profile.
 profile="${3:-alpha6}"
 case "$profile" in
-  alpha5|alpha6|alpha6.1-debug|alpha6.1-preview|alpha7-debug|alpha7-preview|alpha8-debug|alpha8-preview|alpha9-debug|alpha9-preview|alpha9.1-debug|alpha9.1-preview) ;;
+  alpha5|alpha6|alpha6.1-debug|alpha6.1-preview|alpha7-debug|alpha7-preview|alpha8-debug|alpha8-preview|alpha9-debug|alpha9-preview|alpha9.1-debug|alpha9.1-preview|alpha10-debug|alpha10-preview) ;;
   *) echo 'Only original-key alpha profiles are supported.' >&2; exit 2 ;;
 esac
 build_tools="${APKDROP_BUILD_TOOLS:-35.0.0}"
