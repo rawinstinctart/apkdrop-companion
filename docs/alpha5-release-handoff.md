@@ -4,7 +4,7 @@ The Alpha 5 app source is in `main`, based on merge `9a27f990d67ec525aa56aa81295
 
 ## Original key and build
 
-Use only the established Alpha 2/3/4 debug keystore. Its public certificate SHA-256 is `6cf70241a63498e5e9fce78bac9abec760364cf320928347114bf109abd81e2e`. A prior build report located it in `/tmp/apkdrop-companion-build.XA95do/android-user/debug.keystore`; that temporary directory is absent from the current environment. The key cannot be recovered from the signed APK. Do not create a replacement, uninstall the previous app to conceal signer mismatch, or upload private key/password material to Git, reports or Worker variables.
+Use only the established Alpha 2/3/4 debug keystore. Its public certificate SHA-256 is `6cf70241a63498e5e9fce78bac9abec760364cf320928347114bf109abd81e2e`. A prior build report located it in `/tmp/apkdrop-companion-build.XA95do/android-user/debug.keystore`. It was absent from the ChatGPT build environment, but the later HIOS rerun found the original file present with its recorded baseline unchanged. Availability must be checked in the signing environment rather than inferred from another runtime. The key cannot be recovered from the signed APK. Do not create a replacement, uninstall the previous app to conceal signer mismatch, or upload private key/password material to Git, reports or Worker variables.
 
 In the environment that retains the original key, check out the reviewed main revision under `/tmp`. Use JDK 17, Gradle 8.13, SDK 36 and build-tools 35.0.0:
 
@@ -27,6 +27,22 @@ python3 scripts/release-preflight.py /tmp/APKDrop-Companion-alpha5-debug.apk \
 ```
 
 The script emits output only after successful cryptographic verification, one original signer, exact package/version, debug flag and SDK checks. An independent recheck returns JSON and exit code 0 for the artifact alone. Exit code 2 is blocked. Existing output/report files are preserved. The checker never signs, installs, changes billing or activates App Links.
+
+## HIOS rerun — 8 October 2026
+
+User-supplied `alpha5-final-evidence.txt` and `alpha5-release-check.json` report a clean checkout of `4c21b61478e75307d27a5eb1152f023f35306e29`, successful build, 87 native tests, 17 release-tool tests and 0 lint errors / 37 warnings. Its unsigned candidate is 323,676 bytes, SHA-256 `7315b1d4dc36d2e5b3f5149bfcca75bf23aa74161289919cfdefc4363326c828`. This is a separate rebuild; the earlier candidate hash remains historical evidence, not a requirement for this new file.
+
+The original keystore was found and its baseline remained unchanged. The original signer was confirmed against the existing signed Alpha 4.1 artifact. The manual script stopped because its protected password variables were unavailable, before using the key. Alpha 5 remains unsigned; apksigner and release-preflight correctly reject it. No device was connected. These are reported HIOS results, not a signed Alpha 5 verification performed here.
+
+### Reuse an established Gradle debug signing configuration when available
+
+Missing `APKDROP_STORE_PASSWORD` / `APKDROP_KEY_PASSWORD` variables block the manual apksigner script. They do not establish whether the existing Gradle debug signing configuration can still open the original key. An earlier build report used normal Gradle debug assembly with that existing key successfully. Android documents automatic debug signing through its signing configuration: https://developer.android.com/build/build-variants and https://developer.android.com/studio/publish/app-signing.
+
+In HIOS, first check the recorded original file and baseline. Reuse the earlier successful environment/configuration without printing or dumping passwords. Before any signing task, an external init guard must require the existing original file and assert that the active debug signing configuration resolves to that exact canonical file. It may pin the storeFile to the verified existing file while retaining the established alias/password configuration. It must stop for a missing file, a different active storeFile or an unavailable signing configuration; do not allow automatic generation of a replacement key. Do not add guessed passwords or search unrelated secret files.
+
+Run normal `:app:assembleDebug` with that guard and **without** `scripts/unsigned-debug.init.gradle`. Keep source at the exact reviewed commit and record any external build-configuration override. Compare the original keystore baseline before and after, including on failure. Then verify the resulting `app/build/outputs/apk/debug/app-debug.apk` with `scripts/release-preflight.py` and create a new report. Only a passed full APK check with the pinned original certificate makes a candidate eligible for delivery. If the established configuration cannot access the key, signing remains BLOCKED and the original protected credentials must be restored.
+
+This Gradle path has not been executed against the HIOS keystore here. It does not waive any certificate, package, version, SDK or physical-device gate and does not change the manual signing script's requirements.
 
 ## Physical device acceptance remains open
 
