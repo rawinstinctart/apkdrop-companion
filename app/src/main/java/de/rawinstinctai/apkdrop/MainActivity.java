@@ -598,7 +598,11 @@ public final class MainActivity extends Activity {
         activeDownload=null; downloadRunning=false;
         if(cancelDownloadButton!=null) cancelDownloadButton.setVisibility(View.GONE);
         if(store!=null)store.clearReleaseDetails();
-        findViewById(R.id.notesPanel).setVisibility(View.GONE);notesExpanded=false;findViewById(R.id.radarButton).setEnabled(false);radar.setVisibility(View.GONE);
+        findViewById(R.id.notesPanel).setVisibility(View.GONE);notesExpanded=false;
+        findViewById(R.id.trustSummary).setVisibility(View.GONE);
+        ((Button)findViewById(R.id.trustButton)).setText("APK Trust Center · Nachweise ansehen +");
+        ((Button)findViewById(R.id.radarButton)).setText(R.string.alpha12_radar_closed);
+        findViewById(R.id.radarButton).setEnabled(false);radar.setVisibility(View.GONE);
         title.setText("App wird geprüft …");badge.setText("PRÜFUNG AUSSTEHEND");meta.setText("");radar.setText("");notes.setVisibility(View.GONE);
         proof.setText("");permissions.setText("");notes.setText("");
         proof.setVisibility(View.GONE);permissions.setVisibility(View.GONE);findViewById(R.id.historyText).setVisibility(View.GONE);

@@ -52,6 +52,10 @@ public class Alpha12ExperienceTest {
         activity.findViewById(R.id.notesButton).performClick();assertEquals(shortText,notes.getText().toString());
         activity.findViewById(R.id.radarButton).performClick();assertEquals(View.VISIBLE,activity.findViewById(R.id.radarText).getVisibility());
         activity.findViewById(R.id.trustButton).performClick();assertEquals(View.VISIBLE,activity.findViewById(R.id.trustSummary).getVisibility());
+        java.lang.reflect.Method reset=MainActivity.class.getDeclaredMethod("resetCandidate");reset.setAccessible(true);reset.invoke(activity);
+        assertEquals(View.GONE,activity.findViewById(R.id.trustSummary).getVisibility());
+        assertTrue(((Button)activity.findViewById(R.id.trustButton)).getText().toString().contains("ansehen +"));
+        assertEquals(activity.getString(R.string.alpha12_radar_closed),((Button)activity.findViewById(R.id.radarButton)).getText().toString());
     }
     private void render(MainActivity activity,String name) throws Exception {
         String dir=System.getProperty("apkdrop.preview.dir");if(dir==null)return;
