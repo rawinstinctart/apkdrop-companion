@@ -14,6 +14,10 @@ import static org.junit.Assert.*;
 @RunWith(RobolectricTestRunner.class) @Config(sdk=26,qualifiers="w360dp-h800dp-xhdpi")
 public final class StoreNavigationTest {
     private ActivityController<MainActivity> controller;
+    @Before public void stableAnimationClock() throws Exception {
+        java.lang.reflect.Method scale=android.animation.ValueAnimator.class.getDeclaredMethod("setDurationScale",float.class);
+        scale.setAccessible(true);scale.invoke(null,0f);
+    }
     @After public void close(){if(controller!=null)controller.destroy();RuntimeEnvironment.setFontScale(1f);}
     private MainActivity create(Bundle state){controller=Robolectric.buildActivity(MainActivity.class).create(state);return controller.get();}
     @Test public void navigationSeparatesCatalogLibraryUpdatesAndSettings() {
@@ -36,7 +40,8 @@ public final class StoreNavigationTest {
     @Test public void activityRestartRestoresSelectedTab() {
         MainActivity a=create(null);
         a.findViewById(R.id.navSettings).performClick();
-        controller.recreate();
+        Bundle saved=new Bundle();controller.saveInstanceState(saved).destroy();
+        controller=Robolectric.buildActivity(MainActivity.class).create(saved);
         MainActivity restored=controller.get();
         assertEquals("Einstellungen",((TextView)restored.findViewById(R.id.sectionTitle)).getText().toString());
         assertEquals(View.VISIBLE,restored.findViewById(R.id.settingsPanel).getVisibility());

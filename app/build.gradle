@@ -8,8 +8,8 @@ android {
         applicationId "de.rawinstinctai.apkdrop"
         minSdk 26
         targetSdk 36
-        versionCode 9
-        versionName "0.1.0-alpha.7"
+        versionCode 10
+        versionName "0.1.0-alpha.8"
     }
 
     compileOptions {
@@ -17,7 +17,10 @@ android {
         targetCompatibility JavaVersion.VERSION_17
     }
 
-    testOptions { unitTests.includeAndroidResources = true }
+    testOptions {
+        unitTests.includeAndroidResources = true
+        unitTests.all { systemProperty "apkdrop.preview.dir", new File(rootProject.projectDir, "app/build/reports/ui").absolutePath }
+    }
 
     buildTypes {
         debug {
