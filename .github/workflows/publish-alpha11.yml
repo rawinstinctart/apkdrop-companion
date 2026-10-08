@@ -65,11 +65,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           name: original-signed-alpha11-reviewed
           path: dist
-      - uses: actions/checkout@v4
       - name: Publish signed pre-release and verify downloadable APK
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
