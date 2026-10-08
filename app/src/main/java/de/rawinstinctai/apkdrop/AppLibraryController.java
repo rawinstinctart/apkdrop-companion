@@ -62,11 +62,11 @@ final class AppLibraryController {
                     state.decision.mode==InstallPolicy.Mode.CURRENT?"Aktuell":
                     state.decision.mode==InstallPolicy.Mode.BLOCKED?"Blockiert":"Nicht installiert";
             if(state!=null && state.error!=null) status="Prüfung fehlgeschlagen";
-            if(out.length()>0) out.append("\\n\\n");
+            if(out.length()>0) out.append("\n\n");
             out.append(entry.name).append(" · ").append(status);
             if(state!=null && state.cached) out.append(" (letzter Stand)");
         }
-        if(count()>3) out.append("\\n\\n+").append(count()-3).append(" weitere Apps");
+        if(count()>3) out.append("\n\n+").append(count()-3).append(" weitere Apps");
         return out.toString();
     }
 

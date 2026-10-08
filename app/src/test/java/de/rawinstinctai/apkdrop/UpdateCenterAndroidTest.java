@@ -142,6 +142,18 @@ public final class UpdateCenterAndroidTest {
         assertFalse(UpdateScheduler.reconcile(context));
         assertEquals("corrupt",context.getSharedPreferences("apkdrop-library",Context.MODE_PRIVATE).getString("apps",null));
     }
+    @Test public void cancelDownloadRestoresControlsAndCancelsPendingWorker() throws Exception {
+        MainActivity target=start();
+        java.util.concurrent.FutureTask<Void> pending=new java.util.concurrent.FutureTask<>(()->null);
+        java.lang.reflect.Field active=MainActivity.class.getDeclaredField("activeDownload"); active.setAccessible(true); active.set(target,pending);
+        java.lang.reflect.Field running=MainActivity.class.getDeclaredField("downloadRunning");running.setAccessible(true);running.setBoolean(target,true);
+        Button cancel=target.findViewById(R.id.cancelDownload);cancel.setVisibility(android.view.View.VISIBLE);
+        cancel.performClick();
+        assertTrue(pending.isCancelled());
+        assertEquals(android.view.View.GONE,cancel.getVisibility());
+        assertFalse(running.getBoolean(target));
+        assertTrue(((TextView)target.findViewById(R.id.statusText)).getText().toString().contains("abgebrochen"));
+    }
     @Test public void queueAndPendingInstallerPersistSeparately() {
         AppLibraryStore store=new AppLibraryStore(context); store.queue(new UpdateQueue(List.of("test-app","other-app")));
         store.pendingInstaller("test-app"); store.pendingLaunched(true);
