@@ -35,7 +35,7 @@ public class Alpha12ExperienceTest {
         assertFalse(result.toString().contains("javascript:"));
         assertTrue(result.toString().contains("<script>literal</script>"));
     }
-    @Test public void previewPreservesStylesAndFullNotesCanBeExpanded() throws Exception {
+    @Test @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE) public void previewPreservesStylesAndFullNotesCanBeExpanded() throws Exception {
         controller=Robolectric.buildActivity(MainActivity.class).create();MainActivity activity=controller.get();
         String original="# FREY\n\n"+("- **Ein Update** mit ausführlicher Erklärung.\n").repeat(30);
         InstallContract release=new InstallContract("sample-app","FREY","r1","1.2",12,"de.example.frey",26,35,List.of(),Set.of(),Set.of("a".repeat(64)),"b".repeat(64),4,"beta",original,"https://apkdrop.rawinstinctai.de/sample-app/releases/file.apk","https://apkdrop.rawinstinctai.de/sample-app/receipt","https://apkdrop.rawinstinctai.de/sample-app");
@@ -45,10 +45,22 @@ public class Alpha12ExperienceTest {
         assertTrue(shortText.length()<ReleaseNotes.render(original).length());
         assertEquals(View.GONE,activity.findViewById(R.id.radarText).getVisibility());
         assertEquals(View.GONE,activity.findViewById(R.id.trustSummary).getVisibility());
+        activity.findViewById(R.id.homePanel).setVisibility(View.GONE);
+        activity.findViewById(R.id.detailPanel).setVisibility(View.VISIBLE);
+        activity.findViewById(R.id.releaseCard).setVisibility(View.VISIBLE);
+        render(activity,"alpha12-detail");
         activity.findViewById(R.id.notesButton).performClick();assertEquals(ReleaseNotes.render(original).toString(),notes.getText().toString());
         activity.findViewById(R.id.notesButton).performClick();assertEquals(shortText,notes.getText().toString());
         activity.findViewById(R.id.radarButton).performClick();assertEquals(View.VISIBLE,activity.findViewById(R.id.radarText).getVisibility());
         activity.findViewById(R.id.trustButton).performClick();assertEquals(View.VISIBLE,activity.findViewById(R.id.trustSummary).getVisibility());
+    }
+    private void render(MainActivity activity,String name) throws Exception {
+        String dir=System.getProperty("apkdrop.preview.dir");if(dir==null)return;
+        View root=activity.findViewById(R.id.pageRoot);
+        root.measure(View.MeasureSpec.makeMeasureSpec(720,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(1600,View.MeasureSpec.EXACTLY));root.layout(0,0,720,1600);
+        java.io.File file=new java.io.File(dir,name+".png");file.getParentFile().mkdirs();
+        android.graphics.Bitmap bitmap=android.graphics.Bitmap.createBitmap(720,1600,android.graphics.Bitmap.Config.ARGB_8888);root.draw(new android.graphics.Canvas(bitmap));
+        try(java.io.OutputStream out=new java.io.FileOutputStream(file)){bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,out);}bitmap.recycle();
     }
     @Test public void jobHistoryOnlyReportsRealStartsAndCannotBeOverwrittenByOldRuns() throws Exception {
         assertTrue(DropPilot.dashboard(context).contains("Noch keine Hintergrundprüfung"));

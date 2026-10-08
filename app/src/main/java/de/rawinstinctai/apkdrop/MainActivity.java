@@ -44,7 +44,10 @@ public final class MainActivity extends Activity {
     private String pendingLink;
     private String deferredLink;
     private final Handler main=new Handler(Looper.getMainLooper());
-    private boolean receiverRegistered;
+    private boolean receiverRegistered,pilotReceiverRegistered;
+    private final BroadcastReceiver pilotConditions=new BroadcastReceiver() {
+        @Override public void onReceive(Context context,Intent intent) {updateDropPilotStatus();}
+    };
     private final BroadcastReceiver packageChanges=new BroadcastReceiver() {
         @Override public void onReceive(Context context,Intent intent) {
             if(intent==null || intent.getData()==null || (Intent.ACTION_PACKAGE_REMOVED.equals(intent.getAction())
@@ -205,10 +208,16 @@ public final class MainActivity extends Activity {
         if(Build.VERSION.SDK_INT>=33) registerReceiver(packageChanges,filter,Context.RECEIVER_NOT_EXPORTED);
         else registerReceiver(packageChanges,filter);
         receiverRegistered=true;
+        IntentFilter conditions=new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
+        conditions.addAction(android.net.ConnectivityManager.CONNECTIVITY_ACTION);
+        if(Build.VERSION.SDK_INT>=33)registerReceiver(pilotConditions,conditions,Context.RECEIVER_NOT_EXPORTED);
+        else registerReceiver(pilotConditions,conditions);
+        pilotReceiverRegistered=true;
     }
 
     @Override protected void onStop() {
         if(receiverRegistered) { unregisterReceiver(packageChanges); receiverRegistered=false; }
+        if(pilotReceiverRegistered) {unregisterReceiver(pilotConditions);pilotReceiverRegistered=false;}
         super.onStop();
     }
 
