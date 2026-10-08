@@ -48,6 +48,10 @@ public class EverydayExperienceTest {
         assertThrows(SecurityException.class,()->CatalogCache.validate(catalog("sample-app").put("schema","apkdrop.install.v1")));
         assertThrows(SecurityException.class,()->CatalogCache.validate(catalog("sample-app").put("page",2)));
     }
+    @Test public void withdrawingCachedCatalogRemovesItsOfflineCopy() throws Exception {
+        CatalogCache cache=new CatalogCache(context());cache.save("withdrawn",catalog("sample-app"));
+        assertNotNull(cache.read("withdrawn"));cache.remove("withdrawn");assertNull(new CatalogCache(context()).read("withdrawn"));
+    }
     @Test public void newReleasesStayUnreadUntilExplicitlyMarkedAndSeparateChannels() throws Exception {
         context().getSharedPreferences("following-read-v1",0).edit().clear().commit();
         FollowReadState state=new FollowReadState(context());JSONObject first=release("1.0");assertTrue(state.unseen(first));

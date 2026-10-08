@@ -30,6 +30,7 @@ public final class MainActivity extends Activity {
     private ApkDownloader.Cancellation downloadCancellation;
     private Button cancelDownloadButton;
     private boolean detailBusy,refreshOnIdle;
+    private String verificationIssue="";
     private boolean receiverRegistered;
     private final BroadcastReceiver packageChanges=new BroadcastReceiver() {
         @Override public void onReceive(Context context,Intent intent) {
@@ -222,6 +223,7 @@ public final class MainActivity extends Activity {
             if(release.slug.equals(queue.current())) { boolean more=queue.size()>1; nextUpdate(); if(more) return; }
         }
         File prior=keepVerified?verifiedApk:null;
+        if(fetched)verificationIssue="";
         currentRelease=release; currentInstalled=installed; currentDecision=decision; verifiedApk=null;
         title.setText(release.appName);
         if(fetched) {
@@ -315,6 +317,7 @@ public final class MainActivity extends Activity {
     private void downloadAndVerify() {
         final int ticket=generation;
         final InstallContract release=currentRelease;
+        verificationIssue="";updateTrust(false);
         setBusy(true,"Schritt 1/3 · Release vor Download erneut prüfen …");
         actionButton.setEnabled(false);
         progress.setVisibility(View.VISIBLE); progress.setIndeterminate(false); progress.setProgress(0);
@@ -370,14 +373,14 @@ public final class MainActivity extends Activity {
         setBusy(false,"");
         actionButton.setEnabled(true);
         actionButton.setText(getString(R.string.ui_activity_main_30));
-        updateTrust(false);
+        verificationIssue="Abgebrochen · Keine verifizierte APK bereit.";updateTrust(false);
         status.setText("Download abgebrochen. Du kannst erneut beginnen.");
     }
 
     private void verified(File file) {
         downloadRunning=false; activeDownload=null; downloadCancellation=null;
         cancelDownloadButton.setVisibility(View.GONE);
-        verifiedApk=file;updateTrust(true);
+        verifiedApk=file;verificationIssue="";updateTrust(true);
         setBusy(false,""); actionButton.setEnabled(true);
         actionButton.setText(getString(R.string.message_mainactivity_5));
         status.setText(getString(R.string.message_mainactivity_9));
@@ -386,7 +389,7 @@ public final class MainActivity extends Activity {
     private void downloadError(String text) {
         downloadRunning=false; activeDownload=null; downloadCancellation=null;
         cancelDownloadButton.setVisibility(View.GONE);
-        verifiedApk=null;updateTrust(false);
+        verifiedApk=null;verificationIssue="Download oder APK-Prüfung fehlgeschlagen: "+text;updateTrust(false);
         setBusy(false,""); actionButton.setEnabled(true);
         actionButton.setText(getString(R.string.message_mainactivity_10)); status.setText(text);
     }
@@ -397,13 +400,13 @@ public final class MainActivity extends Activity {
         if(activeDownload!=null) activeDownload.cancel(true);
         activeDownload=null; downloadRunning=false;
         if(cancelDownloadButton!=null) cancelDownloadButton.setVisibility(View.GONE);
-        currentRelease=null; currentInstalled=null; currentDecision=null; verifiedApk=null;updateTrust(false);
+        currentRelease=null; currentInstalled=null; currentDecision=null; verifiedApk=null;verificationIssue="";updateTrust(false);
         actionButton.setVisibility(View.GONE);
         addButton.setVisibility(View.GONE);
     }
 
     private void updateTrust(boolean verified) {
-        ((TextView)findViewById(R.id.trustSummary)).setText(TrustSummary.describe(currentRelease,currentDecision,verified));
+        ((TextView)findViewById(R.id.trustSummary)).setText(TrustSummary.describe(currentRelease,currentDecision,verified)+(verificationIssue.isEmpty()?"":"\n\n"+verificationIssue));
         if(currentRelease!=null) proof.setText((verified?"Nachweise der lokal verifizierten APK":"Nachweise im Release-Vertrag (vor Download noch nicht lokal verifiziert)")
                 +"\n\nSHA-256  "+currentRelease.sha256+"\nSIGNER   "+String.join("\n",currentRelease.signers)
                 +"\nSDK      "+currentRelease.minSdk+" → "+(currentRelease.targetSdk==0?"—":currentRelease.targetSdk));

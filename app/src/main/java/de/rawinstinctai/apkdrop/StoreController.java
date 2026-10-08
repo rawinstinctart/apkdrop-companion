@@ -35,7 +35,8 @@ final class StoreController {
     private final TextView resultStatus,sectionTitle;
     private final ScrollView scroll;
     private int tab,request,detailRequest;
-    private boolean detail,closed,started,following;
+    private volatile boolean closed;
+    private boolean detail,started,following;
     private String category="",query="";
     private int page=1;
     private static final int[] NAV={R.id.navHome,R.id.navDiscover,R.id.navApps,R.id.navUpdates,R.id.navSettings};
@@ -104,7 +105,7 @@ final class StoreController {
             if(activeProfile!=null)try {StoreClient.handle(activeProfile);}catch(Exception bad){activeProfile=null;}
         }
         ((EditText)activity.findViewById(R.id.discoverInput)).setText(query);
-        ((Button)activity.findViewById(R.id.discoverFilter)).setText(category.isEmpty()?"Alle Kategorien · App-Standard":category+" · App-Standard");
+        ((Button)activity.findViewById(R.id.discoverFilter)).setText(categoryName(category)+" · App-Standard");
         ((Button)activity.findViewById(R.id.discoverSort)).setText(sortByName?"Sortierung · Name A–Z (diese Seite)":"Sortierung · Katalog");
         restoreTab(state==null?0:state.getInt("storeTab",0));
     }
@@ -148,6 +149,13 @@ final class StoreController {
     }
     boolean back() {if(!detail)return false;if(activity.findViewById(R.id.progress).getVisibility()==View.VISIBLE){Toast.makeText(activity,"Die laufende Prüfung bitte kurz abschließen lassen.",Toast.LENGTH_SHORT).show();return true;}detail=false;detailRequest++;renderNavigation();activity.findViewById(R.id.detailPanel).setVisibility(View.GONE);return true;}
 
+    private static String categoryName(String category) {
+        return switch(category) {
+            case "communication" -> "Kommunikation";case "productivity" -> "Produktivität";case "tools" -> "Tools";
+            case "privacy" -> "Privacy";case "media" -> "Medien";case "games" -> "Spiele";case "education" -> "Lernen";
+            case "other" -> "Andere";default -> "Alle Kategorien";
+        };
+    }
     private void filters(View anchor) {
         PopupMenu menu=new PopupMenu(activity,anchor);
         String[] values={"","communication","productivity","tools","privacy","media","games","education","other"};
@@ -169,6 +177,7 @@ final class StoreController {
                 JSONObject data=StoreClient.get(path);CatalogCache.validate(data);cache.save(path,data);
                 post(ticket,()->{catalogData=data;catalogCached=false;catalogAt=System.currentTimeMillis();renderCatalogState();});
             } catch(Exception e) {
+                if(!(e instanceof java.io.IOException))cache.remove(path);
                 post(ticket,()->{
                     // Malformed/currently revoked metadata is not replaced with stale success.
                     if(!(e instanceof java.io.IOException) || saved==null) {results.removeAllViews();catalogData=null;resultStatus.setText(message(e));}
@@ -278,7 +287,7 @@ final class StoreController {
         TextView publisher=activity.findViewById(R.id.developerText);publisher.setText(activity.getString(R.string.message_storecontroller_22));
         activity.findViewById(R.id.developerButton).setVisibility(View.GONE);
         LinearLayout gallery=activity.findViewById(R.id.screenshotList);gallery.removeAllViews();activity.findViewById(R.id.screenshotScroll).setVisibility(View.GONE);
-        ImageView icon=activity.findViewById(R.id.detailIcon);icon.setImageResource(R.drawable.ic_apkdrop);
+        ImageView icon=activity.findViewById(R.id.detailIcon);icon.setTag(null);icon.setImageResource(R.drawable.ic_apkdrop);
         network.execute(()->{
             try {
                 JSONObject data=StoreClient.get("/api/"+StoreClient.slug(slug)+"/store.json");

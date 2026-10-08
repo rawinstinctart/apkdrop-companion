@@ -34,6 +34,7 @@ final class CatalogCache {
         try {return decode(prefs.getString(path,null),path,System.currentTimeMillis());}
         catch(Exception corrupt) {prefs.edit().remove(path).apply();return null;}
     }
+    synchronized void remove(String path) {prefs.edit().remove(path).apply();}
     synchronized void save(String path,JSONObject data) throws Exception {
         validate(data);
         String raw=new JSONObject().put("path",path).put("at",System.currentTimeMillis()).put("data",data).toString();
