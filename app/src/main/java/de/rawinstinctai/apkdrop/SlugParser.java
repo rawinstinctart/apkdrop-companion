@@ -12,9 +12,11 @@ final class SlugParser {
         if(raw==null || raw.length()>4096)
             throw new IllegalArgumentException("Der geteilte Text ist zu lang.");
         String text=raw.trim();
+        java.util.regex.Matcher urls=Pattern.compile("[a-z][a-z0-9+.-]*://[^\\s<>]+",Pattern.CASE_INSENSITIVE).matcher(text);
+        if(urls.find()&&urls.find()) throw new IllegalArgumentException("Bitte nur einen Link gleichzeitig teilen.");
         try { return parse(text); } catch(IllegalArgumentException invalid) { /* Optional surrounding message. */ }
         java.util.regex.Matcher links=Pattern.compile(
-                "https://apkdrop\\.rawinstinctai\\.de/(?:install/)?[a-z0-9-]{3,40}/?(?=$| |[!)}](?= |$))",
+                "https://apkdrop\\.rawinstinctai\\.de/(?:install/)?[a-z0-9-]{3,40}/?(?=$|\\s|[!)}](?=\\s|$))",
                 Pattern.CASE_INSENSITIVE).matcher(text);
         if(!links.find()) throw new IllegalArgumentException("Teile einen gültigen APKDrop-Link.");
         String match=links.group();

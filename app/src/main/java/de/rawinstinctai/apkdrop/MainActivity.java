@@ -31,6 +31,7 @@ public final class MainActivity extends Activity {
     private Button cancelDownloadButton;
     private boolean detailBusy,refreshOnIdle;
     private String verificationIssue="";
+    private String pendingLink;
     private boolean receiverRegistered;
     private final BroadcastReceiver packageChanges=new BroadcastReceiver() {
         @Override public void onReceive(Context context,Intent intent) {
@@ -71,7 +72,7 @@ public final class MainActivity extends Activity {
         Switch background=findViewById(R.id.backgroundSwitch);
         background.setChecked(UpdateScheduler.enabled(this));
         background.setOnCheckedChangeListener((button,enabled)->{
-            UpdateScheduler.enabled(this,enabled); updateBackgroundStatus();
+            UpdateScheduler.enabled(this,enabled); updateBackgroundStatus(); updateSaveButton();
         });
         findViewById(R.id.notificationsButton).setOnClickListener(v->{
             if(Build.VERSION.SDK_INT>=33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)
@@ -101,12 +102,20 @@ public final class MainActivity extends Activity {
         });
         addButton.setOnClickListener(v->{
             if(currentRelease==null || detailBusy || library.checking()) return;
-            try { library.add(currentRelease,currentInstalled,currentDecision); toast("In Meine Apps gespeichert."); }
+            try {
+                if(library.find(currentRelease.slug)==null) library.add(currentRelease,currentInstalled,currentDecision);
+                UpdateScheduler.enabled(this,true);
+                ((Switch)findViewById(R.id.backgroundSwitch)).setChecked(true);
+                updateBackgroundStatus(); updateSaveButton();
+                toast(UpdateScheduler.scheduled(this)?"App übernommen. Update-Überwachung aktiv.":"App gespeichert. Automatische Prüfung konnte noch nicht geplant werden.");
+            }
             catch(Exception e) { toast(message(e)); }
         });
-        if(state==null && queue.current()==null && library.pendingInstaller()==null
+        if(state==null && library.pendingInstaller()==null
                 && isInstallIntent(getIntent())) handleIntent(getIntent());
         else {
+            String link=state==null?null:state.getString("pendingLink");
+            if(link!=null){importLink(link,true);return;}
             String slug=state==null?null:state.getString("activeSlug");
             if(slug==null) slug=queue.current();
             if(slug==null) slug=library.pendingInstaller();
@@ -172,6 +181,7 @@ public final class MainActivity extends Activity {
 
     @Override protected void onSaveInstanceState(Bundle state) {
         if(currentRelease!=null) state.putString("activeSlug",currentRelease.slug);
+        else if(pendingLink!=null) state.putString("pendingLink",pendingLink);
         store.saveState(state);
         super.onSaveInstanceState(state);
     }
@@ -193,7 +203,8 @@ public final class MainActivity extends Activity {
         if(!isInstallIntent(intent)) return;
         boolean shared=Intent.ACTION_SEND.equals(intent.getAction()) && "text/plain".equals(intent.getType());
         try {
-            String raw=shared?intent.getStringExtra(Intent.EXTRA_TEXT):intent.getDataString();
+            CharSequence text=shared?intent.getCharSequenceExtra(Intent.EXTRA_TEXT):null;
+            String raw=shared?(text==null?null:text.toString()):intent.getDataString();
             importLink(raw,shared);
         } catch(Exception e) { toast(message(e)); }
     }
@@ -203,6 +214,7 @@ public final class MainActivity extends Activity {
         try {selectSingle(shared?SlugParser.parseShared(raw):SlugParser.parse(raw));return;}
         catch(IllegalArgumentException invalid) { /* Try the narrowly supported GitHub path. */ }
         try {LinkImport.repository(raw);}catch(Exception invalid){toast(message(invalid));return;}
+        pendingLink=raw;
         store.showDetail();final int ticket=++generation;resetCandidate();card.setVisibility(View.VISIBLE);
         setBusy(true,"Suche die bestätigte APKDrop-App zum GitHub-Repository …");
         io.execute(()->{
@@ -213,6 +225,7 @@ public final class MainActivity extends Activity {
     }
 
     private void load(String slug) {
+        pendingLink="https://apkdrop.rawinstinctai.de/install/"+slug;
         store.showDetail();
         final int ticket=++generation;
         final AppLibrary.Entry saved=library.find(slug);
@@ -450,6 +463,7 @@ public final class MainActivity extends Activity {
     }
 
     private void showError(String text) {
+        pendingLink=null;
         resetCandidate(); setBusy(false,""); card.setVisibility(View.VISIBLE); badge.setText(getString(R.string.message_mainactivity_11));
         radar.setText(getString(R.string.message_mainactivity_12)); title.setText(getString(R.string.message_mainactivity_13)); meta.setText(getString(R.string.message_mainactivity_12)); proof.setText(getString(R.string.message_mainactivity_12)); permissions.setText(getString(R.string.message_mainactivity_12)); notes.setVisibility(View.GONE);findViewById(R.id.historyText).setVisibility(View.GONE); status.setText(text);
     }
@@ -459,8 +473,15 @@ public final class MainActivity extends Activity {
         if(library==null || addButton==null) return;
         boolean saved=currentRelease!=null && library.find(currentRelease.slug)!=null;
         addButton.setVisibility(currentRelease==null?View.GONE:View.VISIBLE);
-        addButton.setText(saved?"In Meine Apps gespeichert ✓":"Zu meinen Apps hinzufügen +");
-        addButton.setEnabled(currentRelease!=null&&!saved&&!detailBusy&&!library.checking()&&library.writable());
+        boolean monitored=saved&&UpdateScheduler.enabled(this)&&UpdateScheduler.scheduled(this);
+        addButton.setText(saved?(monitored?"App übernommen ✓":"Update-Überwachung aktivieren ↻"):"Übernehmen & Updates überwachen +");
+        addButton.setEnabled(currentRelease!=null&&!monitored&&!detailBusy&&!library.checking()&&library.writable());
+        TextView tracking=findViewById(R.id.monitoringStatus);
+        tracking.setVisibility(currentRelease==null?View.GONE:View.VISIBLE);
+        tracking.setText(!saved?"Ein Tipp speichert diese App dauerhaft in Meine Apps und aktiviert automatische Update-Prüfungen."
+                :monitored?"Update-Überwachung aktiv · etwa alle 6 Stunden, wenn Android Netzwerk und Akku freigibt."
+                :UpdateScheduler.enabled(this)?"App gespeichert. Automatische Prüfung noch nicht geplant. Tippe oben, um es erneut zu versuchen."
+                :"App gespeichert. Automatische Prüfungen sind ausgeschaltet. Mit einem Tipp wieder aktivieren.");
     }
 
     private void refreshCurrent() {

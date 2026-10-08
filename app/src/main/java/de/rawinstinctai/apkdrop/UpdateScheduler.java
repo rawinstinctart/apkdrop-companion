@@ -14,6 +14,12 @@ final class UpdateScheduler {
         context.getSharedPreferences("apkdrop-updates",Context.MODE_PRIVATE).edit().putBoolean("enabled",value).apply();
         reconcile(context);
     }
+    static boolean scheduled(Context context) {
+        try {
+            JobScheduler scheduler=context.getSystemService(JobScheduler.class);
+            return scheduler!=null&&scheduler.getPendingJob(JOB_ID)!=null;
+        } catch(Exception unavailable) { return false; }
+    }
     static boolean reconcile(Context context) {
         JobScheduler scheduler=context.getSystemService(JobScheduler.class);
         if(scheduler==null) return false;
