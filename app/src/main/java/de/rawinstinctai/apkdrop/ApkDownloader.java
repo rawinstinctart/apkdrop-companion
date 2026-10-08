@@ -36,6 +36,16 @@ final class ApkDownloader {
     }
     static synchronized File download(Context context,InstallContract release,Progress progress,Cancellation cancellation,
                                       ConnectionOpener opener) throws Exception {
+        return download(context,release,progress,cancellation,opener,new File(context.getCacheDir(),"apkdrop"));
+    }
+    static synchronized File downloadTo(Context context,InstallContract release,Progress progress,Cancellation cancellation,
+                                         File directory) throws Exception {
+        if(!directory.getCanonicalFile().equals(new File(context.getCacheDir(),"apkdrop-pilot").getCanonicalFile()))
+            throw new SecurityException("Unzulässiges Vorbereitungsverzeichnis.");
+        return download(context,release,progress,cancellation,url->(HttpURLConnection)url.openConnection(),directory);
+    }
+    private static File download(Context context,InstallContract release,Progress progress,Cancellation cancellation,
+                                      ConnectionOpener opener,File directory) throws Exception {
         URI uri=URI.create(release.downloadUrl);
         if(!"https".equals(uri.getScheme()) || !"apkdrop.rawinstinctai.de".equalsIgnoreCase(uri.getHost())
                 || uri.getUserInfo()!=null || uri.getFragment()!=null || uri.getQuery()!=null)
@@ -52,7 +62,7 @@ final class ApkDownloader {
             c.setRequestProperty("Accept","application/vnd.android.package-archive");
             c.setRequestProperty("Accept-Encoding","identity");
             c.setRequestProperty("User-Agent","APKDrop-Companion/0.1");
-            File dir=new File(context.getCacheDir(),"apkdrop");
+            File dir=directory;
             if(!dir.isDirectory() && !dir.mkdirs()) throw new IOException("Privater APKDrop-Cache konnte nicht angelegt werden.");
             VerifiedApkFiles.prepare(dir);
             String name=VerifiedApkFiles.newName();
