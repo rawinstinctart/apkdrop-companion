@@ -28,11 +28,11 @@ python3 scripts/release-preflight.py /tmp/APKDrop-Companion-alpha5-debug.apk \
 
 The script emits output only after successful cryptographic verification, one original signer, exact package/version, debug flag and SDK checks. An independent recheck returns JSON and exit code 0 for the artifact alone. Exit code 2 is blocked. Existing output/report files are preserved. The checker never signs, installs, changes billing or activates App Links.
 
-## HIOS rerun — 8 October 2026
+## Earlier blocked HIOS rerun — 8 October 2026
 
 User-supplied `alpha5-final-evidence.txt` and `alpha5-release-check.json` report a clean checkout of `4c21b61478e75307d27a5eb1152f023f35306e29`, successful build, 87 native tests, 17 release-tool tests and 0 lint errors / 37 warnings. Its unsigned candidate is 323,676 bytes, SHA-256 `7315b1d4dc36d2e5b3f5149bfcca75bf23aa74161289919cfdefc4363326c828`. This is a separate rebuild; the earlier candidate hash remains historical evidence, not a requirement for this new file.
 
-The original keystore was found and its baseline remained unchanged. The original signer was confirmed against the existing signed Alpha 4.1 artifact. The manual script stopped because its protected password variables were unavailable, before using the key. Alpha 5 remains unsigned; apksigner and release-preflight correctly reject it. No device was connected. These are reported HIOS results, not a signed Alpha 5 verification performed here.
+The original keystore was found and its baseline remained unchanged. The original signer was confirmed against the existing signed Alpha 4.1 artifact. The manual script stopped because its protected password variables were unavailable, before using the key. At that stage Alpha 5 remained unsigned; apksigner and release-preflight correctly rejected it. No device was connected. These are reported HIOS results, not a signed Alpha 5 verification performed here.
 
 ### Reuse an established Gradle debug signing configuration when available
 
@@ -42,11 +42,21 @@ In HIOS, first check the recorded original file and baseline. Reuse the earlier 
 
 Run normal `:app:assembleDebug` with that guard and **without** `scripts/unsigned-debug.init.gradle`. Keep source at the exact reviewed commit and record any external build-configuration override. Compare the original keystore baseline before and after, including on failure. Then verify the resulting `app/build/outputs/apk/debug/app-debug.apk` with `scripts/release-preflight.py` and create a new report. Only a passed full APK check with the pinned original certificate makes a candidate eligible for delivery. If the established configuration cannot access the key, signing remains BLOCKED and the original protected credentials must be restored.
 
-This Gradle path has not been executed against the HIOS keystore here. It does not waive any certificate, package, version, SDK or physical-device gate and does not change the manual signing script's requirements.
+### Final HIOS result — original-key signing passed
+
+The later user-supplied `alpha5-final-report.txt` and `alpha5-release-check(1).json` report that this Gradle route was executed successfully against the verified original keystore, on the same clean source commit `4c21b61478e75307d27a5eb1152f023f35306e29`. The external guard pinned only storeFile and preserved the established alias/password configuration. validateSigningDebug and packageDebug ran; the keystore baseline remained unchanged.
+
+The signed output is `/tmp/APKDrop-Companion-alpha5-debug.apk`, 327,772 bytes, SHA-256 `dd64fa7ad4b04c50951d852e7322335a57cfcc8ba5764931e5b1219087bb925d`. Its package is `de.rawinstinctai.apkdrop.debug`, versionCode 6, versionName `0.1.0-alpha.5-debug`, minSdk 26 and targetSdk 36.
+
+HIOS reports actual apksigner verification PASS with one signer, a valid v2 signature and the original certificate `6cf70241a63498e5e9fce78bac9abec760364cf320928347114bf109abd81e2e`. Release-preflight returned exit 0 / artifactStatus passed; cryptographicSignature, package, certificateSha256, versionCode, versionName, debuggable, sdk and artifactUnchanged all passed. Build, 87 native tests, 17 release-tool tests and lint (0 errors / 37 warnings) also passed.
+
+The earlier manual-script block is superseded by this successful Gradle result. These are uploaded HIOS results; the signed APK binary was not attached for independent re-verification in ChatGPT. The manual script still requires its protected password variables when that route is chosen. No certificate, package, version, SDK or physical-device gate is waived.
+
+The phone screenshot supplied with the final report shows Discover, the real FREY catalog entry and four navigation tabs. It does not identify the installed APK's hash/version or prove migration, installer success or update completion. Physical-device acceptance remains OPEN, hosted Android CI remains unverified, and production App Links remain not activated.
 
 ## Physical device acceptance remains open
 
-On 8 October 2026, a fresh `adb devices -l` check in this environment found zero devices. No device tests were performed. The artifact checker always leaves physical acceptance open; successful APK verification cannot complete it.
+The final HIOS report on 8 October 2026 recorded zero devices from `adb devices -l` and no device acceptance tests. The supplied phone screenshot is scoped visual evidence only. Manual checks on the user's phone can still establish individual acceptance results without an ADB connection to HIOS. The artifact checker always leaves physical acceptance open; successful APK verification cannot complete it.
 
 On an authorized real Android device, retain the previous installation and its saved app list. Verify the installed baseline's package, version and signer before upgrading. Upgrade with the original-signed Alpha 5 APK and document:
 
