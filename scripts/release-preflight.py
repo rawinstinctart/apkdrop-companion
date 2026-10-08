@@ -64,6 +64,7 @@ def permission_facts(output, min_sdk):
                 raise ValueError("A permission maxSdkVersion is not numeric.")
             if int(raw_max) < min_sdk:
                 raise ValueError("A permission maxSdkVersion is below the supported minSdk.")
+            raise ValueError("A reviewed Companion permission must not be capped by maxSdkVersion.")
         permissions.append(name)
     return sorted(set(permissions))
 

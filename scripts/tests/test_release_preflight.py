@@ -172,11 +172,15 @@ class ArtifactGateTest(unittest.TestCase):
         self.assertEqual(result["artifactStatus"], "blocked")
         self.assertTrue(any("maxSdkVersion is below the supported minSdk" in error for error in result["errors"]))
 
-    def test_permission_max_sdk_at_min_sdk_remains_allowed(self):
-        capped = MANIFEST.replace(
-            "uses-permission: name='android.permission.INTERNET'\n",
-            "uses-permission: name='android.permission.INTERNET' maxSdkVersion='26'\n")
-        self.assertEqual(self.inspect_with(manifest=capped)["artifactStatus"], "passed")
+    def test_permission_max_sdk_caps_are_rejected_at_and_above_min_sdk(self):
+        for max_sdk in ("26", "35", "36"):
+            capped = MANIFEST.replace(
+                "uses-permission: name='android.permission.INTERNET'\n",
+                "uses-permission: name='android.permission.INTERNET' maxSdkVersion='" + max_sdk + "'\n")
+            with self.subTest(max_sdk=max_sdk):
+                result = self.inspect_with(manifest=capped)
+                self.assertEqual(result["artifactStatus"], "blocked")
+                self.assertTrue(any("maxSdkVersion" in error for error in result["errors"]))
 
     def test_unexpected_sensitive_or_missing_permissions_block_artifact(self):
         for manifest in [
