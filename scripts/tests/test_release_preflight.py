@@ -109,6 +109,20 @@ class ReleasePolicyTest(unittest.TestCase):
         self.assertFalse(expected["debuggable"])
         self.assertGreater(expected["versionCode"],p.policy("alpha10-preview")["versionCode"])
 
+    def test_alpha13_avatar_update_is_installable_without_changing_original_identity(self):
+        previous=p.policy("alpha12-preview")
+        expected=p.policy("alpha13-preview")
+        self.assertEqual(expected["versionCode"],16)
+        self.assertEqual(expected["versionName"],"0.1.0-alpha.13-preview")
+        self.assertEqual(expected["certificateSha256"],previous["certificateSha256"])
+        self.assertEqual(expected["package"],previous["package"])
+        self.assertFalse(expected["debuggable"])
+        self.assertGreater(expected["versionCode"],previous["versionCode"])
+        self.assertTrue(p.policy("alpha13-debug")["debuggable"])
+        for override in ({"version_code":15}, {"version_name":"wrong"}, {"expected_cert":"f"*64}):
+            with self.assertRaises(ValueError):
+                p.policy("alpha13-preview",**override)
+
     def test_alpha12_keeps_original_identity_and_non_debuggable_preview(self):
         expected=p.policy("alpha12-preview")
         self.assertEqual(expected["versionCode"],15)
