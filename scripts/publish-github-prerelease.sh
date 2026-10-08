@@ -17,6 +17,10 @@ if [[ $# -lt 6 || $# -gt 9 ]]; then usage; exit 2; fi
 TAG=$1
 APK=$(realpath "$2")
 PROFILE=$3
+case "$PROFILE" in
+  alpha5|alpha6|alpha6.1-debug|alpha6.1-preview|production) ;;
+  *) echo 'Unknown release profile.' >&2; exit 2 ;;
+esac
 TITLE=$4
 NOTES=$(realpath "$5")
 TESTED_SOURCE=$6
@@ -72,11 +76,20 @@ REPORT="$WORK_TMP/release-preflight.json"
 echo 'Running release-preflight Python tests…'
 python3 -m unittest discover -s scripts/tests -v
 
-echo 'Running native tests, lint and unsigned debug build…'
+BUILD_VARIANT=Debug
+LINT_VARIANT=debug
+if [[ "$PROFILE" == alpha6.1-preview ]]; then
+  BUILD_VARIANT=Preview
+  LINT_VARIANT=preview
+elif [[ "$PROFILE" == production ]]; then
+  BUILD_VARIANT=Release
+  LINT_VARIANT=release
+fi
+echo "Running native tests, lint and unsigned $LINT_VARIANT build…"
 gradle --no-daemon -I scripts/unsigned-debug.init.gradle \
-  :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
+  ":app:test${BUILD_VARIANT}UnitTest" ":app:lint${BUILD_VARIANT}" ":app:assemble${BUILD_VARIANT}"
 
-python3 - "$ROOT/app/build/reports/lint-results-debug.xml" <<'PY'
+python3 - "$ROOT/app/build/reports/lint-results-$LINT_VARIANT.xml" <<'PY'
 import sys
 import xml.etree.ElementTree as ET
 root = ET.parse(sys.argv[1]).getroot()

@@ -12,6 +12,11 @@ import sys
 DEBUG_CERT = "6cf70241a63498e5e9fce78bac9abec760364cf320928347114bf109abd81e2e"
 DEBUG_PACKAGE = "de.rawinstinctai.apkdrop.debug"
 PRODUCTION_PACKAGE = "de.rawinstinctai.apkdrop"
+COMPANION_PERMISSIONS = frozenset({
+    "android.permission.INTERNET", "android.permission.RECEIVE_BOOT_COMPLETED",
+    "android.permission.POST_NOTIFICATIONS", "android.permission.REQUEST_INSTALL_PACKAGES",
+    "android.permission.QUERY_ALL_PACKAGES",
+})
 
 
 def certificate(value):
@@ -39,7 +44,8 @@ def manifest_facts(output):
     return {"package": package.group(1), "versionCode": int(package.group(2)),
             "versionName": package.group(3), "minSdk": int(minimum.group(1)),
             "targetSdk": int(target.group(1)),
-            "debuggable": bool(re.search(r"^application-debuggable\s*$", output, re.M))}
+            "debuggable": bool(re.search(r"^application-debuggable\s*$", output, re.M)),
+            "permissions": sorted(set(re.findall(r"^uses-permission(?:-sdk-\d+)?: name='([^']+)'", output, re.M)))}
 
 
 def policy(profile, expected_cert=None, version_code=None, version_name=None):
@@ -53,6 +59,15 @@ def policy(profile, expected_cert=None, version_code=None, version_name=None):
             raise ValueError("Alpha 6 identity is fixed; overrides are not accepted.")
         return {"package": DEBUG_PACKAGE, "certificateSha256": DEBUG_CERT,
                 "versionCode": 7, "versionName": "0.1.0-alpha.6-debug", "debuggable": True}
+    if profile in ("alpha6.1-debug", "alpha6.1-preview"):
+        if any(value is not None for value in (expected_cert, version_code, version_name)):
+            raise ValueError("Alpha 6.1 identity is fixed; overrides are not accepted.")
+        is_debug = profile == "alpha6.1-debug"
+        return {"package": DEBUG_PACKAGE, "certificateSha256": DEBUG_CERT,
+                "versionCode": 8, "versionName": "0.1.0-alpha.6.1-" + ("debug" if is_debug else "preview"),
+                "debuggable": is_debug}
+    if profile != "production":
+        raise ValueError("Unknown release profile.")
     if expected_cert is None or version_code is None or not version_name:
         raise ValueError("Production requires an explicit certificate, version code and version name.")
     expected_cert = certificate(expected_cert)
@@ -105,6 +120,10 @@ def inspect(apk, tools, expected):
         report["checks"]["sdk"] = "passed" if sdk_ok else "blocked"
         if not sdk_ok:
             report["errors"].append("Companion minSdk 26 and targetSdk 36 are required.")
+        permissions_ok = set(manifest["permissions"]) == COMPANION_PERMISSIONS
+        report["checks"]["permissions"] = "passed" if permissions_ok else "blocked"
+        if not permissions_ok:
+            report["errors"].append("Companion permissions do not match the reviewed allowlist.")
         after = digest(apk)
         report["checks"]["artifactUnchanged"] = "passed" if before == after else "blocked"
         if before != after:
@@ -119,7 +138,7 @@ def inspect(apk, tools, expected):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("apk", type=Path)
-    parser.add_argument("--profile", choices=["alpha5", "alpha6", "production"], default="alpha6")
+    parser.add_argument("--profile", choices=["alpha5", "alpha6", "alpha6.1-debug", "alpha6.1-preview", "production"], default="alpha6.1-preview")
     parser.add_argument("--sdk", default=os.environ.get("ANDROID_HOME") or os.environ.get("ANDROID_SDK_ROOT"))
     parser.add_argument("--build-tools", default="35.0.0")
     parser.add_argument("--expected-cert-sha256")

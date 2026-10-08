@@ -14,6 +14,7 @@ SIGNATURE = ("Verifies\nVerified using v1 scheme (JAR signing): false\n"
 MANIFEST = ("package: name='de.rawinstinctai.apkdrop.debug' versionCode='6' "
             "versionName='0.1.0-alpha.5-debug'\nsdkVersion:'26'\ntargetSdkVersion:'36'\n"
             "application-debuggable\n")
+MANIFEST += "".join("uses-permission: name='" + name + "'\n" for name in sorted(p.COMPANION_PERMISSIONS))
 
 
 class ReleasePolicyTest(unittest.TestCase):
@@ -34,6 +35,23 @@ class ReleasePolicyTest(unittest.TestCase):
     def test_production_needs_explicit_identity(self):
         with self.assertRaises(ValueError):
             p.policy("production")
+
+    def test_preview_preserves_upgrade_identity_without_debugging(self):
+        preview = p.policy("alpha6.1-preview")
+        self.assertEqual(preview["package"], p.policy("alpha6")["package"])
+        self.assertEqual(preview["certificateSha256"], p.policy("alpha6")["certificateSha256"])
+        self.assertGreater(preview["versionCode"], p.policy("alpha6")["versionCode"])
+        self.assertEqual(preview["versionName"], "0.1.0-alpha.6.1-preview")
+        self.assertFalse(preview["debuggable"])
+        self.assertTrue(p.policy("alpha6.1-debug")["debuggable"])
+        for profile in ("alpha6.1-debug", "alpha6.1-preview"):
+            for kwargs in [{"expected_cert": "a" * 64}, {"version_code": 7}, {"version_name": "other"}]:
+                with self.subTest(profile=profile, kwargs=kwargs), self.assertRaises(ValueError):
+                    p.policy(profile, **kwargs)
+
+    def test_unknown_profile_does_not_fall_through_to_production(self):
+        with self.assertRaises(ValueError):
+            p.policy("typo", "a" * 64, 8, "0.1.0")
 
     def test_debug_signer_never_becomes_production(self):
         for fingerprint in [p.DEBUG_CERT, ":".join(p.DEBUG_CERT[i:i+2] for i in range(0, 64, 2)).upper()]:
@@ -119,6 +137,23 @@ class ArtifactGateTest(unittest.TestCase):
         result = self.inspect_with(signature, manifest, p.policy("production", "a" * 64, 6, "0.1.0"))
         self.assertEqual(result["checks"]["debuggable"], "blocked")
 
+    def test_preview_rejects_debug_old_and_resigned_artifacts(self):
+        preview_manifest = MANIFEST.replace("versionCode='6'", "versionCode='8'").replace(
+            "0.1.0-alpha.5-debug", "0.1.0-alpha.6.1-preview").replace("application-debuggable\n", "")
+        expected = p.policy("alpha6.1-preview")
+        self.assertEqual(self.inspect_with(manifest=preview_manifest, expected=expected)["artifactStatus"], "passed")
+        variants = [
+            (SIGNATURE, preview_manifest + "application-debuggable\n"),
+            (SIGNATURE, preview_manifest.replace("versionCode='8'", "versionCode='7'")),
+            (SIGNATURE, preview_manifest.replace("-preview", "-debug")),
+            (SIGNATURE, preview_manifest.replace(p.DEBUG_PACKAGE, p.PRODUCTION_PACKAGE)),
+            (SIGNATURE.replace(p.DEBUG_CERT, "a" * 64), preview_manifest),
+            (SIGNATURE, MANIFEST),
+        ]
+        for signature, manifest in variants:
+            with self.subTest(signature=signature, manifest=manifest):
+                self.assertEqual(self.inspect_with(signature, manifest, expected)["artifactStatus"], "blocked")
+
     def test_changed_apk_during_verification_is_blocked(self):
         def tool_output(tool, arguments):
             if tool.name == "apksigner":
@@ -128,6 +163,17 @@ class ArtifactGateTest(unittest.TestCase):
         with patch.object(p, "run_tool", side_effect=tool_output):
             result = p.inspect(self.apk, self.root, p.policy("alpha5"))
         self.assertEqual(result["checks"]["artifactUnchanged"], "blocked")
+
+    def test_unexpected_sensitive_or_missing_permissions_block_artifact(self):
+        for manifest in [
+            MANIFEST + "uses-permission: name='android.permission.READ_SMS'\n",
+            MANIFEST + "uses-permission-sdk-23: name='android.permission.RECORD_AUDIO'\n",
+            MANIFEST.replace("uses-permission: name='android.permission.INTERNET'\n", ""),
+        ]:
+            with self.subTest(manifest=manifest):
+                result = self.inspect_with(manifest=manifest)
+                self.assertEqual(result["artifactStatus"], "blocked")
+                self.assertEqual(result["checks"]["permissions"], "blocked")
 
     def test_tool_failure_is_not_success(self):
         with patch.object(p, "run_tool", side_effect=ValueError("apksigner verification failed.")):

@@ -2,11 +2,17 @@
 
 Native Android companion for verified APKDrop installs and updates.
 
-## Alpha 6: Everyday Experience (development branch)
+## Alpha 6.1: non-debuggable preview (source prepared)
+
+The `preview` build type uses release settings with debugging disabled, retains the installed alpha package `de.rawinstinctai.apkdrop.debug` and pins the original alpha certificate for in-place updates. Its identity is versionCode **8**, versionName `0.1.0-alpha.6.1-preview`. It is unsigned in CI and must be signed in the original-key environment before publishing. The `alpha6.1-preview` preflight rejects debuggable APKs, identity/signature mismatches and unexpected or missing permissions.
+
+This is build hardening, not a guaranteed fix for Google's unknown-developer Play Protect warning. No Google approval or physical-device result is implied. See [the Play Protect audit and HIOS handoff](docs/play-protect.md). The already published Alpha 6 APK remains unchanged.
+
+## Alpha 6: Everyday Experience
 
 Alpha 6 introduces a native Home with live, **locally derived** app/update counts and three clear shortcuts; Android `ACTION_SEND` text/plain handling for APKDrop links; and a visible cancel control while downloading/verifying an APK. Cancelled operations discard their candidate and **never** count as a verified or installed release. The signature/identity checks and Android system installer remain mandatory.
 
-The debug package stays `de.rawinstinctai.apkdrop.debug`, now versionCode **7**, versionName `0.1.0-alpha.6-debug`. Release preflight defaults to the strictly pinned `alpha6` profile; `--profile alpha5` preserves historical verification. The prior original debug signer must still be used for an in-place upgrade. This branch has **not** passed physical Android acceptance, original-key signing, or hosted CI merely by changing source.
+The debug package stays `de.rawinstinctai.apkdrop.debug`, Alpha 6 versionCode **7**, versionName `0.1.0-alpha.6-debug`. Use `--profile alpha6` for the published Alpha 6 APK and `--profile alpha5` for historical Alpha 5 verification. The current default profile is `alpha6.1-preview`; development debug builds use `alpha6.1-debug`. The prior original debug signer must still be used for an in-place upgrade. This branch has **not** passed physical Android acceptance, original-key signing, or hosted CI merely by changing source.
 
 See [Alpha 6 acceptance plan](docs/alpha6-acceptance.md). Source development and signing are intentionally separate; no Cloudflare publication is part of this change.
 
@@ -26,7 +32,7 @@ The signing script now checks the complete Alpha 5 artifact identity before emit
 
 ```bash
 python3 scripts/release-preflight.py APKDrop-Companion-alpha5-debug.apk \
-  --report alpha5-release-check.json
+  --profile alpha5 --report alpha5-release-check.json
 ```
 
 `ANDROID_HOME` must point to an SDK with build-tools 35.0.0. Exit 0 means only the signed artifact passed; physical device acceptance and hosted CI remain open. Reports are created without overwriting previous evidence. For the separately signed production APK, use the explicit production profile described in [the release handoff](docs/alpha5-release-handoff.md). Debug keys and debuggable APKs cannot pass that profile.

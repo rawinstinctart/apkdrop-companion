@@ -41,6 +41,36 @@ jobs:
       - name: Test, lint and build unsigned debug candidate
         run: gradle --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug -I scripts/unsigned-debug.init.gradle
 
+      - name: Test, lint and build unsigned non-debuggable preview
+        run: gradle --no-daemon :app:testPreviewUnitTest :app:lintPreview :app:assemblePreview
+
+      - name: Check preview APK manifest (unsigned candidate only)
+        run: |
+          python3 - <<'PY'
+          import importlib.util, os, pathlib, subprocess
+          spec = importlib.util.spec_from_file_location('preflight', 'scripts/release-preflight.py')
+          p = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(p)
+          apks = list(pathlib.Path('app/build/outputs/apk/preview').glob('*.apk'))
+          if len(apks) != 1:
+              raise SystemExit('Exactly one preview candidate is required.')
+          aapt = pathlib.Path(os.environ['ANDROID_HOME']) / 'build-tools/35.0.0/aapt'
+          actual = p.manifest_facts(subprocess.check_output([str(aapt), 'dump', 'badging', str(apks[0])], text=True))
+          expected = p.policy('alpha6.1-preview')
+          expected.pop('certificateSha256')  # CI never signs or certifies the APK.
+          expected.update(minSdk=26, targetSdk=36, permissions=sorted(p.COMPANION_PERMISSIONS))
+          if any(actual.get(key) != value for key, value in expected.items()):
+              raise SystemExit('Preview manifest differs from the pinned identity/permissions: ' + str(actual))
+          print('Unsigned preview metadata passed; original-key signing and device acceptance remain open.')
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apkdrop-companion-unsigned-preview
+          path: app/build/outputs/apk/preview/*.apk
+          if-no-files-found: error
+          retention-days: 7
+
       - uses: actions/upload-artifact@v4
         with:
           name: apkdrop-companion-unsigned-debug
@@ -56,5 +86,6 @@ jobs:
           path: |
             app/build/reports/tests/
             app/build/reports/lint-results-debug.*
+            app/build/reports/lint-results-preview.*
           retention-days: 7
 
