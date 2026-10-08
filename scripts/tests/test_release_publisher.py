@@ -18,7 +18,7 @@ class PublisherProfileTest(unittest.TestCase):
         self.assertEqual(debug.returncode, 2)
         self.assertIn("Unknown release profile", debug.stderr)
 
-        preview = self.run_publisher("alpha7-preview")
+        preview = self.run_publisher("alpha9.1-preview")
         self.assertEqual(preview.returncode, 2)
         self.assertIn("Signed APK is missing", preview.stderr)
         self.assertNotIn("Unknown release profile", preview.stderr)
