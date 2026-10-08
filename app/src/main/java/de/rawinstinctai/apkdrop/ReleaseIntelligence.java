@@ -70,6 +70,15 @@ final class ReleaseIntelligence {
             case "android.permission.ACCESS_COARSE_LOCATION" -> "ungefährer Standort";
             case "android.permission.ACCESS_BACKGROUND_LOCATION" -> "Standort im Hintergrund";
             case "android.permission.READ_CONTACTS" -> "Kontakte lesen";
+            case "android.permission.WRITE_CONTACTS" -> "Kontakte verändern";
+            case "android.permission.POST_NOTIFICATIONS" -> "Benachrichtigungen senden";
+            case "android.permission.READ_MEDIA_IMAGES" -> "Bilder lesen";
+            case "android.permission.READ_MEDIA_VIDEO" -> "Videos lesen";
+            case "android.permission.READ_MEDIA_AUDIO" -> "Audiodateien lesen";
+            case "android.permission.READ_CALENDAR" -> "Kalender lesen";
+            case "android.permission.WRITE_CALENDAR" -> "Kalender verändern";
+            case "android.permission.BLUETOOTH_CONNECT" -> "Bluetooth-Verbindungen nutzen";
+            case "android.permission.BODY_SENSORS" -> "Körpersensoren nutzen";
             default -> permission.substring(permission.lastIndexOf('.')+1).replace('_',' ');
         };
     }
