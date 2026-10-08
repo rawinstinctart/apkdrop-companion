@@ -21,6 +21,9 @@ import java.util.concurrent.*;
 public final class MainActivity extends Activity {
     private static final int BACKUP_EXPORT=71, BACKUP_IMPORT=72;
     private char[] pendingBackupPassword;
+    private boolean notesExpanded;
+    private android.content.SharedPreferences pilotPreferences;
+    private final android.content.SharedPreferences.OnSharedPreferenceChangeListener pilotListener=(prefs,key)->this.main.post(()->{if(!isDestroyed())updateDropPilotStatus();});
     private final ExecutorService io=Executors.newSingleThreadExecutor();
     private EditText input;
     private Button checkButton,actionButton,addButton;
@@ -41,7 +44,10 @@ public final class MainActivity extends Activity {
     private String pendingLink;
     private String deferredLink;
     private final Handler main=new Handler(Looper.getMainLooper());
-    private boolean receiverRegistered;
+    private boolean receiverRegistered,pilotReceiverRegistered;
+    private final BroadcastReceiver pilotConditions=new BroadcastReceiver() {
+        @Override public void onReceive(Context context,Intent intent) {updateDropPilotStatus();}
+    };
     private final BroadcastReceiver packageChanges=new BroadcastReceiver() {
         @Override public void onReceive(Context context,Intent intent) {
             if(intent==null || intent.getData()==null || (Intent.ACTION_PACKAGE_REMOVED.equals(intent.getAction())
@@ -97,6 +103,11 @@ public final class MainActivity extends Activity {
             DropPilot.enabled(this,enabled);
             updateDropPilotStatus();
         });
+        pilotPreferences=DropPilot.preferences(this);
+        pilotPreferences.registerOnSharedPreferenceChangeListener(pilotListener);
+        findViewById(R.id.pilotOpen).setOnClickListener(v->{String slug=DropPilot.preparedSlug(this);if(slug!=null)selectSingle(slug);else updateDropPilotStatus();});
+        findViewById(R.id.radarButton).setOnClickListener(v->{boolean open=radar.getVisibility()!=View.VISIBLE;radar.setVisibility(open?View.VISIBLE:View.GONE);((Button)v).setText(open?R.string.alpha12_radar_open:R.string.alpha12_radar_closed);});
+        findViewById(R.id.notesButton).setOnClickListener(v->{notesExpanded=!notesExpanded;updateNotes();});
         UpdateScheduler.reconcile(this); DropPilot.reconcile(this);
         updateBackgroundStatus(); updateDropPilotStatus(); updateQueueUi();
         try {((TextView)findViewById(R.id.appVersion)).setText("APKDrop Companion · "+getPackageManager().getPackageInfo(getPackageName(),0).versionName);}
@@ -197,10 +208,16 @@ public final class MainActivity extends Activity {
         if(Build.VERSION.SDK_INT>=33) registerReceiver(packageChanges,filter,Context.RECEIVER_NOT_EXPORTED);
         else registerReceiver(packageChanges,filter);
         receiverRegistered=true;
+        IntentFilter conditions=new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
+        conditions.addAction(android.net.ConnectivityManager.CONNECTIVITY_ACTION);
+        if(Build.VERSION.SDK_INT>=33)registerReceiver(pilotConditions,conditions,Context.RECEIVER_NOT_EXPORTED);
+        else registerReceiver(pilotConditions,conditions);
+        pilotReceiverRegistered=true;
     }
 
     @Override protected void onStop() {
         if(receiverRegistered) { unregisterReceiver(packageChanges); receiverRegistered=false; }
+        if(pilotReceiverRegistered) {unregisterReceiver(pilotConditions);pilotReceiverRegistered=false;}
         super.onStop();
     }
 
@@ -213,6 +230,7 @@ public final class MainActivity extends Activity {
     }
 
     @Override protected void onDestroy() {
+        if(pilotPreferences!=null)pilotPreferences.unregisterOnSharedPreferenceChangeListener(pilotListener);
         generation++;
         if(downloadCancellation!=null) downloadCancellation.cancel();
         downloadCancellation=null;
@@ -361,11 +379,14 @@ public final class MainActivity extends Activity {
         File prior=keepVerified?verifiedApk:null;
         if(fetched)verificationIssue="";
         currentRelease=release; currentInstalled=installed; currentDecision=decision; verifiedApk=null;
+        findViewById(R.id.radarButton).setEnabled(true);
         title.setText(release.appName);findViewById(R.id.historyButton).setVisibility(View.VISIBLE);findViewById(R.id.trustButton).setEnabled(true);findViewById(R.id.receiptButton).setEnabled(true);
-        TextView history=findViewById(R.id.historyText);history.setText(library.observedHistory(release));
+        TextView history=findViewById(R.id.historyText);history.setText(ReleaseNotes.render(library.observedHistory(release)));
         if(fetched){history.setVisibility(View.GONE);((Button)findViewById(R.id.historyButton)).setText("Beobachtete Versionen ansehen +");}
 
         if(fetched) {
+            notesExpanded=false;radar.setVisibility(View.GONE);((Button)findViewById(R.id.radarButton)).setText(R.string.alpha12_radar_closed);
+            findViewById(R.id.trustSummary).setVisibility(View.GONE);
             proof.setVisibility(View.GONE);permissions.setVisibility(View.GONE);
             ((Button)findViewById(R.id.trustButton)).setText("APK Trust Center · Nachweise ansehen +");
         }
@@ -373,9 +394,9 @@ public final class MainActivity extends Activity {
         radar.setText((decision.mode==InstallPolicy.Mode.CURRENT?"":ReleaseIntelligence.summary(release,installed,decision)+"\n\n")
                 +ReleaseIntelligence.radar(release,installed,library.previous(release)));
         meta.setText((installed==null?"Nicht installiert":"Installiert: "+AppLibraryController.installedVersion(installed))
-                +"\nVerfügbar: v"+release.version+" · "+formatSize(release.size)+" · "+release.channel+"\n"+release.packageName);
+                +"\n"+(decision.mode==InstallPolicy.Mode.CURRENT?"Neueste Version: v":"Verfügbar: v")+release.version+" · "+formatSize(release.size)+" · "+release.channel);
         String signer=String.join("\n",release.signers);
-        proof.setText("Nachweise im Release-Vertrag (vor Download noch nicht lokal verifiziert)\n\nSHA-256  "+release.sha256
+        proof.setText("Paket: "+release.packageName+"\n\nNachweise im Release-Vertrag (vor Download noch nicht lokal verifiziert)\n\nSHA-256  "+release.sha256
                 +"\nSIGNER   "+signer
                 +"\nSDK      "+release.minSdk+" → "+(release.targetSdk==0?"—":release.targetSdk));
 
@@ -404,8 +425,7 @@ public final class MainActivity extends Activity {
             for(String permission:decision.sensitiveAdded) p.append("• ").append(human(permission)).append("\n");
         }
         permissions.setText(p.toString().trim()); status.setText(decision.reason);
-        notes.setVisibility(release.notes.trim().isEmpty()?View.GONE:View.VISIBLE);
-        notes.setText("Änderungen laut Entwickler\n"+release.notes);
+        updateNotes();
 
         boolean actionable=false;
         switch(decision.mode) {
@@ -418,7 +438,7 @@ public final class MainActivity extends Activity {
         actionButton.setEnabled(actionable);
         actionButton.setText(getString(R.string.ui_activity_main_30));
         if(actionable && prior==null && DropPilot.candidate(this,release)!=null)
-            actionButton.setText("DropPilot · Update vorbereitet, lokal prüfen →");
+            actionButton.setText("Vorbereitetes Update prüfen →");
         if(actionable && prior!=null && prior.isFile()) {
             verifiedApk=prior; actionButton.setText(getString(R.string.message_mainactivity_5));
             status.setText(getString(R.string.message_mainactivity_6));
@@ -578,6 +598,11 @@ public final class MainActivity extends Activity {
         activeDownload=null; downloadRunning=false;
         if(cancelDownloadButton!=null) cancelDownloadButton.setVisibility(View.GONE);
         if(store!=null)store.clearReleaseDetails();
+        findViewById(R.id.notesPanel).setVisibility(View.GONE);notesExpanded=false;
+        findViewById(R.id.trustSummary).setVisibility(View.GONE);
+        ((Button)findViewById(R.id.trustButton)).setText("APK Trust Center · Nachweise ansehen +");
+        ((Button)findViewById(R.id.radarButton)).setText(R.string.alpha12_radar_closed);
+        findViewById(R.id.radarButton).setEnabled(false);radar.setVisibility(View.GONE);
         title.setText("App wird geprüft …");badge.setText("PRÜFUNG AUSSTEHEND");meta.setText("");radar.setText("");notes.setVisibility(View.GONE);
         proof.setText("");permissions.setText("");notes.setText("");
         proof.setVisibility(View.GONE);permissions.setVisibility(View.GONE);findViewById(R.id.historyText).setVisibility(View.GONE);
@@ -591,7 +616,7 @@ public final class MainActivity extends Activity {
     private void updateTrust(boolean verified) {
         ((TextView)findViewById(R.id.trustSummary)).setText(TrustSummary.describe(currentRelease,currentDecision,verified)+(verificationIssue.isEmpty()?"":"\n\n"+verificationIssue));
         if(currentRelease!=null) proof.setText((verified?"Nachweise der lokal verifizierten APK":"Nachweise im Release-Vertrag (vor Download noch nicht lokal verifiziert)")
-                +"\n\nSHA-256  "+currentRelease.sha256+"\nSIGNER   "+String.join("\n",currentRelease.signers)
+                +"\n\nPaket: "+currentRelease.packageName+"\nSHA-256  "+currentRelease.sha256+"\nSIGNER   "+String.join("\n",currentRelease.signers)
                 +"\nSDK      "+currentRelease.minSdk+" → "+(currentRelease.targetSdk==0?"—":currentRelease.targetSdk));
     }
 
@@ -713,12 +738,22 @@ public final class MainActivity extends Activity {
         findViewById(R.id.queueSkip).setEnabled(!detailBusy);
         findViewById(R.id.queueCancel).setEnabled(!detailBusy);
     }
+    private void updateNotes() {
+        boolean present=currentRelease!=null&&!currentRelease.notes.trim().isEmpty();
+        findViewById(R.id.notesPanel).setVisibility(present?View.VISIBLE:View.GONE);
+        notes.setVisibility(present?View.VISIBLE:View.GONE);
+        if(!present)return;
+        android.text.SpannableStringBuilder full=ReleaseNotes.render(currentRelease.notes);
+        CharSequence preview=ReleaseNotes.preview(full);
+        notes.setText(notesExpanded?full:preview);
+        Button more=findViewById(R.id.notesButton);
+        more.setVisibility(!preview.toString().equals(full.toString())?View.VISIBLE:View.GONE);
+        more.setText(notesExpanded?R.string.alpha12_notes_less:R.string.alpha12_notes_more);
+    }
     private void updateDropPilotStatus() {
-        TextView text=findViewById(R.id.dropPilotStatus);
-        if(!DropPilot.enabled(this))text.setText("Aus · Keine Hintergrunddownloads. Auf Wunsch einschalten.");
-        else text.setText(DropPilot.scheduled(this)
-                ?"Aktiv · Nur WLAN, beim Laden, mit ausreichend Akku. Maximal eine vorbereitete APK bis 64 MiB. Android plant den Zeitpunkt."
-                :"Aktiviert, aber noch nicht eingeplant. Bitte gespeicherte Apps und Android-Einstellungen prüfen.");
+        ((TextView)findViewById(R.id.dropPilotStatus)).setText(DropPilot.dashboard(this));
+        ((TextView)findViewById(R.id.homePilotStatus)).setText("DropPilot · "+DropPilot.headline(this));
+        findViewById(R.id.pilotOpen).setVisibility(DropPilot.preparedSlug(this)!=null?View.VISIBLE:View.GONE);
     }
     private void updateBackgroundStatus() {
         if(backgroundStatus==null) return;

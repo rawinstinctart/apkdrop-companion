@@ -1,0 +1,8 @@
+<resources>
+    <string name="alpha12_radar_closed">Versionsvergleich ansehen +</string>
+    <string name="alpha12_radar_open">Versionsvergleich schließen −</string>
+    <string name="alpha12_notes_title">Was ist neu? · Laut Entwickler</string>
+    <string name="alpha12_notes_more">Mehr anzeigen +</string>
+    <string name="alpha12_notes_less">Weniger anzeigen −</string>
+    <string name="alpha12_pilot_open">Vorbereitete App öffnen →</string>
+</resources>
