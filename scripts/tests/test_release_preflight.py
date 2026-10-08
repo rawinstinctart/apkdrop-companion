@@ -237,10 +237,10 @@ class ArtifactGateTest(unittest.TestCase):
 
     def test_alpha91_requires_network_permission_without_changing_alpha5_gate(self):
         preview = MANIFEST.replace("versionCode=\'6\'", "versionCode=\'12\'").replace(
-            "0.1.0-alpha.5-debug", "0.1.0-alpha.9.1-preview").replace("application-debuggable\\n", "")
+            "0.1.0-alpha.5-debug", "0.1.0-alpha.9.1-preview").replace("application-debuggable\n", "")
         expected = p.policy("alpha9.1-preview")
         self.assertEqual(self.inspect_with(manifest=preview, expected=expected)["checks"]["permissions"], "blocked")
-        with_network = preview + "uses-permission: name=\'android.permission.ACCESS_NETWORK_STATE\'\\n"
+        with_network = preview + "uses-permission: name=\'android.permission.ACCESS_NETWORK_STATE\'\n"
         self.assertEqual(self.inspect_with(manifest=with_network, expected=expected)["artifactStatus"], "passed")
         self.assertEqual(self.inspect_with()["artifactStatus"], "passed")
 
