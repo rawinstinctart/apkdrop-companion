@@ -27,6 +27,7 @@ jobs:
           cp "$ANDROID_HOME/build-tools/35.0.0/zipalign" toolchain/
           cp "$ANDROID_HOME/build-tools/35.0.0/aapt" toolchain/
           cp "$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar" toolchain/lib/
+          cp -a "$ANDROID_HOME/build-tools/35.0.0/lib64" toolchain/
           find toolchain -type f -maxdepth 2 -printf '%p %s bytes\n'
       - uses: actions/upload-artifact@v4
         with:
