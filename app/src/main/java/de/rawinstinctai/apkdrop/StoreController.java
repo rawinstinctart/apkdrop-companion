@@ -21,28 +21,42 @@ final class StoreController {
     private final ExecutorService network=Executors.newSingleThreadExecutor();
     private final ExecutorService media=Executors.newFixedThreadPool(2);
     private final DeveloperFollows follows;
+    private final CatalogCache cache;
+    private final FollowReadState readState;
+    private final android.util.LruCache<String,Bitmap> images=new android.util.LruCache<String,Bitmap>(12*1024*1024) {
+        @Override protected int sizeOf(String key,Bitmap image) {return image.getByteCount();}
+    };
+    private JSONObject catalogData;
+    private boolean catalogCached,sortByName;
+    private long catalogAt;
+    private String activeProfile;
+    private boolean newOnly;
     private final LinearLayout results;
     private final TextView resultStatus,sectionTitle;
     private final ScrollView scroll;
     private int tab,request,detailRequest;
-    private boolean detail,closed,started,following;
+    private volatile boolean closed;
+    private boolean detail,started,following;
     private String category="",query="";
     private int page=1;
     private static final int[] NAV={R.id.navHome,R.id.navDiscover,R.id.navApps,R.id.navUpdates,R.id.navSettings};
     private static final String[] TITLES={"Home","Entdecken","Meine Apps","Updates","Einstellungen"};
 
     StoreController(Activity activity,AppLibraryController library,Consumer<String> select) {
-        this.activity=activity;this.library=library;this.select=select;follows=new DeveloperFollows(activity);
+        this.activity=activity;this.library=library;this.select=select;follows=new DeveloperFollows(activity);cache=new CatalogCache(activity);readState=new FollowReadState(activity);
         results=activity.findViewById(R.id.discoverList);resultStatus=activity.findViewById(R.id.discoverStatus);
         sectionTitle=activity.findViewById(R.id.sectionTitle);scroll=activity.findViewById(R.id.contentScroll);
         for(int i=0;i<NAV.length;i++){final int index=i;activity.findViewById(NAV[i]).setOnClickListener(v->navigate(index));}
         activity.findViewById(R.id.detailBack).setOnClickListener(v->back());
         activity.findViewById(R.id.homeUpdates).setOnClickListener(v->{
             if(library.count()==0) navigate(1);
-            else { navigate(3); if(!library.checking()) library.checkAll(); }
+            else if(library.checking()) library.cancelChecks();
+            else { navigate(3); if(library.updateCount()>0)library.updateOverview();else library.checkAll(); }
         });
         activity.findViewById(R.id.homeDiscover).setOnClickListener(v->navigate(1));
         activity.findViewById(R.id.homeLibrary).setOnClickListener(v->navigate(2));
+        activity.findViewById(R.id.homeAddLink).setOnClickListener(v->{navigate(2);activity.findViewById(R.id.addLinkButton).performClick();});
+        activity.findViewById(R.id.homeFollowing).setOnClickListener(v->{activeProfile=null;following=true;navigate(1);});
         activity.findViewById(R.id.addLinkButton).setOnClickListener(v->{
             activity.findViewById(R.id.linkPanel).setVisibility(View.VISIBLE);
             activity.findViewById(R.id.urlInput).requestFocus();scroll.post(()->scroll.fullScroll(View.FOCUS_DOWN));
@@ -55,19 +69,48 @@ final class StoreController {
         });
         activity.findViewById(R.id.developerOnboarding).setOnClickListener(v->openWeb("/onboarding"));
         activity.findViewById(R.id.discoverSearch).setOnClickListener(v->{
-            query=((EditText)activity.findViewById(R.id.discoverInput)).getText().toString().trim();page=1;following=false;catalog();
+            activeProfile=null;query=((EditText)activity.findViewById(R.id.discoverInput)).getText().toString().trim();page=1;following=false;catalog();
         });
         ((EditText)activity.findViewById(R.id.discoverInput)).setOnEditorActionListener((v,id,event)->{
             activity.findViewById(R.id.discoverSearch).performClick();return true;
         });
-        activity.findViewById(R.id.followingButton).setOnClickListener(v->{following=true;feed();});
+        activity.findViewById(R.id.followingButton).setOnClickListener(v->{activeProfile=null;following=true;feed();});
+        activity.findViewById(R.id.discoverRefresh).setOnClickListener(v->{if(activeProfile!=null)profile(activeProfile);else if(following)feed();else catalog();});
+        activity.findViewById(R.id.discoverReset).setOnClickListener(v->{
+            query="";category="";page=1;following=false;activeProfile=null;sortByName=false;
+            ((EditText)activity.findViewById(R.id.discoverInput)).setText("");
+            ((Button)activity.findViewById(R.id.discoverFilter)).setText("Alle Kategorien · App-Standard");
+            ((Button)activity.findViewById(R.id.discoverSort)).setText("Sortierung · Katalog");catalog();
+        });
+        activity.findViewById(R.id.discoverSort).setOnClickListener(v->{
+            sortByName=!sortByName;((Button)v).setText(sortByName?"Sortierung · Name A–Z (diese Seite)":"Sortierung · Katalog");
+            if(catalogData!=null)renderCatalogState();
+        });
         activity.findViewById(R.id.discoverFilter).setOnClickListener(v->filters(v));
         restoreTab(0);
     }
     void restoreTab(int value) {tab=value>=0&&value<5?value:0;renderNavigation();}
     int tab() {return tab;}
-    void resume() {if(tab==1&&!detail){if(following)feed();else if(!started)catalog();}}
-    void close() {closed=true;request++;detailRequest++;network.shutdownNow();media.shutdownNow();}
+    void saveState(android.os.Bundle state) {
+        state.putInt("storeTab",tab);state.putString("discoverQuery",bounded(query,100));state.putString("discoverCategory",category);
+        state.putInt("discoverPage",page);state.putBoolean("discoverSortByName",sortByName);state.putBoolean("following",following);
+        state.putBoolean("followingNewOnly",newOnly);state.putString("discoverProfile",activeProfile);
+    }
+    void restoreState(android.os.Bundle state) {
+        if(state!=null) {
+            query=bounded(state.getString("discoverQuery",""),100);category=state.getString("discoverCategory","");
+            if(!java.util.Set.of("","communication","productivity","tools","privacy","media","games","education","other").contains(category))category="";
+            page=Math.max(1,Math.min(100000,state.getInt("discoverPage",1)));sortByName=state.getBoolean("discoverSortByName");
+            following=state.getBoolean("following");newOnly=state.getBoolean("followingNewOnly");activeProfile=state.getString("discoverProfile");
+            if(activeProfile!=null)try {StoreClient.handle(activeProfile);}catch(Exception bad){activeProfile=null;}
+        }
+        ((EditText)activity.findViewById(R.id.discoverInput)).setText(query);
+        ((Button)activity.findViewById(R.id.discoverFilter)).setText(categoryName(category)+" · App-Standard");
+        ((Button)activity.findViewById(R.id.discoverSort)).setText(sortByName?"Sortierung · Name A–Z (diese Seite)":"Sortierung · Katalog");
+        restoreTab(state==null?0:state.getInt("storeTab",0));
+    }
+    void resume() {if(tab==1&&!detail){if(activeProfile!=null)profile(activeProfile);else if(following)feed();else if(!started)catalog();}}
+    void close() {closed=true;request++;detailRequest++;network.shutdownNow();media.shutdownNow();images.evictAll();}
     void changed() {
         int count=library.count(),updates=library.updateCount();
         ((Button)activity.findViewById(R.id.navUpdates)).setText(updates>0?"Updates ("+updates+")":"Updates");
@@ -75,14 +118,19 @@ final class StoreController {
         ((TextView)activity.findViewById(R.id.homeUpdateCount)).setText(String.valueOf(updates));
         ((TextView)activity.findViewById(R.id.homePreview)).setText(library.homePreview());
         ((TextView)activity.findViewById(R.id.homeStatus)).setText(library.homeStatus());
-        ((Button)activity.findViewById(R.id.homeUpdates)).setText(count==0?"Apps entdecken →":"Jetzt Updates prüfen →");
+        ((Button)activity.findViewById(R.id.homeUpdates)).setText(library.checking()?"Prüfung abbrechen":count==0?"Apps entdecken →":updates>0?updates+" Updates gemeinsam prüfen →":"Jetzt Updates prüfen →");
+        LinearLayout actions=activity.findViewById(R.id.homeAppActions);actions.removeAllViews();
+        for(AppLibrary.Entry entry:library.homeEntries()) actions.addView(button(library.homeEntryLabel(entry)+" →",()->select.accept(entry.slug)));
+        ((TextView)activity.findViewById(R.id.homePreview)).setVisibility(count==0?View.VISIBLE:View.GONE);
+        try {((Button)activity.findViewById(R.id.homeFollowing)).setText("Meine Entwickler ("+follows.ids().length()+") & Releases →");}catch(Exception unavailable){}
+        activity.findViewById(R.id.homeUpdates).setEnabled(activity.findViewById(R.id.progress).getVisibility()!=View.VISIBLE);
     }
     private void navigate(int value) {
         if(activity.findViewById(R.id.progress).getVisibility()==View.VISIBLE) {
             Toast.makeText(activity,"Die laufende Prüfung bitte kurz abschließen lassen.",Toast.LENGTH_SHORT).show();return;
         }
         tab=value;detail=false;activity.findViewById(R.id.detailPanel).setVisibility(View.GONE);
-        renderNavigation();scroll.scrollTo(0,0);if(tab==1){if(following)feed();else if(!started)catalog();}
+        renderNavigation();scroll.scrollTo(0,0);if(tab==1){if(activeProfile!=null)profile(activeProfile);else if(following)feed();else if(!started)catalog();}
     }
     private void renderNavigation() {
         sectionTitle.setText(TITLES[tab]);
@@ -99,36 +147,66 @@ final class StoreController {
         detail=true;renderNavigation();sectionTitle.setText(activity.getString(R.string.message_storecontroller_17));
         activity.findViewById(R.id.detailPanel).setVisibility(View.VISIBLE);scroll.scrollTo(0,0);
     }
-    boolean back() {if(!detail)return false;detail=false;detailRequest++;renderNavigation();activity.findViewById(R.id.detailPanel).setVisibility(View.GONE);return true;}
+    boolean back() {if(!detail)return false;if(activity.findViewById(R.id.progress).getVisibility()==View.VISIBLE){Toast.makeText(activity,"Die laufende Prüfung bitte kurz abschließen lassen.",Toast.LENGTH_SHORT).show();return true;}detail=false;detailRequest++;renderNavigation();activity.findViewById(R.id.detailPanel).setVisibility(View.GONE);return true;}
 
+    private static String categoryName(String category) {
+        return switch(category) {
+            case "communication" -> "Kommunikation";case "productivity" -> "Produktivität";case "tools" -> "Tools";
+            case "privacy" -> "Privacy";case "media" -> "Medien";case "games" -> "Spiele";case "education" -> "Lernen";
+            case "other" -> "Andere";default -> "Alle Kategorien";
+        };
+    }
     private void filters(View anchor) {
         PopupMenu menu=new PopupMenu(activity,anchor);
         String[] values={"","communication","productivity","tools","privacy","media","games","education","other"};
         String[] names={"Alle Kategorien","Kommunikation","Produktivität","Tools","Privacy","Medien","Spiele","Lernen","Andere"};
         for(int i=0;i<values.length;i++){final String value=values[i],name=names[i];menu.getMenu().add(name).setOnMenuItemClickListener(item->{
-            category=value;page=1;following=false;((Button)anchor).setText(name+" · App-Standard");catalog();return true;
+            activeProfile=null;category=value;page=1;following=false;((Button)anchor).setText(name+" · App-Standard");catalog();return true;
         });}menu.show();
     }
     private void catalog() {
-        started=true;final int ticket=++request;((ThreadPoolExecutor)media).getQueue().clear();results.removeAllViews();resultStatus.setText(activity.getString(R.string.message_storecontroller_18));
+        activeProfile=null;following=false;started=true;catalogControls(true);
+        final int ticket=++request;((ThreadPoolExecutor)media).getQueue().clear();
+        results.removeAllViews();catalogData=null;resultStatus.setText(activity.getString(R.string.message_storecontroller_18));
         String q=encode(query.substring(0,Math.min(100,query.length())));
         final String path="/api/discover?q="+q+"&category="+category+"&page="+page;
-        submit(()->{
-            JSONObject data=StoreClient.get(path);if(!"apkdrop.discover.v1".equals(data.optString("schema")))throw new SecurityException("Unbekannter App-Katalog.");
-            JSONArray apps=data.getJSONArray("apps");if(apps.length()>24)throw new SecurityException("App-Katalog zu groß.");
-            post(ticket,()->renderCatalog(data));
-        },ticket);
+        network.execute(()->{
+            CatalogCache.Entry saved=cache.read(path);
+            if(saved!=null)post(ticket,()->{catalogData=saved.data;catalogCached=true;catalogAt=saved.at;renderCatalogState();});
+            try {
+                JSONObject data=StoreClient.get(path);CatalogCache.validate(data);cache.save(path,data);
+                post(ticket,()->{catalogData=data;catalogCached=false;catalogAt=System.currentTimeMillis();renderCatalogState();});
+            } catch(Exception e) {
+                if(!(e instanceof java.io.IOException))cache.remove(path);
+                post(ticket,()->{
+                    // Malformed/currently revoked metadata is not replaced with stale success.
+                    if(!(e instanceof java.io.IOException) || saved==null) {results.removeAllViews();catalogData=null;resultStatus.setText(message(e));}
+                    else resultStatus.append("\nAktualisierung fehlgeschlagen. Gespeicherter Katalog bleibt lesbar.");
+                    results.addView(button("Erneut versuchen",this::catalog));
+                });
+            }
+        });
+    }
+    private void catalogControls(boolean visible) {
+        activity.findViewById(R.id.discoverSort).setVisibility(visible?View.VISIBLE:View.GONE);
+        activity.findViewById(R.id.discoverReset).setVisibility(visible?View.VISIBLE:View.GONE);
     }
     void renderCatalog(JSONObject data) {
-        JSONArray apps=data.optJSONArray("apps");
-        if(!"apkdrop.discover.v1".equals(data.optString("schema")) || apps==null || apps.length()>24)throw new SecurityException("Ungültiger App-Katalog.");
-        results.removeAllViews();
-                resultStatus.setText(data.optInt("total")+" Apps · Seite "+data.optInt("page",1)+" / "+data.optInt("pages",1));
-                for(int i=0;i<apps.length();i++)appCard(apps.optJSONObject(i),results);
-                if(apps.length()==0) {results.addView(label("Hier ist noch kein Treffer. Versuche einen anderen Begriff oder eine andere Kategorie.",16));}
-                int current=data.optInt("page",1),pages=data.optInt("pages",1);
-                if(current>1)results.addView(button("← Vorherige Seite",()->{page=current-1;catalog();}));
-                if(current<pages)results.addView(button("Weitere Apps →",()->{page=current+1;catalog();}));
+        catalogData=data;catalogCached=false;catalogAt=System.currentTimeMillis();renderCatalogState();
+    }
+    private void renderCatalogState() {
+        JSONObject data=catalogData;
+        try {CatalogCache.validate(data);}catch(Exception bad){throw new SecurityException("Ungültiger App-Katalog.",bad);}
+        JSONArray apps=data.optJSONArray("apps");results.removeAllViews();
+        resultStatus.setText(data.optInt("total")+" Apps · Seite "+data.optInt("page",1)+" / "+data.optInt("pages",1)
+                +(catalogCached?"\nGespeicherter Katalog · "+java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT,java.text.DateFormat.SHORT).format(new java.util.Date(catalogAt))+"\nApp-Details und Downloads brauchen eine neue Online-Prüfung.":""));
+        java.util.List<JSONObject> entries=new java.util.ArrayList<>();for(int i=0;i<apps.length();i++)entries.add(apps.optJSONObject(i));
+        if(sortByName)entries.sort(java.util.Comparator.comparing(app->app.optString("name",app.optString("slug")),String.CASE_INSENSITIVE_ORDER));
+        for(JSONObject app:entries)appCard(app,results);
+        if(apps.length()==0) results.addView(label("Hier ist noch kein Treffer. Versuche einen anderen Begriff oder setze Suche & Filter zurück.",16));
+        int current=data.optInt("page",1),pages=data.optInt("pages",1);
+        if(current>1)results.addView(button("← Vorherige Seite",()->{page=current-1;catalog();scroll.scrollTo(0,0);}));
+        if(current<pages)results.addView(button("Weitere Apps →",()->{page=current+1;catalog();scroll.scrollTo(0,0);}));
     }
     private void appCard(JSONObject app,LinearLayout parent) {
         if(app==null)return;
@@ -147,7 +225,7 @@ final class StoreController {
     }
     void profile(String handle) {
         try {StoreClient.handle(handle);}catch(Exception e){error(e);return;}
-        tab=1;detail=false;activity.findViewById(R.id.detailPanel).setVisibility(View.GONE);renderNavigation();
+        activeProfile=handle;following=false;catalogControls(false);tab=1;detail=false;activity.findViewById(R.id.detailPanel).setVisibility(View.GONE);renderNavigation();
         final int ticket=++request;((ThreadPoolExecutor)media).getQueue().clear();results.removeAllViews();resultStatus.setText(activity.getString(R.string.message_storecontroller_19));
         submit(()->{
             JSONObject p=StoreClient.get("/api/dropid/"+handle+".json");JSONObject github=p.getJSONObject("github");String id=github.getString("id");
@@ -163,6 +241,7 @@ final class StoreController {
         },ticket);
     }
     private void feed() {
+        activeProfile=null;following=true;catalogControls(false);
         final int ticket=++request;((ThreadPoolExecutor)media).getQueue().clear();results.removeAllViews();resultStatus.setText(activity.getString(R.string.message_storecontroller_20));
         try {
             JSONObject local=follows.read();java.util.Iterator<String> it=local.keys();
@@ -175,25 +254,40 @@ final class StoreController {
             submit(()->{
                 JSONObject data=StoreClient.following(ids);JSONArray releases=data.getJSONArray("feed");
                 if(releases.length()>60)throw new SecurityException("Release-Liste zu groß.");
-                post(ticket,()->{
-                    resultStatus.setText(releases.length()+" aktuelle öffentliche Releases"+(data.optBoolean("truncated")?" · App-Liste begrenzt":""));
-                    if(releases.length()==0)results.addView(label("Aktuell keine öffentlichen Releases. Deine gespeicherten Follows kannst du jederzeit entfernen.",14));
-                    for(int i=0;i<releases.length();i++){JSONObject r=releases.optJSONObject(i);if(r==null)continue;
-                        try{String slug=StoreClient.slug(r.getString("slug"));LinearLayout c=card();c.addView(label(bounded(r.optString("name"),160),20));
-                            c.addView(label(bounded(r.optString("version"),120)+" · "+bounded(r.optString("channel"),20)+"\n"+bounded(r.optString("publishedAt"),80),13));
-                            c.addView(button("App-Standard prüfen →",()->select.accept(slug)));results.addView(c);
-                        }catch(Exception ignored){}
-                    }
-                });
+                post(ticket,()->renderFeed(releases,data.optBoolean("truncated")));
+
             },ticket);
         } catch(Exception e) {resultStatus.setText(message(e));}
+    }
+    private void renderFeed(JSONArray releases,boolean truncated) {
+        int unseen=0;for(int i=0;i<releases.length();i++)if(releases.optJSONObject(i)!=null&&readState.unseen(releases.optJSONObject(i)))unseen++;
+        resultStatus.setText(unseen+" neu für dich · "+releases.length()+" öffentliche Releases"+(truncated?" · Liste begrenzt":""));
+        LinearLayout feedRows=new LinearLayout(activity);feedRows.setOrientation(LinearLayout.VERTICAL);results.addView(feedRows);
+        feedRows.addView(button(newOnly?"Alle Releases anzeigen":"Nur neue Releases anzeigen",()->{newOnly=!newOnly;results.removeView(feedRows);renderFeed(releases,truncated);}));
+        if(unseen>0) feedRows.addView(button("Diese Releases als gelesen markieren",()->{
+            try {readState.mark(releases);results.removeView(feedRows);renderFeed(releases,truncated);}catch(Exception e){error(e);}
+        }));
+        int shown=0;
+        for(int i=0;i<releases.length();i++) {
+            JSONObject r=releases.optJSONObject(i);if(r==null)continue;
+            try {
+                String slug=StoreClient.slug(r.getString("slug"));boolean isNew=readState.unseen(r);if(newOnly&&!isNew)continue;shown++;
+                LinearLayout c=card();c.addView(label(bounded(r.optString("name"),160),20));
+                c.addView(label((isNew?"NEU FÜR DICH · ":"Bereits angesehen · ")+bounded(r.optString("version"),120)+" · "+bounded(r.optString("channel"),20)+"\n"+bounded(r.optString("publishedAt"),80),13));
+                c.addView(button("App-Standard prüfen →",()->{
+                    try {readState.mark(new JSONArray().put(r));}catch(Exception e){error(e);}
+                    select.accept(slug);
+                }));feedRows.addView(c);
+            } catch(Exception ignored){}
+        }
+        if(shown==0) feedRows.addView(label(newOnly?"Alles angesehen. Neue Releases erscheinen hier beim nächsten Aktualisieren.":"Aktuell keine öffentlichen Releases. Deine Follows bleiben lokal gespeichert.",14));
     }
     void releaseDetails(String slug) {
         final int ticket=++detailRequest;((ThreadPoolExecutor)media).getQueue().clear();
         TextView publisher=activity.findViewById(R.id.developerText);publisher.setText(activity.getString(R.string.message_storecontroller_22));
         activity.findViewById(R.id.developerButton).setVisibility(View.GONE);
         LinearLayout gallery=activity.findViewById(R.id.screenshotList);gallery.removeAllViews();activity.findViewById(R.id.screenshotScroll).setVisibility(View.GONE);
-        ImageView icon=activity.findViewById(R.id.detailIcon);icon.setImageResource(R.drawable.ic_apkdrop);
+        ImageView icon=activity.findViewById(R.id.detailIcon);icon.setTag(null);icon.setImageResource(R.drawable.ic_apkdrop);
         network.execute(()->{
             try {
                 JSONObject data=StoreClient.get("/api/"+StoreClient.slug(slug)+"/store.json");
@@ -214,18 +308,20 @@ final class StoreController {
     private void loadImage(String url,ImageView view) {
         if(url==null||url.isEmpty()||url.equals("null"))return;
         try{StoreClient.imageUri(url);}catch(Exception invalid){return;}
-        view.setTag(url);media.execute(()->{
+        view.setTag(url);Bitmap cached=images.get(url);if(cached!=null){view.setImageBitmap(cached);return;}
+        media.execute(()->{
             try{byte[] bytes=StoreClient.image(url);BitmapFactory.Options bounds=new BitmapFactory.Options();bounds.inJustDecodeBounds=true;BitmapFactory.decodeByteArray(bytes,0,bytes.length,bounds);
                 if(bounds.outWidth<1||bounds.outHeight<1||bounds.outWidth>12000||bounds.outHeight>12000)return;
                 BitmapFactory.Options options=new BitmapFactory.Options();options.inSampleSize=1;
                 while(Math.max(bounds.outWidth,bounds.outHeight)/options.inSampleSize>1200)options.inSampleSize*=2;
                 Bitmap image=BitmapFactory.decodeByteArray(bytes,0,bytes.length,options);if(image==null)return;
+                if(closed)return;images.put(url,image);
                 activity.runOnUiThread(()->{if(!closed&&url.equals(view.getTag()))view.setImageBitmap(image);});
             }catch(Exception unavailable){/* Optional media cannot authorize or block installation. */}
         });
     }
     private interface Work {void run() throws Exception;}
-    private void submit(Work work,int ticket){network.execute(()->{try{work.run();}catch(Exception e){post(ticket,()->{resultStatus.setText(message(e));results.addView(button("Erneut versuchen",()->{if(following)feed();else catalog();}));});}});}
+    private void submit(Work work,int ticket){network.execute(()->{try{work.run();}catch(Exception e){post(ticket,()->{resultStatus.setText(message(e));results.addView(button("Erneut versuchen",()->{if(activeProfile!=null)profile(activeProfile);else if(following)feed();else catalog();}));});}});}
     private void post(int ticket,Runnable fn){activity.runOnUiThread(()->{if(!closed&&ticket==request&&!activity.isDestroyed())fn.run();});}
     private LinearLayout card(){LinearLayout c=new LinearLayout(activity);c.setOrientation(LinearLayout.VERTICAL);c.setPadding(dp(18),dp(18),dp(18),dp(18));c.setBackgroundResource(R.drawable.bg_card);LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2);p.topMargin=dp(14);c.setLayoutParams(p);return c;}
     private TextView label(String value,int size){TextView t=new TextView(activity);t.setText(value);t.setTextSize(size);t.setTextColor(activity.getColor(size>=20?R.color.text:R.color.muted));t.setPadding(0,dp(8),0,dp(8));if(size>=20)t.setTypeface(null,android.graphics.Typeface.BOLD);return t;}

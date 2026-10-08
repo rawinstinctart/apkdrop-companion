@@ -69,4 +69,9 @@
   <string name="alpha6_open_library">Alle Apps ansehen →</string>
   <string name="alpha6_home_discover">Neue Apps entdecken →</string>
   <string name="alpha6_cancel_download">Download abbrechen</string>
+    <string name="home_add_link">APKDrop-Link hinzufügen +</string>
+    <string name="home_following">Meine Entwickler &amp; Releases →</string>
+    <string name="discover_reset">Filter zurücksetzen</string>
+    <string name="discover_refresh">Aktualisieren ↻</string>
+    <string name="discover_sort">Sortierung · Katalog</string>
 </resources>

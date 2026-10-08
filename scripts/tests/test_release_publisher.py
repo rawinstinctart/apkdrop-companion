@@ -14,11 +14,11 @@ class PublisherProfileTest(unittest.TestCase):
             capture_output=True, text=True, check=False)
 
     def test_debug_profile_is_rejected_and_preview_profile_is_supported(self):
-        debug = self.run_publisher("alpha6.1-debug")
+        debug = self.run_publisher("alpha7-debug")
         self.assertEqual(debug.returncode, 2)
         self.assertIn("Unknown release profile", debug.stderr)
 
-        preview = self.run_publisher("alpha6.1-preview")
+        preview = self.run_publisher("alpha7-preview")
         self.assertEqual(preview.returncode, 2)
         self.assertIn("Signed APK is missing", preview.stderr)
         self.assertNotIn("Unknown release profile", preview.stderr)
