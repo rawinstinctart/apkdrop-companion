@@ -88,7 +88,6 @@ final class StoreController {
         activity.findViewById(R.id.discoverReset).setOnClickListener(v->{
             query="";category="";page=1;following=false;activeProfile=null;sortByName=false;newDiscover=false;developersOnly=false;renderCategories();
             ((EditText)activity.findViewById(R.id.discoverInput)).setText("");
-            ((Button)activity.findViewById(R.id.discoverFilter)).setText("Alle Kategorien");
             updateSortLabel();catalog();
         });
         activity.findViewById(R.id.discoverSort).setOnClickListener(v->{
