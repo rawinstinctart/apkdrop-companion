@@ -46,7 +46,7 @@ final class AppLibraryController {
         String status=state==null||state.decision==null?"Noch prüfen":state.decision.mode==InstallPolicy.Mode.UPDATE?"Update verfügbar":
                 state.decision.mode==InstallPolicy.Mode.CURRENT?"Bei letzter Prüfung aktuell":state.decision.mode==InstallPolicy.Mode.BLOCKED?"Blockiert":"Nicht installiert";
         if(state!=null&&state.error!=null)status="Prüfung fehlgeschlagen";
-        return entry.name+" · "+status+(state!=null&&state.cached&&state.decision.mode!=InstallPolicy.Mode.CURRENT?" (letzter Stand)":"");
+        return entry.name+" · "+status+(state!=null&&state.cached&&(state.decision==null||state.decision.mode!=InstallPolicy.Mode.CURRENT)?" (letzter Stand)":"");
     }
     String displayName(AppLibrary.Entry entry) {
         State state=states.get(entry.slug);return state!=null&&state.release!=null?state.release.appName:entry.name;
