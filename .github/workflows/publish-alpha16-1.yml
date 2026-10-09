@@ -65,8 +65,8 @@ jobs:
           "$sdk/zipalign" -c 4 dist/APKDrop-Companion-v0.1.0-alpha.16.1-preview.apk
           echo 'c89676f8416c8e49d4b7c623de5007d853c70daaea9e6db80f7138999549c9a8  dist/APKDrop-Companion-v0.1.0-alpha.16.1-preview.apk' | sha256sum -c -
           test "$(wc -c < dist/APKDrop-Companion-v0.1.0-alpha.16.1-preview.apk)" -eq 329167
-          python3 scripts/release-preflight.py dist/APKDrop-Companion-v0.1.0-alpha.16.1-preview.apk --profile alpha16-1-preview --sdk "$ANDROID_HOME"
-          echo 'ORIGINAL-SIGNED ALPHA 15.1 VERIFIED'
+          python3 scripts/release-preflight.py dist/APKDrop-Companion-v0.1.0-alpha.16.1-preview.apk --profile alpha16.1-preview --sdk "$ANDROID_HOME"
+          echo 'ORIGINAL-SIGNED ALPHA 16.1 VERIFIED'
       - name: Verify deployed APKDrop backend boundaries
         run: python3 release/verify-alpha15-backend.py
       - uses: actions/upload-artifact@v4
