@@ -70,6 +70,16 @@ public class Alpha16ExperienceTest {
         assertTrue(hasGuidance);
         assertEquals("0 Apps",((TextView)a.findViewById(R.id.discoverCount)).getText().toString());
     }
+    @Test public void bottomNavigationLabelsMayWrapForLargeSystemFonts() {
+        activity=Robolectric.buildActivity(MainActivity.class).create();
+        MainActivity a=activity.get();
+        for(int id:new int[]{R.id.navHome,R.id.navDiscover,R.id.navApps,R.id.navUpdates,R.id.navSettings}) {
+            Button button=a.findViewById(id);
+            assertEquals(2,button.getMaxLines());
+            assertTrue(button.getMinHeight()>=68);
+            assertNotNull(button.getContentDescription()==null?button.getText():button.getContentDescription());
+        }
+    }
     @Test public void categoryChipsAllowLargerTextInsteadOfFixedHeight() throws Exception {
         activity=Robolectric.buildActivity(MainActivity.class).create();
         MainActivity a=activity.get();
