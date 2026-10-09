@@ -1,0 +1,12 @@
+# Alpha 14 — Proactive APKDrop
+
+- Smart Home adapts to saved apps and known updates, opens installed saved apps directly, and links a prepared DropPilot update to its fresh-contract review.
+- Release Radar defaults to unseen items and suppresses already installed or newer releases only when package, numeric versionCode and exact signer set match. Catalog and feed carry display-only identity facts; comparisons never authorize installation. Seen markers remain local and explicit. Missing identity means unknown.
+- GitHub Radar uses browser-confirmed, owner-scoped, revocable 90-day read-only device credentials. Pairing expires after ten minutes; secrets are sent only in POST bodies or Authorization headers and encrypted on Android with Android Keystore. Credentials and private suggestions are excluded from backups; suggestions remain in memory.
+- The same authorized-repository suggestion endpoint backs web and native clients. GitHub installation repository pages are followed (up to ten pages per installation), so newly created authorized repositories are included. Selected-repository installations still require GitHub authorization for new repos. At most twelve repositories are inspected per radar request; automatic foreground refresh is limited to once per five minutes, with explicit refresh and pagination available. No GitHub Actions artifact or arbitrary repository tree scan.
+- The native add button opens the existing authenticated onboarding with the exact GitHub repository prefilled. Description/version/variant are retrieved by the existing inspection flow. Private import and public publication retain their separate explicit consent. The scoped native credential cannot import, publish, change billing or authorize an APK.
+- Optional local library search survives rotation. Empty Updates show actual last-known state and recent checks with an actionable Discover shortcut.
+
+Preview identity: `de.rawinstinctai.apkdrop.debug`, versionCode **17**, `0.1.0-alpha.14-preview`, original certificate `6cf70241a63498e5e9fce78bac9abec760364cf320928347114bf109abd81e2e`. No extra permission or dependency.
+
+Backend: additive D1 migration `0016-companion-radar.sql`. Existing install, verification, billing and publication gates stay authoritative. Physical Android upgrade, browser-return pairing and OEM background scheduling acceptance remain user-run. Alpha 15 self-update and installed-app import are intentionally outside this release.

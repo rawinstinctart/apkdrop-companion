@@ -79,7 +79,7 @@ public final class MainActivity extends Activity {
         library=new AppLibraryController(this,io,this::selectSingle,this::updateSaveButton);
         library.onUpdates(this::startUpdates);
         store=new StoreController(this,library,this::selectSingle);
-        store.restoreState(state);
+        store.restoreState(state);library.restoreState(state);
         radar=findViewById(R.id.radarText); queueStatus=findViewById(R.id.queueStatus);
         queue=new AppLibraryStore(this).queue(); awaitingInstaller=library.pendingLaunched();
         findViewById(R.id.queueSkip).setOnClickListener(v->{ if(!detailBusy) nextUpdate(); });
@@ -215,6 +215,8 @@ public final class MainActivity extends Activity {
         pilotReceiverRegistered=true;
     }
 
+    @Override protected void onPause(){store.pause();super.onPause();}
+
     @Override protected void onStop() {
         if(receiverRegistered) { unregisterReceiver(packageChanges); receiverRegistered=false; }
         if(pilotReceiverRegistered) {unregisterReceiver(pilotConditions);pilotReceiverRegistered=false;}
@@ -225,7 +227,7 @@ public final class MainActivity extends Activity {
         if(currentRelease!=null) state.putString("activeSlug",currentRelease.slug);
         else if(pendingLink!=null) state.putString("pendingLink",pendingLink);
         if(deferredLink!=null)state.putString("deferredLink",deferredLink);
-        store.saveState(state);
+        store.saveState(state);library.saveState(state);
         super.onSaveInstanceState(state);
     }
 

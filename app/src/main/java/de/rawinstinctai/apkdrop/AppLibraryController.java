@@ -32,6 +32,11 @@ final class AppLibraryController {
     private boolean detailBusy,checking,readable=true,refreshPending;
     private String listError="";
     private boolean updatesOnly;
+    private String search="";
+    void saveState(android.os.Bundle state){state.putString("librarySearch",search);}
+    void restoreState(android.os.Bundle state){if(state!=null)((EditText)activity.findViewById(R.id.librarySearch)).setText(state.getString("librarySearch",""));}
+    boolean canOpen(AppLibrary.Entry entry){State s=states.get(entry.slug);return s!=null&&s.installed!=null;}
+    void openApp(AppLibrary.Entry entry){if(detailBusy||checking)return;try{Intent intent=activity.getPackageManager().getLaunchIntentForPackage(entry.packageName);if(intent!=null)activity.startActivity(intent);else Toast.makeText(activity,"Diese App hat keinen Startbildschirm.",Toast.LENGTH_SHORT).show();}catch(Exception e){Toast.makeText(activity,message(e),Toast.LENGTH_SHORT).show();}}
     void updatesOnly(boolean value) {if(updatesOnly!=value){updatesOnly=value;render();}}
     int updateCount() {int count=0;for(State s:states.values())if(s.error==null&&s.decision!=null&&s.decision.mode==InstallPolicy.Mode.UPDATE)count++;return count;}
     int count() {return library.entries().size();}
@@ -142,6 +147,9 @@ final class AppLibraryController {
         try { library=store.read(); }
         catch(Exception e) { readable=false; listError="Deine gespeicherte App-Liste konnte nicht gelesen werden. Einzelne Releases kannst du weiterhin prüfen."; }
         checkAll.setOnClickListener(v->{ if(checking) cancelChecks(); else checkAll(); });
+        ((EditText)activity.findViewById(R.id.librarySearch)).addTextChangedListener(new android.text.TextWatcher(){
+            public void beforeTextChanged(CharSequence s,int start,int count,int after){}public void onTextChanged(CharSequence s,int start,int before,int count){search=s.toString().trim().toLowerCase(Locale.ROOT);render();}public void afterTextChanged(android.text.Editable e){}
+        });
         render();
     }
 
@@ -287,6 +295,7 @@ final class AppLibraryController {
             else if(state.decision.mode==InstallPolicy.Mode.UPDATE) updates++;
             else if(state.decision.mode==InstallPolicy.Mode.CURRENT) current++;
             if(updatesOnly && state!=null && state.error==null && state.decision!=null && state.decision.mode!=InstallPolicy.Mode.UPDATE && state.decision.mode!=InstallPolicy.Mode.BLOCKED) continue;
+            if(!updatesOnly&&!search.isEmpty()&&!displayName(entry).toLowerCase(Locale.ROOT).contains(search)&&!entry.packageName.toLowerCase(Locale.ROOT).contains(search))continue;
             View row=activity.getLayoutInflater().inflate(R.layout.item_tracked_app,list,false);
             ImageView icon=row.findViewById(R.id.trackedIcon);
             TextView name=row.findViewById(R.id.trackedName),version=row.findViewById(R.id.trackedVersion);
@@ -333,12 +342,16 @@ final class AppLibraryController {
             list.addView(row);
         }
         int count=library.entries().size();
-        empty.setVisibility(count==0 || (updatesOnly && list.getChildCount()==0)?View.VISIBLE:View.GONE);
+        empty.setVisibility(list.getChildCount()==0?View.VISIBLE:View.GONE);
+        activity.findViewById(R.id.librarySearch).setVisibility(!updatesOnly&&count>1?View.VISIBLE:View.GONE);
+        if(!updatesOnly&&count<=1&&!search.isEmpty()){search="";((EditText)activity.findViewById(R.id.librarySearch)).setText("");return;}
         empty.setText(readable?"Noch keine Apps gespeichert. Öffne Entdecken oder prüfe einen APKDrop-Link und tippe auf Zu meinen Apps hinzufügen.":listError);
-        if(updatesOnly && count>0 && list.getChildCount()==0) empty.setText(activity.getString(R.string.message_applibrarycontroller_16));
+        if(updatesOnly && count>0 && list.getChildCount()==0)empty.setText(homeStatus()+"\n\n"+recentChecks());
+        if(!updatesOnly&&count>0&&list.getChildCount()==0)empty.setText("Keine App passt zu deiner Suche.");
+        activity.findViewById(R.id.libraryDiscover).setVisibility(list.getChildCount()==0?View.VISIBLE:View.GONE);
         String text=count+" "+(count==1?"App":"Apps");
         if(updates>0) text+=" · "+updates+" "+(updates==1?"Update verfügbar":"Updates verfügbar");
-        else if(count>0 && current==count) text+=" · Alle Apps aktuell";
+        else if(count>0 && current==count) text+=" · Aktuell laut letzter Prüfung";
         else if(unknown>0) text+=" · "+unknown+" noch zu prüfen";
         if(!readable) text="App-Liste nicht verfügbar";
         if(!checking) summary.setText(text);

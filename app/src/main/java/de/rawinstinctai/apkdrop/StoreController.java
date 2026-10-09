@@ -30,7 +30,8 @@ final class StoreController {
     private boolean catalogCached,sortByName;
     private long catalogAt;
     private String activeProfile;
-    private boolean newOnly;
+    private boolean newOnly=true,githubRadar;
+    private GitHubRadarController radar;
     private final LinearLayout results;
     private final TextView resultStatus,sectionTitle;
     private final ScrollView scroll;
@@ -90,13 +91,20 @@ final class StoreController {
             if(catalogData!=null)renderCatalogState();
         });
         activity.findViewById(R.id.discoverFilter).setOnClickListener(v->filters(v));
+        radar=new GitHubRadarController(activity,()->{((Button)activity.findViewById(R.id.homeGitHubRadar)).setText(radar==null?"GitHub Radar →":radar.summary());});
+        activity.findViewById(R.id.homeGitHubRadar).setOnClickListener(v->showGitHubRadar());
+        activity.findViewById(R.id.settingsGitHubRadar).setOnClickListener(v->showGitHubRadar());
+        activity.findViewById(R.id.radarGitHub).setOnClickListener(v->showGitHubRadar());
+        activity.findViewById(R.id.radarReleases).setOnClickListener(v->{githubRadar=false;activeProfile=null;following=true;renderNavigation();feed();});
+        activity.findViewById(R.id.radarApps).setOnClickListener(v->{githubRadar=false;activeProfile=null;following=false;renderNavigation();catalog();});
+        activity.findViewById(R.id.libraryDiscover).setOnClickListener(v->navigate(1));
         renderCategories();
         restoreTab(0);
     }
     void restoreTab(int value) {tab=value>=0&&value<5?value:0;renderNavigation();}
     int tab() {return tab;}
     void saveState(android.os.Bundle state) {
-        state.putInt("storeTab",tab);state.putString("discoverQuery",bounded(query,100));state.putString("discoverCategory",category);
+        state.putBoolean("githubRadar",githubRadar);state.putInt("storeTab",tab);state.putString("discoverQuery",bounded(query,100));state.putString("discoverCategory",category);
         state.putInt("discoverPage",page);state.putBoolean("discoverSortByName",sortByName);state.putBoolean("following",following);
         state.putBoolean("followingNewOnly",newOnly);state.putString("discoverProfile",activeProfile);
     }
@@ -105,7 +113,7 @@ final class StoreController {
             query=bounded(state.getString("discoverQuery",""),100);category=state.getString("discoverCategory","");
             if(!java.util.Set.of("","communication","productivity","tools","privacy","media","games","education","other").contains(category))category="";
             page=Math.max(1,Math.min(100000,state.getInt("discoverPage",1)));sortByName=state.getBoolean("discoverSortByName");
-            following=state.getBoolean("following");newOnly=state.getBoolean("followingNewOnly");activeProfile=state.getString("discoverProfile");
+            following=state.getBoolean("following");newOnly=state.getBoolean("followingNewOnly",true);githubRadar=state.getBoolean("githubRadar");activeProfile=state.getString("discoverProfile");
             if(activeProfile!=null)try {StoreClient.handle(activeProfile);}catch(Exception bad){activeProfile=null;}
         }
         ((EditText)activity.findViewById(R.id.discoverInput)).setText(query);
@@ -113,17 +121,21 @@ final class StoreController {
         ((Button)activity.findViewById(R.id.discoverSort)).setText(sortByName?"Name A–Z":"Sortierung");
         renderCategories();restoreTab(state==null?0:state.getInt("storeTab",0));
     }
-    void resume() {if(tab==0&&!detail)homeFeed();if(tab==1&&!detail){if(activeProfile!=null)profile(activeProfile);else if(following)feed();else if(!started)catalog();}}
-    void close() {closed=true;request++;detailRequest++;homeRequest++;network.shutdownNow();media.shutdownNow();images.evictAll();}
+    void pause(){if(radar!=null)radar.pause();}
+    void showGitHubRadar(){githubRadar=true;following=false;activeProfile=null;navigate(1);radar.show();}
+    void resume() {radar.resume();if(tab==0&&!detail)homeFeed();if(tab==1&&!detail){if(githubRadar)radar.show();else if(activeProfile!=null)profile(activeProfile);else if(following)feed();else if(!started)catalog();}}
+    void close() {radar.close();closed=true;request++;detailRequest++;homeRequest++;network.shutdownNow();media.shutdownNow();images.evictAll();}
     void changed() {
         int count=library.count(),updates=library.updateCount();
         ((Button)activity.findViewById(R.id.navUpdates)).setText(updates>0?"Updates ("+updates+")":"Updates");
         ((TextView)activity.findViewById(R.id.homeAppCount)).setText(String.valueOf(count));
         ((TextView)activity.findViewById(R.id.homeUpdateCount)).setText(String.valueOf(updates));
         ((TextView)activity.findViewById(R.id.homePreview)).setText(library.homePreview());
+        ((TextView)activity.findViewById(R.id.homeHeadline)).setText(count==0?"Deine Apps.\nDeine Freiheit.":updates>0?"Deine Updates.\nDeine Entscheidung.":"Dein App-Radar.");
         ((TextView)activity.findViewById(R.id.homeStatus)).setText(library.homeStatus());
         TextView pilot=activity.findViewById(R.id.homePilotStatus);
-        pilot.setText("DropPilot · "+DropPilot.headline(activity));
+        pilot.setText(DropPilot.preparedSlug(activity)!=null?"DropPilot · Update bereit zur Installation →":"DropPilot · "+DropPilot.headline(activity));
+        pilot.setOnClickListener(v->{String slug=DropPilot.preparedSlug(activity);if(slug!=null)select.accept(slug);else navigate(4);});
         pilot.setVisibility(DropPilot.enabled(activity)?View.VISIBLE:View.GONE);
         ((Button)activity.findViewById(R.id.homeUpdates)).setText(library.checking()?"Prüfung abbrechen":count==0?"Apps entdecken →":updates>0?updates+" Updates gemeinsam prüfen →":"Jetzt Updates prüfen →");
         LinearLayout actions=activity.findViewById(R.id.homeAppActions);actions.removeAllViews();
@@ -138,13 +150,20 @@ final class StoreController {
             Toast.makeText(activity,"Die laufende Prüfung bitte kurz abschließen lassen.",Toast.LENGTH_SHORT).show();return;
         }
         hideKeyboard();tab=value;detail=false;activity.findViewById(R.id.detailPanel).setVisibility(View.GONE);
-        renderNavigation();scroll.scrollTo(0,0);if(tab==0)homeFeed();if(tab==1){if(activeProfile!=null)profile(activeProfile);else if(following)feed();else if(!started)catalog();}
+        renderNavigation();scroll.scrollTo(0,0);if(tab==0)homeFeed();if(tab==1){if(githubRadar)radar.show();else if(activeProfile!=null)profile(activeProfile);else if(following)feed();else if(!started)catalog();}
     }
     private void renderNavigation() {
         sectionTitle.setText(TITLES[tab]);sectionTitle.setVisibility(!detail&&tab==0?View.GONE:View.VISIBLE);
         activity.findViewById(R.id.homeHeadline).setVisibility(tab==0?View.VISIBLE:View.GONE);
         activity.findViewById(R.id.homePanel).setVisibility(!detail&&tab==0?View.VISIBLE:View.GONE);
         activity.findViewById(R.id.discoverPanel).setVisibility(!detail&&tab==1?View.VISIBLE:View.GONE);
+        activity.findViewById(R.id.discoverControls).setVisibility(!githubRadar?View.VISIBLE:View.GONE);
+        activity.findViewById(R.id.discoverList).setVisibility(!githubRadar?View.VISIBLE:View.GONE);
+        activity.findViewById(R.id.discoverStatus).setVisibility(!githubRadar?View.VISIBLE:View.GONE);
+        activity.findViewById(R.id.githubRadarPanel).setVisibility(githubRadar?View.VISIBLE:View.GONE);
+        activity.findViewById(R.id.radarApps).setSelected(!githubRadar&&!following);
+        activity.findViewById(R.id.radarReleases).setSelected(!githubRadar&&following);
+        activity.findViewById(R.id.radarGitHub).setSelected(githubRadar);
         activity.findViewById(R.id.libraryPanel).setVisibility(!detail&&(tab==2||tab==3)?View.VISIBLE:View.GONE);
         activity.findViewById(R.id.settingsPanel).setVisibility(!detail&&tab==4?View.VISIBLE:View.GONE);
         activity.findViewById(R.id.linkPanel).setVisibility(View.GONE);
@@ -175,7 +194,7 @@ final class StoreController {
         });}menu.show();
     }
     private void catalog() {
-        activeProfile=null;following=false;started=true;catalogControls(true);
+        githubRadar=false;activeProfile=null;following=false;started=true;catalogControls(true);
         final int ticket=++request;((ThreadPoolExecutor)media).getQueue().clear();
         results.removeAllViews();skeletons();catalogData=null;resultStatus.setText(activity.getString(R.string.message_storecontroller_18));
         String q=encode(query.substring(0,Math.min(100,query.length())));
@@ -227,18 +246,21 @@ final class StoreController {
             LinearLayout card=card();LinearLayout heading=new LinearLayout(activity);heading.setGravity(Gravity.CENTER_VERTICAL);
             ImageView icon=icon(52);icon.setImageDrawable(new AppPlaceholder(name));heading.addView(icon);TextView title=label(name,20);title.setPadding(dp(12),0,0,0);heading.addView(title,new LinearLayout.LayoutParams(0,-2,1));card.addView(heading);
             loadImage(app.optString("iconUrl",""),icon);
+            AppLibrary.Entry saved=library.find(slug);if(saved!=null)icon.setImageDrawable(library.appIcon(saved));
+            boolean unseen=readState.unseen(app);ReleaseRadar.State state=ReleaseRadar.state(activity,app);
+            TextView signal=label(ReleaseRadar.label(state,unseen),12);signal.setTextColor(activity.getColor(state==ReleaseRadar.State.DIFFERENT_SIGNER?R.color.danger:R.color.lime));card.addView(signal);
             String description=bounded(app.optString("description"),400);if(!description.isEmpty()){TextView summary=label(description,13);summary.setMaxLines(3);summary.setEllipsize(android.text.TextUtils.TruncateAt.END);card.addView(summary);}
             JSONObject latest=app.optJSONObject("latest");String version=latest!=null?latest.optString("version"):app.optString("version");
             if(!version.isEmpty())card.addView(label("v"+bounded(version,120)+" · "+app.optString("channel","App-Standard"),12));
             card.addView(label(categoryName(app.optString("category"))+" · "+(app.optBoolean("signatureVerified")?"Signatur im Katalog geprüft":"Signaturstatus in Details"),11));
             JSONObject developer=app.optJSONObject("developer");
             if(developer!=null){String handle=StoreClient.handle(developer.getString("handle"));card.addView(textAction("@"+handle+" · DropID ↗",()->profile(handle)));}
-            card.addView(textAction("App ansehen & prüfen →",()->select.accept(slug)));parent.addView(card);
+            card.addView(button(state==ReleaseRadar.State.INSTALLED?"App ansehen →":state==ReleaseRadar.State.UPDATE?"Update ansehen & prüfen →":"App ansehen & prüfen →",()->{try{readState.mark(new JSONArray().put(app));}catch(Exception e){error(e);}select.accept(slug);}));parent.addView(card);
         } catch(Exception ignored) {parent.addView(label("Ein App-Eintrag konnte nicht angezeigt werden.",13));}
     }
     void profile(String handle) {
         try {StoreClient.handle(handle);}catch(Exception e){error(e);return;}
-        activeProfile=handle;following=false;catalogControls(false);tab=1;detail=false;activity.findViewById(R.id.detailPanel).setVisibility(View.GONE);renderNavigation();
+        githubRadar=false;activeProfile=handle;following=false;catalogControls(false);tab=1;detail=false;activity.findViewById(R.id.detailPanel).setVisibility(View.GONE);renderNavigation();
         final int ticket=++request;((ThreadPoolExecutor)media).getQueue().clear();results.removeAllViews();resultStatus.setText(activity.getString(R.string.message_storecontroller_19));
         submit(()->{
             JSONObject p=StoreClient.get("/api/dropid/"+handle+".json");JSONObject github=p.getJSONObject("github");String id=github.getString("id");
@@ -293,7 +315,7 @@ final class StoreController {
         loadDeveloperAvatar(avatarUrl,githubId,avatar);
     }
     private void feed() {
-        activeProfile=null;following=true;catalogControls(false);
+        githubRadar=false;activeProfile=null;following=true;catalogControls(false);
         final int ticket=++request;((ThreadPoolExecutor)media).getQueue().clear();results.removeAllViews();resultStatus.setText(activity.getString(R.string.message_storecontroller_20));
         try {
             JSONObject local=follows.read();java.util.Iterator<String> it=local.keys();
@@ -312,7 +334,7 @@ final class StoreController {
         } catch(Exception e) {resultStatus.setText(message(e));}
     }
     private void renderFeed(JSONArray releases,boolean truncated) {
-        int unseen=0;for(int i=0;i<releases.length();i++)if(releases.optJSONObject(i)!=null&&readState.unseen(releases.optJSONObject(i)))unseen++;
+        int unseen=0;for(int i=0;i<releases.length();i++)if(releases.optJSONObject(i)!=null&&readState.unseen(releases.optJSONObject(i))&&ReleaseRadar.state(activity,releases.optJSONObject(i))!=ReleaseRadar.State.INSTALLED)unseen++;
         resultStatus.setText(unseen+" neu für dich · "+releases.length()+" öffentliche Releases"+(truncated?" · Liste begrenzt":""));
         LinearLayout feedRows=new LinearLayout(activity);feedRows.setOrientation(LinearLayout.VERTICAL);results.addView(feedRows);
         feedRows.addView(button(newOnly?"Alle Releases anzeigen":"Nur neue Releases anzeigen",()->{newOnly=!newOnly;results.removeView(feedRows);renderFeed(releases,truncated);}));
@@ -323,9 +345,9 @@ final class StoreController {
         for(int i=0;i<releases.length();i++) {
             JSONObject r=releases.optJSONObject(i);if(r==null)continue;
             try {
-                String slug=StoreClient.slug(r.getString("slug"));boolean isNew=readState.unseen(r);if(newOnly&&!isNew)continue;shown++;
+                String slug=StoreClient.slug(r.getString("slug"));boolean isNew=readState.unseen(r);ReleaseRadar.State installed=ReleaseRadar.state(activity,r);if(newOnly&&(!isNew||installed==ReleaseRadar.State.INSTALLED))continue;shown++;
                 LinearLayout c=card();c.addView(label(bounded(r.optString("name"),160),20));
-                c.addView(label((isNew?"NEU FÜR DICH · ":"Bereits angesehen · ")+bounded(r.optString("version"),120)+" · "+bounded(r.optString("channel"),20)+"\n"+bounded(r.optString("publishedAt"),80),13));
+                c.addView(label((ReleaseRadar.label(installed,isNew)+" · ")+bounded(r.optString("version"),120)+" · "+bounded(r.optString("channel"),20)+"\n"+bounded(r.optString("publishedAt"),80),13));
                 c.addView(button("App-Standard prüfen →",()->{
                     try {readState.mark(new JSONArray().put(r));}catch(Exception e){error(e);}
                     select.accept(slug);
@@ -402,14 +424,14 @@ final class StoreController {
                     activity.runOnUiThread(()->{if(closed||ticket!=homeRequest)return;panel.removeAllViews();
                         int shown=0;for(int i=0;i<feed.length()&&shown<2;i++){
                             JSONObject item=feed.optJSONObject(i);if(item==null)continue;
-                            try {String slug=StoreClient.slug(item.getString("slug"));shown++;
+                            try {String slug=StoreClient.slug(item.getString("slug"));if(!readState.unseen(item)||ReleaseRadar.state(activity,item)==ReleaseRadar.State.INSTALLED)continue;shown++;
                                 panel.addView(textAction(bounded(item.optString("name"),160)+" · "+bounded(item.optString("version"),120)
                                         +(readState.unseen(item)?" · Neu →":" →"),()->{
                                     try{readState.mark(new JSONArray().put(item));homeFeedAt=0;}catch(Exception e){error(e);}select.accept(slug);
                                 }));
                             }catch(Exception invalid){}
                         }
-                        if(shown==0)panel.addView(label("Aktuell keine öffentlichen Releases deiner Entwickler.",12));
+                        if(shown==0){panel.addView(label("Dein Radar ist auf Stand. Neue, ungesehene Releases erscheinen hier.",12));panel.addView(textAction("Alle Releases ansehen →",()->{githubRadar=false;activeProfile=null;following=true;newOnly=false;navigate(1);}));}
                     });
                 }catch(Exception e){activity.runOnUiThread(()->{if(closed||ticket!=homeRequest)return;homeFeedAt=0;panel.removeAllViews();panel.addView(textAction("Releases nicht erreichbar · Erneut versuchen ↻",this::homeFeed));});}
             });
@@ -440,7 +462,7 @@ final class StoreController {
         LinearLayout lines=new LinearLayout(activity);lines.setOrientation(LinearLayout.VERTICAL);lines.setPadding(dp(12),0,0,0);
         TextView name=label(library.displayName(entry),16);name.setTypeface(null,android.graphics.Typeface.BOLD);name.setTextColor(activity.getColor(R.color.text));name.setPadding(0,0,0,dp(4));lines.addView(name);
         TextView state=label(library.homeVersion(entry)+" · "+library.homeEntryStatus(entry),12);state.setPadding(0,0,0,0);lines.addView(state);c.addView(lines,new LinearLayout.LayoutParams(0,-2,1));
-        c.addView(label("→",18));c.setFocusable(true);c.setContentDescription(library.displayName(entry)+" · "+library.homeEntryStatus(entry)+" · Details öffnen");
+        if(library.canOpen(entry)){Button open=button("Öffnen ↗",()->library.openApp(entry));open.setTextSize(12);open.setMinWidth(0);open.setMinimumWidth(0);open.setLayoutParams(new LinearLayout.LayoutParams(-2,dp(48)));c.addView(open);}else c.addView(label("→",18));c.setFocusable(true);c.setContentDescription(library.displayName(entry)+" · "+library.homeEntryStatus(entry)+" · Details öffnen");
         c.setOnClickListener(v->{v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);select.accept(entry.slug);});return c;
     }
     private void skeletons() {
