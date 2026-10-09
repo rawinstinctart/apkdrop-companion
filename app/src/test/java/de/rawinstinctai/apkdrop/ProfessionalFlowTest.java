@@ -88,6 +88,12 @@ public class ProfessionalFlowTest {
         assertEquals(-2,open.getLayoutParams().height);
         assertTrue(open.getHeight()>=open.getLayout().getHeight()+open.getCompoundPaddingTop()+open.getCompoundPaddingBottom());
         assertTrue(a.findViewById(R.id.bottomNav).getBottom()<=1280);
+        for(int id:new int[]{R.id.navHome,R.id.navDiscover,R.id.navApps,R.id.navUpdates,R.id.navSettings}) {
+            TextView nav=a.findViewById(id);
+            int last=nav.getLayout().getLineCount()-1;
+            assertTrue("Navigation text clips for "+nav.getText(),
+                    nav.getLayout().getLineBottom(last)+nav.getCompoundPaddingTop()+nav.getCompoundPaddingBottom()<=nav.getHeight());
+        }
         a.findViewById(R.id.navHome).performClick();render(a,"alpha16-1-home-large");
         LinearLayout home=a.findViewById(R.id.homeAppActions);
         LinearLayout card=(LinearLayout)home.getChildAt(0);

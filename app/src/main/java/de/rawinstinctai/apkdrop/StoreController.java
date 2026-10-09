@@ -149,7 +149,7 @@ final class StoreController {
         pilot.setText(DropPilot.preparedSlug(activity)!=null?"DropPilot · Update bereit zur Installation →":"DropPilot · "+DropPilot.headline(activity));
         pilot.setOnClickListener(v->{String slug=DropPilot.preparedSlug(activity);if(slug!=null)select.accept(slug);else navigate(4);});
         pilot.setVisibility(DropPilot.enabled(activity)?View.VISIBLE:View.GONE);
-        ((Button)activity.findViewById(R.id.homeUpdates)).setText(library.checking()?"Prüfung abbrechen":count==0?"Apps entdecken →":updates>0?updates+" Updates gemeinsam prüfen →":"Jetzt Updates prüfen →");
+        ((Button)activity.findViewById(R.id.homeUpdates)).setText(library.checking()?"Prüfung abbrechen":count==0?"Apps entdecken →":updates>0?updates+(updates==1?" Update gemeinsam prüfen →":" Updates gemeinsam prüfen →"):"Jetzt Updates prüfen →");
         LinearLayout actions=activity.findViewById(R.id.homeAppActions);actions.removeAllViews();
         for(AppLibrary.Entry entry:library.homeEntries()) actions.addView(homeCard(entry));
         LinearLayout checks=activity.findViewById(R.id.homeActivity);checks.removeAllViews();checks.addView(label(library.recentChecks(),12));
@@ -192,6 +192,13 @@ final class StoreController {
             View v=activity.findViewById(NAV[i]);v.setSelected(i==tab);
             Button button=(Button)v;
             button.setTextColor(activity.getColor(i==tab?R.color.lime:R.color.muted));
+            // Reserve both text lines plus the icon at the largest autosize setting.
+            // TextView wrap_content alone can measure less than drawable + multiline text.
+            android.text.TextPaint navPaint=new android.text.TextPaint(button.getPaint());
+            navPaint.setTextSize(button.getAutoSizeMaxTextSize());
+            int navHeight=Math.max(dp(68),(int)Math.ceil(navPaint.getFontSpacing())*button.getMaxLines()
+                    +button.getCompoundPaddingTop()+button.getCompoundPaddingBottom());
+            button.setMinHeight(navHeight);button.setMinimumHeight(navHeight);
             button.setContentDescription(NAV_LABELS[i]+(i==tab?", ausgewählt":""));
             button.setAccessibilityDelegate(new View.AccessibilityDelegate(){
                 @Override public void onInitializeAccessibilityNodeInfo(View host,android.view.accessibility.AccessibilityNodeInfo info) {
