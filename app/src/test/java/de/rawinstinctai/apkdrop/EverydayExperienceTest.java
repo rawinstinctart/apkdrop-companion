@@ -84,6 +84,8 @@ public class EverydayExperienceTest {
         activity=Robolectric.buildActivity(MainActivity.class).create();MainActivity a=activity.get();StoreController store=store(a);
         JSONObject data=catalog("zulu-app");data.getJSONArray("apps").put(new JSONObject().put("slug","alpha-app").put("name","Alpha"));
         store.renderCatalog(data);a.findViewById(R.id.discoverSort).performClick();
+        PopupMenu popup=org.robolectric.shadows.ShadowPopupMenu.getLatestPopupMenu();
+        assertNotNull(popup);assertTrue(popup.getMenu().performIdentifierAction(2,0));
         LinearLayout rows=a.findViewById(R.id.discoverList);java.util.List<LinearLayout> apps=new java.util.ArrayList<>();for(int i=0;i<rows.getChildCount();i++)if(rows.getChildAt(i).getTag() instanceof String)apps.add((LinearLayout)rows.getChildAt(i));LinearLayout heading=(LinearLayout)apps.get(0).getChildAt(0);
         assertEquals("alpha-app",apps.get(0).getTag());assertEquals("Alpha",((TextView)heading.getChildAt(1)).getText().toString());assertEquals(2,apps.size());
     }
