@@ -65,13 +65,21 @@ public class Alpha16ExperienceTest {
             .put("apps",new JSONArray());
         s.renderCatalog(empty);
         LinearLayout list=a.findViewById(R.id.discoverList);
-        boolean hasGuidance=false;
+        boolean hasGuidance=false,hasNextStep=false;
         for(int i=0;i<list.getChildCount();i++) {
             View row=list.getChildAt(i);
-            if(row instanceof TextView && ((TextView)row).getText().toString().contains("Noch keine öffentlichen Apps"))
-                hasGuidance=true;
+            if(!(row instanceof LinearLayout))continue;
+            LinearLayout card=(LinearLayout)row;
+            for(int j=0;j<card.getChildCount();j++) {
+                View child=card.getChildAt(j);
+                if(child instanceof TextView && ((TextView)child).getText().toString().contains("Noch keine Apps in dieser Auswahl"))
+                    hasGuidance=true;
+                if(child instanceof Button && ((Button)child).getText().toString().contains("App-Link hinzufügen"))
+                    hasNextStep=true;
+            }
         }
         assertTrue(hasGuidance);
+        assertTrue(hasNextStep);
         assertEquals("0 Apps",((TextView)a.findViewById(R.id.discoverCount)).getText().toString());
     }
     @Test public void bottomNavigationLabelsMayWrapForLargeSystemFonts() {
