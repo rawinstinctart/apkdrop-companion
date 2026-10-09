@@ -6,9 +6,9 @@ from pathlib import Path
 import subprocess
 import sys
 
-ALIGNED_SHA = "d7af328be64c61541667636d7cc92c3d2d8d6cf7fc34e59b1d397203e9d357e4"
-PATCH_SHA = "31490eeb411f5b599ee46ab51cc0c58985a7cf073cb20d22d3f1a4aade36c8d5"
-SIGNED_SHA = "66936357636f924db01fbfa1b89db09d18a95756c08c1a3d07bf33af81fbd282"
+ALIGNED_SHA = "85cd109fbd71e9562d5e32020f77db42fe1041090192a8ca1c2d29714a7a6f6b"
+PATCH_SHA = "e2b4d8ec06c4c370d60c2c0bde0232cff4377e9dd26c09b434aec101e667728d"
+SIGNED_SHA = "d4225a61761c25a884d4e9e127862ea78e88383e8a88ceec92d8bfa2d4c72d6f"
 
 def checksum(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
