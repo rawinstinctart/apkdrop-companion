@@ -16,6 +16,20 @@ from urllib.request import Request, urlopen
 # Keep public-facing security and compatibility disclosures intact.
 REMOVALS = (
     (r"(?m)^\*\*Noch offen:\*\*[^\r\n]*(?:\r?\n)?", ""),
+    (r" Physical device acceptance remains OPEN\.", ""),
+    (
+        r"Device acceptance and Play Protect outcome are \*\*OPEN\*\*; this release does not guarantee",
+        "This release does not guarantee",
+    ),
+    (
+        r"(?m)^Screenshots in den Prüfarbelegen nutzen synthetische Demo-Apps\. Test-Wiederherstellung prüft explizit save/destroy/create; die simulierte Animation wird nur in UI-Tests deaktiviert\. Physische Geräteprüfung für Upgrade, Rotation, Sharesheet, Hintergrundjobs und Installer bleibt offen\. Produktions-App-Links sind nicht aktiviert\.(?:\r?\n)?",
+        "Produktions-App-Links sind in dieser Preview nicht aktiviert.\n",
+    ),
+    (
+        r"(?m)^GitHub Actions did not run job steps because GitHub reported an account payment/spending-limit problem\. This release does not claim a passing hosted CI run, physical-device acceptance, production approval or malware certification\.",
+        "This release does not claim a passing hosted CI run, production approval or malware certification.",
+    ),
+
     (r"(?m)^\*\*Hinweis:\*\* Die Installation und visuelle Abnahme[^\r\n]*(?:\r?\n)?", ""),
     (r"(?m)^\*\*Geräteabnahme bleibt offen:\*\*[^\r\n]*(?:\r?\n)?", ""),
     (
@@ -55,6 +69,8 @@ LEGACY_TAGS = frozenset({
     "v0.1.0-alpha.14", "v0.1.0-alpha.15", "v0.1.0-alpha.15.1",
     "v0.1.0-alpha.15.2", "v0.1.0-alpha.16",
     "v0.1.0-alpha.16.1", "v0.1.0-alpha.17",
+    "v0.1.0-alpha.9", "v0.1.0-alpha.8", "v0.1.0-alpha.6.1",
+    "v0.1.0-alpha.6",
 })
 
 def sanitize(body: str) -> str:
