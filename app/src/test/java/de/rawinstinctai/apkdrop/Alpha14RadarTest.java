@@ -38,7 +38,7 @@ public class Alpha14RadarTest {
         MainActivity a=create();a.findViewById(R.id.homeGitHubRadar).performClick();
         assertEquals(View.VISIBLE,a.findViewById(R.id.githubRadarPanel).getVisibility());assertEquals(View.GONE,a.findViewById(R.id.discoverControls).getVisibility());
         LinearLayout panel=a.findViewById(R.id.githubRadarPanel);boolean connect=false;for(int i=0;i<panel.getChildCount();i++)if(panel.getChildAt(i) instanceof Button b&&b.getText().toString().equals("GitHub verbinden →"))connect=true;
-        assertTrue(connect);assertEquals(a.getColor(R.color.lime_dark),((Button)a.findViewById(R.id.radarGitHub)).getCurrentTextColor());a.findViewById(R.id.radarApps).performClick();assertEquals(View.GONE,panel.getVisibility());assertEquals(View.VISIBLE,a.findViewById(R.id.discoverControls).getVisibility());
+        assertTrue(connect);assertEquals("GitHub Radar ▾",((Button)a.findViewById(R.id.radarApps)).getText().toString());a.findViewById(R.id.radarApps).performClick();org.robolectric.shadows.ShadowPopupMenu.getLatestPopupMenu().getMenu().performIdentifierAction(1,0);assertEquals(View.GONE,panel.getVisibility());assertEquals(View.VISIBLE,a.findViewById(R.id.discoverControls).getVisibility());
     }
     @Test public void preparedInstalledStatesAreReusedWithoutPackageLookupsDuringRender() throws Exception {
         MainActivity a=create();java.lang.reflect.Field field=MainActivity.class.getDeclaredField("store");field.setAccessible(true);Object store=field.get(a);
