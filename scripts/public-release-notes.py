@@ -2,7 +2,7 @@
 """Public GitHub release notes: keep internal acceptance work out of public copy.
 
 Only release-note text is ever changed. APK files, tags, checksums and draft
-releases are not modified by the one-time live cleanup.
+releases are never modified by the live cleanup.
 """
 import argparse
 import json
@@ -63,20 +63,14 @@ BLOCKED = (
     (re.compile(r"(?i)\breal(?:em|en)\s+github.konto\b"), "interne Kontenabnahme"),
 )
 
-# Only these already-published descriptions are touched, never drafts/new tags.
-LEGACY_TAGS = frozenset({
-    "v0.1.0-alpha.11", "v0.1.0-alpha.12", "v0.1.0-alpha.13",
-    "v0.1.0-alpha.14", "v0.1.0-alpha.15", "v0.1.0-alpha.15.1",
-    "v0.1.0-alpha.15.2", "v0.1.0-alpha.16",
-    "v0.1.0-alpha.16.1", "v0.1.0-alpha.17",
-    "v0.1.0-alpha.9", "v0.1.0-alpha.8", "v0.1.0-alpha.6.1",
-    "v0.1.0-alpha.6",
-})
+# Published release bodies are checked after publish/edit; drafts are never touched.
 
 def sanitize(body: str) -> str:
     result = body
     for pattern, replacement in REMOVALS:
         result = re.sub(pattern, replacement, result)
+    if result == body:
+        return body  # Do not rewrite clean release descriptions.
     # Avoid empty paragraphs caused by deleted notes, without rewriting prose.
     result = re.sub(r"\n{3,}", "\n\n", result)
     return result.rstrip() + "\n" if result.strip() else ""
@@ -109,7 +103,7 @@ def repair_live():
         releases = github_api("GET", f"https://api.github.com/repos/{repo}/releases?per_page=100&page={page}")
         for release in releases:
             tag = release.get("tag_name")
-            if tag not in LEGACY_TAGS or release.get("draft") or release.get("immutable"):
+            if not tag or release.get("draft") or release.get("immutable"):
                 continue
             seen.add(tag)
             original = release.get("body") or ""
@@ -125,9 +119,7 @@ def repair_live():
             print(f"UPDATED {tag} (notes only)")
         if len(releases) < 100:
             break
-    if "v0.1.0-alpha.17" not in seen:
-        raise RuntimeError("Expected public Alpha 17 release missing")
-    print("Release-description cleanup complete; APK assets and tags untouched.")
+    print(f"Checked {len(seen)} public releases; APK assets and tags untouched.")
 
 def main():
     parser = argparse.ArgumentParser()
