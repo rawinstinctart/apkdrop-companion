@@ -1,0 +1,29 @@
+name: Export tested Alpha 15 candidate for original signing
+on:
+  push:
+    branches: [codex/alpha15-signing]
+    paths: ['.github/workflows/export-alpha15.yml']
+permissions:
+  contents: write
+  actions: read
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 37933347390
+          name: apkdrop-companion-unsigned-preview
+          path: unsigned
+          github-token: ${{ github.token }}
+      - name: Record immutable tested candidate blob
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(gh api repos/${{ github.repository }}/actions/runs/37933347390 --jq .head_sha)" = 'f99ae42b9cf5855cc4d57cdd08faa6c4a99f9942'
+          test "$(gh api repos/${{ github.repository }}/actions/runs/37933347390 --jq .conclusion)" = 'success'
+          sha256sum unsigned/app-preview-unsigned.apk
+          base64 -w0 unsigned/app-preview-unsigned.apk > /tmp/unsigned.b64
+          gh api -X POST repos/${{ github.repository }}/git/blobs -f encoding=base64 -F content=@/tmp/unsigned.b64 --jq '"TESTED_UNSIGNED_BLOB=" + .sha'
