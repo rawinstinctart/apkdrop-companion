@@ -12,7 +12,7 @@ final class InstallContract {
     private static final Pattern PACKAGE = Pattern.compile("^[A-Za-z0-9_]+(?:\\.[A-Za-z0-9_]+)+$");
     private static final Pattern HEX = Pattern.compile("^[a-f0-9]{64}$");
 
-    final String slug, appName, releaseId, version, packageName, sha256, channel, notes, downloadUrl, receiptUrl, showcaseUrl;
+    final String slug, appName, releaseId, version, packageName, sha256, channel, notes, notesSummary, downloadUrl, receiptUrl, showcaseUrl;
     final long versionCode, size;
     final int minSdk, targetSdk;
     final List<String> abis;
@@ -21,12 +21,19 @@ final class InstallContract {
     InstallContract(String slug,String appName,String releaseId,String version,long versionCode,String packageName,
                     int minSdk,int targetSdk,List<String> abis,Set<String> permissions,Set<String> signers,
                     String sha256,long size,String channel,String notes,String downloadUrl,String receiptUrl,String showcaseUrl) {
+        this(slug,appName,releaseId,version,versionCode,packageName,minSdk,targetSdk,abis,permissions,signers,
+                sha256,size,channel,notes,"",downloadUrl,receiptUrl,showcaseUrl);
+    }
+
+    InstallContract(String slug,String appName,String releaseId,String version,long versionCode,String packageName,
+                    int minSdk,int targetSdk,List<String> abis,Set<String> permissions,Set<String> signers,
+                    String sha256,long size,String channel,String notes,String notesSummary,String downloadUrl,String receiptUrl,String showcaseUrl) {
         this.slug=slug; this.appName=appName; this.releaseId=releaseId; this.version=version; this.versionCode=versionCode;
         this.packageName=packageName; this.minSdk=minSdk; this.targetSdk=targetSdk;
         this.abis=Collections.unmodifiableList(new ArrayList<>(abis));
         this.permissions=Collections.unmodifiableSet(new LinkedHashSet<>(permissions));
         this.signers=Collections.unmodifiableSet(new LinkedHashSet<>(signers));
-        this.sha256=sha256; this.size=size; this.channel=channel; this.notes=notes;
+        this.sha256=sha256; this.size=size; this.channel=channel; this.notes=notes; this.notesSummary=notesSummary;
         this.downloadUrl=downloadUrl; this.receiptUrl=receiptUrl; this.showcaseUrl=showcaseUrl;
     }
 
@@ -66,9 +73,11 @@ final class InstallContract {
         String showcase=trusted(r.getString("showcaseUrl"),slug,false);
         String notes=r.optString("notes","");
         if(notes.length()>12000) throw new SecurityException("Release-Notizen sind zu groß.");
+        String summary=r.optString("notesSummary","");
+        if(summary.length()>800) throw new SecurityException("Release-Kurzfassung ist zu groß.");
 
         return new InstallContract(slug,name,id,version,code,pkg,min,target,abis,permissions,signers,sha,size,
-                r.optString("channel","stable"),notes,download,receipt,showcase);
+                r.optString("channel","stable"),notes,summary,download,receipt,showcase);
     }
 
     JSONObject json() throws Exception {
@@ -76,7 +85,7 @@ final class InstallContract {
         JSONObject r=new JSONObject().put("releaseId",releaseId).put("version",version).put("versionCode",versionCode)
                 .put("packageName",packageName).put("minSdk",minSdk).put("targetSdk",targetSdk==0?JSONObject.NULL:targetSdk)
                 .put("abis",new JSONArray(abis)).put("permissions",new JSONArray(permissions)).put("signers",new JSONArray(signers))
-                .put("sha256",sha256).put("size",size).put("channel",channel).put("notes",notes)
+                .put("sha256",sha256).put("size",size).put("channel",channel).put("notes",notes).put("notesSummary",notesSummary)
                 .put("downloadUrl",downloadUrl).put("receiptUrl",receiptUrl).put("showcaseUrl",showcaseUrl);
         JSONObject policy=new JSONObject().put("hash","sha256").put("signers","exact")
                 .put("identity","package+versionCode").put("keyRotation",false);
