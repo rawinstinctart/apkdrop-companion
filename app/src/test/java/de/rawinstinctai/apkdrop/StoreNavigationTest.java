@@ -141,6 +141,59 @@ public final class StoreNavigationTest {
         assertTrue(((LinearLayout)header.getChildAt(1)).getChildAt(0) instanceof TextView);
         assertEquals("RawInstinctAI",((TextView)((LinearLayout)header.getChildAt(1)).getChildAt(0)).getText().toString());
     }
+
+    private static boolean treeHasText(View root,String expected) {
+        if(root instanceof TextView && ((TextView)root).getText().toString().contains(expected))return true;
+        if(root instanceof android.view.ViewGroup) {
+            android.view.ViewGroup group=(android.view.ViewGroup)root;
+            for(int i=0;i<group.getChildCount();i++)if(treeHasText(group.getChildAt(i),expected))return true;
+        }
+        return false;
+    }
+    @Test public void emptyCatalogHasOneClearCallToActionAndPreservesFilters() throws Exception {
+        MainActivity a=create(null);a.findViewById(R.id.navDiscover).performClick();
+        java.lang.reflect.Field field=MainActivity.class.getDeclaredField("store");field.setAccessible(true);
+        StoreController store=(StoreController)field.get(a);
+        org.json.JSONObject empty=new org.json.JSONObject().put("schema","apkdrop.discover.v1")
+                .put("apps",new org.json.JSONArray()).put("total",0).put("page",1).put("pages",1);
+        store.renderCatalog(empty);
+        LinearLayout results=a.findViewById(R.id.discoverList);
+        assertEquals("0 Apps",((TextView)a.findViewById(R.id.discoverCount)).getText().toString());
+        assertTrue(treeHasText(results,"Noch keine Apps in dieser Auswahl"));
+        assertTrue(treeHasText(results,"App-Link hinzufügen"));
+        // Filtered empty results offer a way back instead of a dead end.
+        java.lang.reflect.Field query=StoreController.class.getDeclaredField("query");query.setAccessible(true);
+        query.set(store,"not-found");
+        store.renderCatalog(empty);
+        assertTrue(treeHasText(results,"Keine passenden Apps"));
+        assertTrue(treeHasText(results,"Alle Apps ansehen"));
+        assertFalse(treeHasText(results,"App-Link hinzufügen"));
+        assertEquals("Kategorie: Alle, ausgewählt",
+                a.findViewById(R.id.categoryChips) instanceof LinearLayout
+                    ? ((LinearLayout)a.findViewById(R.id.categoryChips)).getChildAt(0).getContentDescription().toString() : "");
+    }
+    @Test public void developerCollectionRendersDeduplicatedProfileCards() throws Exception {
+        MainActivity a=create(null);a.findViewById(R.id.navDiscover).performClick();
+        java.lang.reflect.Field field=MainActivity.class.getDeclaredField("store");field.setAccessible(true);
+        StoreController store=(StoreController)field.get(a);
+        java.lang.reflect.Field developers=StoreController.class.getDeclaredField("developersOnly");developers.setAccessible(true);
+        developers.setBoolean(store,true);
+        org.json.JSONObject developer=new org.json.JSONObject().put("name","Sample Developer").put("handle","sampledev");
+        org.json.JSONArray apps=new org.json.JSONArray()
+            .put(new org.json.JSONObject().put("slug","sample-one").put("developer",developer))
+            .put(new org.json.JSONObject().put("slug","sample-two").put("developer",developer));
+        store.renderCatalog(new org.json.JSONObject().put("schema","apkdrop.discover.v1")
+                .put("apps",apps).put("total",2).put("page",1).put("pages",1));
+        LinearLayout results=a.findViewById(R.id.discoverList);
+        int profiles=0;
+        for(int i=0;i<results.getChildCount();i++)
+            if("developer:sampledev".equals(results.getChildAt(i).getTag()))profiles++;
+        assertEquals(1,profiles);
+        assertTrue(treeHasText(results,"Sample Developer"));
+        assertTrue(treeHasText(results,"Profil ansehen"));
+        assertFalse(treeHasText(results,"Keine passenden Apps"));
+        assertTrue(treeHasText(results,"Entwickler entdecken"));
+    }
     @Test @GraphicsMode(GraphicsMode.Mode.NATIVE) public void largeTextKeepsNavigationInsideWindow() throws Exception {
         RuntimeEnvironment.setFontScale(1.4f);MainActivity a=create(null);a.findViewById(R.id.navSettings).performClick();
         View root=a.findViewById(R.id.pageRoot);root.measure(View.MeasureSpec.makeMeasureSpec(720,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(1600,View.MeasureSpec.EXACTLY));root.layout(0,0,720,1600);
