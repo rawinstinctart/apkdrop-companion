@@ -19,5 +19,3 @@ Ein gezielter erster Qualitätsrelease auf dem Weg zu APKDrop 1.0. **Keine Ände
 - Die APK ist nicht debuggbar, mit v2/v3 signiert, und stammt vom im CI geprüften Quellstand.
 - Android-CI: `37949471562` erfolgreich, einschließlich Test, Lint, Preview und Manifest.
 - GitHub verifiziert im Publisher erneut die **exakten signierten Bytes**, Version, Zertifikat, Berechtigungen und das Live-Backend. Der Keystore bleibt ausschließlich außerhalb von GitHub.
-
-**Hinweis:** Die Installation und visuelle Abnahme auf echten Geräten bleiben separate Akzeptanzschritte. Alpha 17 und Alpha 18 sind eigenständige Arbeitspakete; diese Version behauptet noch keine Produktionsreife.
