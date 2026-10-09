@@ -289,22 +289,16 @@ final class StoreController {
         if(query.isEmpty()&&category.isEmpty()){renderCollections();}
         java.util.List<JSONObject> entries=new java.util.ArrayList<>();for(int i=0;i<apps.length();i++)entries.add(apps.optJSONObject(i));
         if(sortByName)entries.sort(java.util.Comparator.comparing(app->app.optString("name",app.optString("slug")),String.CASE_INSENSITIVE_ORDER));
-        if(developersOnly){renderCatalogDevelopers(entries);}else{
+        if(developersOnly) {
+            renderCatalogDevelopers(entries);
+        } else if(apps.length()==0) {
+            renderCatalogEmpty();
+        } else {
             // Selection chips already communicate the current collection; the content title should not echo a chip.
             results.addView(label(!query.isEmpty()?"Suchergebnisse":"Apps für dich",20));
             results.addView(label(sortByName?"Alphabetisch nach Namen"+(pages>1?" · aktuelle Seite":"")
                     :newDiscover?"Neu veröffentlichte Apps":"Aktuelle Releases zuerst",12));
             for(JSONObject app:entries)appCard(app,results);
-        }
-        if(apps.length()==0) {
-            results.addView(label(query.isEmpty()&&category.isEmpty()
-                    ?"Noch keine öffentlichen Apps in dieser Auswahl. Entdecke stattdessen Entwickler oder schau später wieder vorbei."
-                    :"Keine passende App gefunden. Probiere einen anderen Suchbegriff oder die Kategorie Alle.",14));
-            if(!query.isEmpty()||!category.isEmpty())results.addView(button("Suche und Filter löschen",()->{
-                query="";category="";page=1;sortByName=false;
-                ((EditText)activity.findViewById(R.id.discoverInput)).setText("");
-                renderCategories();catalog();
-            }));
         }
         int current=data.optInt("page",1);
         if(current>1)results.addView(button("← Vorherige Seite",()->{page=current-1;catalog();scroll.scrollTo(0,0);}));
@@ -553,12 +547,13 @@ final class StoreController {
                 newDiscover=title.equals("Neu");developersOnly=title.equals("Entwickler");
                 page=1;catalog();
             });
-            choice.setContentDescription(title.equals("Aktuell")?"Frisch aktualisierte Apps":
-                    title.equals("Neu")?"Neu entdeckte Apps":"Entwickler entdecken");
+            boolean selected=developersOnly?title.equals("Entwickler"):
+                    newDiscover?title.equals("Neu"):title.equals("Aktuell");
+            choice.setContentDescription((title.equals("Aktuell")?"Frisch aktualisierte Apps":
+                    title.equals("Neu")?"Neu entdeckte Apps":"Entwickler entdecken")+(selected?", ausgewählt":""));
             choice.setTextSize(12);
             choice.setPadding(dp(7),dp(5),dp(7),dp(5));choice.setMinHeight(dp(48));
-            choice.setSelected(developersOnly?title.equals("Entwickler"):
-                    newDiscover?title.equals("Neu"):title.equals("Aktuell"));
+            choice.setSelected(selected);
             choice.setBackgroundResource(R.drawable.bg_chip);
             choice.setTextColor(activity.getColor(choice.isSelected()?R.color.lime_dark:R.color.lime));
             LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,-2,1);
@@ -566,8 +561,48 @@ final class StoreController {
         }
         row.setPadding(0,dp(4),0,dp(6));results.addView(row);
     }
-    private void renderCatalogDevelopers(java.util.List<JSONObject> apps){
-        results.addView(label("Entwickler entdecken",20));java.util.Set<String> seen=new java.util.HashSet<>();for(JSONObject app:apps){JSONObject developer=app.optJSONObject("developer");if(developer==null)continue;String handle=developer.optString("handle");if(!seen.add(handle))continue;results.addView(textAction(developer.optString("name")+" · @"+handle+" →",()->profile(handle)));}if(seen.isEmpty())results.addView(label("Hier gibt es noch keine öffentlichen Entwicklerprofile.",13));
+    private void renderCatalogEmpty() {
+        final boolean filtered=!query.isEmpty()||!category.isEmpty();
+        LinearLayout empty=card();
+        TextView title=label(filtered?"Keine passenden Apps":"Noch keine Apps in dieser Auswahl",20);
+        empty.addView(title);
+        empty.addView(label(filtered
+                ?"Passe deine Suche an oder sieh dir alle verfügbaren Apps an."
+                :"Neue veröffentlichte Apps erscheinen hier automatisch. Du kannst auch einen App-Link direkt hinzufügen.",14));
+        if(filtered)empty.addView(button("Alle Apps ansehen →",()->{
+            query="";category="";page=1;sortByName=false;newDiscover=false;developersOnly=false;
+            ((EditText)activity.findViewById(R.id.discoverInput)).setText("");
+            renderCategories();catalog();
+        }));
+        else empty.addView(button("App-Link hinzufügen →",()->{
+            navigate(2);activity.findViewById(R.id.addLinkButton).performClick();
+        }));
+        results.addView(empty);
+    }
+    private void renderCatalogDevelopers(java.util.List<JSONObject> apps) {
+        results.addView(label("Entwickler entdecken",20));
+        java.util.Set<String> seen=new java.util.HashSet<>();
+        for(JSONObject app:apps) {
+            JSONObject developer=app.optJSONObject("developer");if(developer==null)continue;
+            final String handle;
+            try {handle=StoreClient.handle(developer.getString("handle"));}catch(Exception invalid){continue;}
+            if(!seen.add(handle))continue;
+            String name=bounded(developer.optString("name",handle),120);
+            if(name.isBlank())name=handle;
+            LinearLayout card=card();card.setTag("developer:"+handle);
+            LinearLayout heading=new LinearLayout(activity);heading.setGravity(Gravity.CENTER_VERTICAL);
+            ImageView avatar=icon(48);avatar.setImageDrawable(new AppPlaceholder(name));
+            avatar.setContentDescription("Entwicklerprofil "+name);heading.addView(avatar);
+            LinearLayout identity=new LinearLayout(activity);identity.setOrientation(LinearLayout.VERTICAL);
+            identity.setPadding(dp(12),0,0,0);
+            TextView title=label(name,18);title.setTextColor(activity.getColor(R.color.text));
+            title.setTypeface(null,android.graphics.Typeface.BOLD);identity.addView(title);
+            identity.addView(label("@"+handle+" · DropID",12));
+            heading.addView(identity,new LinearLayout.LayoutParams(0,-2,1));card.addView(heading);
+            card.addView(button("Profil ansehen →",()->profile(handle)));
+            results.addView(card);
+        }
+        if(seen.isEmpty())renderCatalogEmpty();
     }
     private void hideKeyboard() {
         View focus=activity.getCurrentFocus();if(focus!=null){
@@ -580,7 +615,9 @@ final class StoreController {
                 category=value;page=1;following=false;activeProfile=null;
                 ((Button)activity.findViewById(R.id.discoverFilter)).setText(categoryName(value));renderCategories();catalog();
             });
-            chip.setMinWidth(dp(48));chip.setMinimumWidth(dp(48));chip.setTextSize(12);chip.setSelected(category.equals(value));chip.setTextColor(activity.getColor(category.equals(value)?R.color.lime_dark:R.color.muted));
+            chip.setMinWidth(dp(48));chip.setMinimumWidth(dp(48));chip.setTextSize(12);chip.setSelected(category.equals(value));
+            chip.setContentDescription("Kategorie: "+(value.isEmpty()?"Alle":categoryName(value))+(chip.isSelected()?", ausgewählt":""));
+            chip.setTextColor(activity.getColor(category.equals(value)?R.color.lime_dark:R.color.muted));
             chip.setBackgroundResource(R.drawable.bg_chip);chip.setPadding(dp(14),0,dp(14),0);
             chip.setMinHeight(dp(48));chip.setPadding(dp(14),dp(6),dp(14),dp(6));
             LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-2,-2);lp.rightMargin=dp(8);chips.addView(chip,lp);
