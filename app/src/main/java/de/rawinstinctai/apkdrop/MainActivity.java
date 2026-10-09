@@ -112,6 +112,7 @@ public final class MainActivity extends Activity {
         updateBackgroundStatus(); updateDropPilotStatus(); updateQueueUi();
         try {((TextView)findViewById(R.id.appVersion)).setText("APKDrop Companion · "+getPackageManager().getPackageInfo(getPackageName(),0).versionName);}
         catch(Exception unavailable) { /* Static version label remains a fallback. */ }
+        findViewById(R.id.selfUpdate).setOnClickListener(v->{if(!detailBusy && !library.checking()) selectSingle("apkdrop-companion");});
         findViewById(R.id.backupExport).setOnClickListener(v->chooseBackup(true));
         findViewById(R.id.backupImport).setOnClickListener(v->chooseBackup(false));
         findViewById(R.id.historyButton).setOnClickListener(v->{
@@ -234,7 +235,7 @@ public final class MainActivity extends Activity {
     @Override protected void onDestroy() {
         if(pilotPreferences!=null)pilotPreferences.unregisterOnSharedPreferenceChangeListener(pilotListener);
         generation++;
-        if(downloadCancellation!=null) downloadCancellation.cancel();
+        if(downloadCancellation!=null) downloadCancellation.pause();
         downloadCancellation=null;
         if(activeDownload!=null) activeDownload.cancel(true);
         eraseBackupPassword();
@@ -361,6 +362,7 @@ public final class MainActivity extends Activity {
         io.execute(()->{
             try {
                 InstallContract release=ContractClient.fetch(slug);
+                if("apkdrop-companion".equals(slug)) CompanionIdentity.require(release,InstalledState.read(this,getPackageName()));
                 if(saved!=null) saved.requireIdentity(release.slug,release.packageName,release.signers);
                 InstalledState installed=InstalledState.read(this,release.packageName);
                 InstallPolicy.Result decision=InstallPolicy.evaluate(release,installed,Build.VERSION.SDK_INT,Build.SUPPORTED_ABIS);
@@ -738,7 +740,7 @@ public final class MainActivity extends Activity {
     private void updateQueueUi() {
         if(queueStatus==null) return;
         findViewById(R.id.queueCard).setVisibility(queue.current()==null?View.GONE:View.VISIBLE);
-        queueStatus.setText("Update-Runde · "+queue.size()+" verbleibend\nJede Installation bestätigst du in Android.");
+        queueStatus.setText("Update-Runde · "+queue.size()+" verbleibend\n"+(awaitingInstaller?"Installation ausstehend · Android bestätigen oder erneut versuchen.":detailBusy?"Prüfung läuft …":"Bereit · Jede Installation bestätigst du in Android."));
         findViewById(R.id.queueSkip).setEnabled(!detailBusy);
         findViewById(R.id.queueCancel).setEnabled(!detailBusy);
     }

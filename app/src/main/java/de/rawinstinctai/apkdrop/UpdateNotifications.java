@@ -39,6 +39,9 @@ final class UpdateNotifications {
     static void remove(Context context,String slug) {
         NotificationManager manager=context.getSystemService(NotificationManager.class);
         if(manager!=null) manager.cancel(slug,0);
+    }
+    static void forget(Context context,String slug) {
+        remove(context,slug);
         context.getSharedPreferences("apkdrop-notifications",Context.MODE_PRIVATE).edit().remove(slug).apply();
     }
 }

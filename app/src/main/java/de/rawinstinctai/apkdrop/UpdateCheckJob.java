@@ -39,6 +39,7 @@ public final class UpdateCheckJob extends JobService {
                             else UpdateNotifications.remove(this,entry.slug);
                         }
                     } catch(Exception e) {
+                        retry |= UpdateFailure.retryable(e);
                         synchronized(ReleaseSnapshotStore.LOCK) {
                             if(stopped(ticket)) return;
                             snapshots.failure(entry,e.getMessage(),e instanceof SecurityException,started);
