@@ -38,6 +38,8 @@ final class AppLibraryController {
     boolean canOpen(AppLibrary.Entry entry){State s=states.get(entry.slug);return s!=null&&s.installed!=null;}
     void openApp(AppLibrary.Entry entry){if(detailBusy||checking)return;try{Intent intent=activity.getPackageManager().getLaunchIntentForPackage(entry.packageName);if(intent!=null)activity.startActivity(intent);else Toast.makeText(activity,"Diese App hat keinen Startbildschirm.",Toast.LENGTH_SHORT).show();}catch(Exception e){Toast.makeText(activity,message(e),Toast.LENGTH_SHORT).show();}}
     void updatesOnly(boolean value) {if(updatesOnly!=value){updatesOnly=value;render();}}
+    boolean hasSearch() {return !updatesOnly&&!search.isEmpty();}
+    boolean updatesOnly() {return updatesOnly;}
     int updateCount() {int count=0;for(State s:states.values())if(s.error==null&&s.decision!=null&&s.decision.mode==InstallPolicy.Mode.UPDATE)count++;return count;}
     int count() {return library.entries().size();}
     List<AppLibrary.Entry> homeEntries() {List<AppLibrary.Entry> entries=sortedEntries();return entries.subList(0,Math.min(3,entries.size()));}
@@ -308,7 +310,7 @@ final class AppLibraryController {
                 catch(Exception missing) { image=new AppPlaceholder(entry.name); }
                 icons.put(entry.packageName,image);
             }
-            icon.setImageDrawable(image); icon.setContentDescription(entry.name);
+            icon.setImageDrawable(image);
             version.setText(state==null?"Installationsstand wird geladen …":state.installed!=null
                     ? "Installiert: "+installedVersion(state.installed):state.error!=null?"Installationsstand nicht verfügbar":"Nicht installiert");
             badge.setTextColor(activity.getColor(R.color.muted));
@@ -335,20 +337,31 @@ final class AppLibraryController {
             }
             detail.setText(reason);
             Button open=row.findViewById(R.id.trackedOpen); open.setEnabled(!detailBusy&&!checking);
+            open.setText(state!=null&&state.error==null&&state.decision!=null&&state.decision.mode==InstallPolicy.Mode.UPDATE
+                    ?"Update ansehen & prüfen →":"Details ansehen →");
             open.setOnClickListener(v->select.accept(entry.slug));
             Button menu=row.findViewById(R.id.trackedMenu); menu.setEnabled(!detailBusy&&!checking);
+            menu.setContentDescription("Aktionen für "+displayName(entry));
             final State selected=state;
             menu.setOnClickListener(v->menu(entry,selected,menu));
             list.addView(row);
         }
         int count=library.entries().size();
-        empty.setVisibility(list.getChildCount()==0?View.VISIBLE:View.GONE);
+        boolean noRows=list.getChildCount()==0;
+        empty.setVisibility(noRows?View.VISIBLE:View.GONE);
+        TextView emptyTitle=activity.findViewById(R.id.libraryEmptyTitle);
+        emptyTitle.setVisibility(noRows?View.VISIBLE:View.GONE);
+        emptyTitle.setText(!readable?"App-Liste nicht verfügbar":count==0?"Deine erste App wartet":
+                updatesOnly?"Keine offenen Updates":"Keine passenden Apps");
         activity.findViewById(R.id.librarySearch).setVisibility(!updatesOnly&&count>1?View.VISIBLE:View.GONE);
         if(!updatesOnly&&count<=1&&!search.isEmpty()){search="";((EditText)activity.findViewById(R.id.librarySearch)).setText("");return;}
         empty.setText(readable?"Noch keine Apps gespeichert. Öffne Entdecken oder prüfe einen APKDrop-Link und tippe auf Zu meinen Apps hinzufügen.":listError);
-        if(updatesOnly && count>0 && list.getChildCount()==0)empty.setText(homeStatus()+"\n\n"+recentChecks());
+        if(updatesOnly && count>0 && noRows)empty.setText(homeStatus()+"\n\nMit „Alle auf Updates prüfen“ holst du den aktuellen Stand.");
         if(!updatesOnly&&count>0&&list.getChildCount()==0)empty.setText("Keine App passt zu deiner Suche.");
-        activity.findViewById(R.id.libraryDiscover).setVisibility(list.getChildCount()==0?View.VISIBLE:View.GONE);
+        Button recovery=activity.findViewById(R.id.libraryDiscover);
+        recovery.setVisibility(noRows?View.VISIBLE:View.GONE);
+        recovery.setText(hasSearch()?"Suche zurücksetzen →":updatesOnly&&count>0?"Meine Apps ansehen →":"Apps entdecken →");
+        activity.findViewById(R.id.addLinkButton).setVisibility(updatesOnly?View.GONE:View.VISIBLE);
         String text=count+" "+(count==1?"App":"Apps");
         if(updates>0) text+=" · "+updates+" "+(updates==1?"Update verfügbar":"Updates verfügbar");
         else if(count>0 && current==count) text+=" · Aktuell laut letzter Prüfung";

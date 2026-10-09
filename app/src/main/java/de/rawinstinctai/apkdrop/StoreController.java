@@ -105,7 +105,10 @@ final class StoreController {
         activity.findViewById(R.id.radarGitHub).setOnClickListener(v->showGitHubRadar());
         activity.findViewById(R.id.radarReleases).setOnClickListener(v->{githubRadar=false;activeProfile=null;following=true;renderNavigation();feed();});
         activity.findViewById(R.id.radarApps).setOnClickListener(v->{githubRadar=false;activeProfile=null;following=false;renderNavigation();catalog();});
-        activity.findViewById(R.id.libraryDiscover).setOnClickListener(v->navigate(1));
+        activity.findViewById(R.id.libraryDiscover).setOnClickListener(v->{
+            if(library.hasSearch()) ((EditText)activity.findViewById(R.id.librarySearch)).setText("");
+            else navigate(library.updatesOnly()&&library.count()>0?2:1);
+        });
         renderCategories();
         restoreTab(0);
     }
@@ -150,7 +153,13 @@ final class StoreController {
         LinearLayout actions=activity.findViewById(R.id.homeAppActions);actions.removeAllViews();
         for(AppLibrary.Entry entry:library.homeEntries()) actions.addView(homeCard(entry));
         LinearLayout checks=activity.findViewById(R.id.homeActivity);checks.removeAllViews();checks.addView(label(library.recentChecks(),12));
-        ((TextView)activity.findViewById(R.id.homePreview)).setVisibility(count==0?View.VISIBLE:View.GONE);
+        activity.findViewById(R.id.homeStats).setVisibility(count>0?View.VISIBLE:View.GONE);
+        activity.findViewById(R.id.homeAppsHeading).setVisibility(count>0?View.VISIBLE:View.GONE);
+        activity.findViewById(R.id.homePreview).setVisibility(View.GONE);
+        activity.findViewById(R.id.homeActivityTitle).setVisibility(count>0?View.VISIBLE:View.GONE);
+        checks.setVisibility(count>0?View.VISIBLE:View.GONE);
+        // The primary button already opens Discover in the first-use state.
+        activity.findViewById(R.id.homeDiscover).setVisibility(count>0?View.VISIBLE:View.GONE);
         try {((Button)activity.findViewById(R.id.homeFollowing)).setText("Entwickler & Releases · "+follows.ids().length()+" gefolgt →");}catch(Exception unavailable){}
         activity.findViewById(R.id.homeUpdates).setEnabled(activity.findViewById(R.id.progress).getVisibility()!=View.VISIBLE);
     }
@@ -533,8 +542,6 @@ final class StoreController {
                     +(radar.hasChecked()?" · "+DisplayText.proposals(radar.proposalCount()):"")
                     +(homeFeedKnown?" · "+releases+" neue Releases":"");
         ((TextView)activity.findViewById(R.id.actionSummary)).setText(overview);
-        if(library.updateCount()>0)panel.addView(textAction(library.updateCount()+" Updates · jetzt prüfen →",()->{navigate(3);library.updateOverview();}));
-        String prepared=DropPilot.preparedSlug(activity);if(prepared!=null)panel.addView(textAction("Vorbereitetes Update · Installation prüfen →",()->select.accept(prepared)));
         radar.homeActions(panel);
         int shown=0;for(int i=0;i<homeReleases.length()&&shown<2;i++){JSONObject item=homeReleases.optJSONObject(i);if(item==null||!readState.unseen(item)||radarState(item)==ReleaseRadar.State.INSTALLED)continue;shown++;panel.addView(textAction(item.optString("name")+" · "+DisplayText.version(item.optString("version"))+" · Release →",()->{try{readState.mark(new JSONArray().put(item));homeFeedAt=0;renderActionCenter();select.accept(StoreClient.slug(item.getString("slug")));}catch(Exception e){error(e);}}));}
         panel.addView(textAction("Release Radar öffnen →",()->{githubRadar=false;following=true;activeProfile=null;navigate(1);}));
@@ -628,13 +635,20 @@ final class StoreController {
         Button b=button(value,action);b.setBackgroundResource(android.R.color.transparent);b.setGravity(Gravity.START|Gravity.CENTER_VERTICAL);b.setPadding(0,0,0,0);return b;
     }
     private LinearLayout homeCard(AppLibrary.Entry entry) {
-        LinearLayout c=card();c.setOrientation(LinearLayout.HORIZONTAL);c.setGravity(Gravity.CENTER_VERTICAL);c.setPadding(dp(16),dp(14),dp(16),dp(14));
-        ImageView icon=icon(42);icon.setImageDrawable(library.appIcon(entry));c.addView(icon);
+        LinearLayout c=card();
+        LinearLayout heading=new LinearLayout(activity);heading.setGravity(Gravity.CENTER_VERTICAL);
+        ImageView icon=icon(44);icon.setImageDrawable(library.appIcon(entry));icon.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);heading.addView(icon);
         LinearLayout lines=new LinearLayout(activity);lines.setOrientation(LinearLayout.VERTICAL);lines.setPadding(dp(12),0,0,0);
-        TextView name=label(library.displayName(entry),16);name.setTypeface(null,android.graphics.Typeface.BOLD);name.setTextColor(activity.getColor(R.color.text));name.setPadding(0,0,0,dp(4));lines.addView(name);
-        TextView state=label(library.homeVersion(entry)+" · "+library.homeEntryStatus(entry),12);state.setPadding(0,0,0,0);lines.addView(state);c.addView(lines,new LinearLayout.LayoutParams(0,-2,1));
-        if(library.canOpen(entry)){Button open=button("Öffnen ↗",()->library.openApp(entry));open.setTextSize(12);open.setMinWidth(0);open.setMinimumWidth(0);open.setLayoutParams(new LinearLayout.LayoutParams(-2,dp(48)));c.addView(open);}else c.addView(label("→",18));c.setFocusable(true);c.setContentDescription(library.displayName(entry)+" · "+library.homeEntryStatus(entry)+" · Details öffnen");
-        c.setOnClickListener(v->{v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);select.accept(entry.slug);});return c;
+        TextView name=label(library.displayName(entry),18);name.setTypeface(null,android.graphics.Typeface.BOLD);name.setTextColor(activity.getColor(R.color.text));lines.addView(name);
+        lines.addView(label(library.homeVersion(entry),12));
+        heading.addView(lines,new LinearLayout.LayoutParams(0,-2,1));c.addView(heading);
+        c.addView(label(library.homeEntryStatus(entry),12));
+        heading.setMinimumHeight(dp(48));heading.setFocusable(true);
+        heading.setContentDescription(library.displayName(entry)+" · "+library.homeEntryStatus(entry)+" · Details öffnen");
+        heading.setOnClickListener(v->{v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);select.accept(entry.slug);});
+        if(library.canOpen(entry))c.addView(button("App öffnen ↗",()->library.openApp(entry)));
+        else c.addView(button("Details ansehen →",()->select.accept(entry.slug)));
+        return c;
     }
     private void skeletons() {
         for(int i=0;i<2;i++){LinearLayout c=card();c.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);

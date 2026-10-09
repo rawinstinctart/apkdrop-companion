@@ -7,7 +7,7 @@
     </LinearLayout>
     <Button android:id="@+id/trackedMenu" android:layout_width="48dp" android:layout_height="48dp" android:background="@android:color/transparent" android:text="@string/ui_item_tracked_app_34" android:textSize="24sp" android:textColor="@color/muted" android:contentDescription="@string/ui_item_tracked_app_35" />
   </LinearLayout>
-  <TextView android:id="@+id/trackedBadge" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="14dp" android:textColor="@color/lime" android:textStyle="bold" android:textSize="11sp" android:letterSpacing="0.06" />
+  <TextView android:id="@+id/trackedBadge" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="14dp" android:textColor="@color/lime" android:textStyle="bold" android:textSize="11sp" android:letterSpacing="0.02" />
   <TextView android:id="@+id/trackedDetail" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:textColor="@color/muted" android:textSize="12sp" android:lineSpacingMultiplier="1.2" />
-  <Button android:id="@+id/trackedOpen" android:layout_width="match_parent" android:layout_height="48dp" android:layout_marginTop="12dp" android:background="@drawable/bg_input" android:text="@string/ui_item_tracked_app_36" android:textAllCaps="false" android:textColor="@color/text" android:textSize="13sp" />
+  <Button android:id="@+id/trackedOpen" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:paddingTop="10dp" android:paddingBottom="10dp" android:layout_marginTop="12dp" android:background="@drawable/bg_input" android:text="@string/ui_item_tracked_app_36" android:textAllCaps="false" android:textColor="@color/text" android:textSize="13sp" />
 </LinearLayout>
