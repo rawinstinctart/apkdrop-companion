@@ -56,13 +56,13 @@ final class GitHubRadarController {
     private void start(){
         if(busy||closed)return;
         LinearLayout consent=new LinearLayout(activity);consent.setOrientation(LinearLayout.VERTICAL);consent.setPadding(dp(24),dp(8),dp(24),0);
-        consent.addView(label("APKDrop liest APK-Vorschläge aus den Repositories, die du der GitHub App freigibst. Deine GitHub-Zugangsdaten bleiben im Browser.",14));
-        consent.addView(label("Bei „All repositories“ werden auch neue Repos freigegeben. Bei einer Auswahl musst du neue Repos einzeln ergänzen. Den Zugriff kannst du im Dashboard verwalten und dieses Gerät hier trennen.",13));
+        consent.addView(label("APKDrop liest APK-Vorschläge aus deinen freigegebenen GitHub-Repositories. Anmeldung und Gerätebestätigung erfolgen im Browser.",14));
         CheckBox privateImports=new CheckBox(activity);privateImports.setText("Private Imports auf diesem Gerät erlauben");privateImports.setTextColor(activity.getColor(R.color.text));privateImports.setMinHeight(dp(48));privateImports.setChecked(false);consent.addView(privateImports);
-        consent.addView(label("Ohne diese Freigabe liest das Radar nur Vorschläge. Jeder private Import braucht eine zusätzliche Bestätigung. Es wird nichts automatisch veröffentlicht oder installiert.",12));
+        consent.addView(label("Ohne diese Freigabe liest das Radar nur Vorschläge. Jeden Import bestätigst du einzeln. Veröffentlichung und Installation bleiben separate Schritte.",12));
+        consent.addView(label("„All repositories“ schließt neue Repos ein. Bei einer Auswahl gibst du neue Repos einzeln frei. Zugriff verwalten: Dashboard. Gerät trennen: hier.",13));
         ScrollView scroll=new ScrollView(activity);scroll.addView(consent);
         new AlertDialog.Builder(activity).setTitle("GitHub verbinden").setView(scroll).setNegativeButton("Abbrechen",null)
-                .setPositiveButton("Im Browser bestätigen",(d,w)->beginPairing(privateImports.isChecked())).show();
+                .setPositiveButton("Weiter",(d,w)->beginPairing(privateImports.isChecked())).show();
     }
     private void beginPairing(boolean allowPrivateImports){
         if(busy||closed)return;final int ticket=++request;busy=true;message="Verbindung wird vorbereitet …";render();
