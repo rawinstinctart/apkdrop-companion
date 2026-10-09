@@ -1,0 +1,105 @@
+name: Publish original-signed Alpha 18 Reliability and smart updates
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/publish-alpha18.yml'
+      - 'release/alpha18-signature.json'
+      - 'release/reconstruct-signed.py'
+      - 'release/alpha18-notes.md'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-alpha18.yml'
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pin passing Android candidate source and checks
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(gh api repos/${{ github.repository }}/actions/runs/37986868612 --jq .head_sha)" = '597cb8997f165a1cd846c01e91e8b87bfd47bde3'
+          test "$(gh api repos/${{ github.repository }}/actions/runs/37986868612 --jq .conclusion)" = 'success'
+      - name: Download exact tested Alpha 18 unsigned preview candidate
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 37986868612
+          name: apkdrop-companion-unsigned-preview
+          path: unsigned
+          github-token: ${{ github.token }}
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: ''
+      - name: Install pinned official Android build tools
+        run: sdkmanager 'build-tools;35.0.0'
+      - name: Reconstruct and verify locally original-signed APK
+        run: |
+          set -euo pipefail
+          sdk="$ANDROID_HOME/build-tools/35.0.0"
+          test -f unsigned/app-preview-unsigned.apk
+          echo 'a1fb977bdd00fa0ac53c63c8e21bcd0c1906a178b7433e1bff199da25a8ec388  unsigned/app-preview-unsigned.apk' | sha256sum -c -
+          mkdir -p dist
+          python3 release/reconstruct-signed.py unsigned/app-preview-unsigned.apk release/alpha18-signature.json dist/APKDrop-Companion-v0.1.0-alpha.18-preview.apk
+          "$sdk/apksigner" verify --verbose --print-certs dist/APKDrop-Companion-v0.1.0-alpha.18-preview.apk > /tmp/alpha18-signature.txt
+          grep -q '^Verified using v2 scheme (APK Signature Scheme v2): true' /tmp/alpha18-signature.txt
+          grep -q '^Verified using v3 scheme (APK Signature Scheme v3): true' /tmp/alpha18-signature.txt
+          grep -q '^Number of signers: 1' /tmp/alpha18-signature.txt
+          grep -q '^Signer #1 certificate SHA-256 digest: 6cf70241a63498e5e9fce78bac9abec760364cf320928347114bf109abd81e2e' /tmp/alpha18-signature.txt
+          "$sdk/aapt" dump badging dist/APKDrop-Companion-v0.1.0-alpha.18-preview.apk > /tmp/alpha18-manifest.txt
+          grep -q "package: name='de.rawinstinctai.apkdrop.debug' versionCode='24' versionName='0.1.0-alpha.18-preview'" /tmp/alpha18-manifest.txt
+          grep -q "^sdkVersion:'26'" /tmp/alpha18-manifest.txt
+          grep -q "^targetSdkVersion:'36'" /tmp/alpha18-manifest.txt
+          ! grep -q '^application-debuggable' /tmp/alpha18-manifest.txt
+          "$sdk/zipalign" -c 4 dist/APKDrop-Companion-v0.1.0-alpha.18-preview.apk
+          echo '5bcce84aeff5686f7a23f0676190f60786adaa5ee086830ccdf6316727974aa8  dist/APKDrop-Companion-v0.1.0-alpha.18-preview.apk' | sha256sum -c -
+          test "$(wc -c < dist/APKDrop-Companion-v0.1.0-alpha.18-preview.apk)" -eq 333263
+          python3 scripts/release-preflight.py dist/APKDrop-Companion-v0.1.0-alpha.18-preview.apk --profile alpha18-preview --sdk "$ANDROID_HOME"
+          echo 'ORIGINAL-SIGNED ALPHA 18 VERIFIED'
+      - name: Verify deployed APKDrop backend boundaries
+        run: python3 release/verify-alpha15-backend.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: original-signed-alpha18-reviewed
+          path: dist/APKDrop-Companion-v0.1.0-alpha.18-preview.apk
+          retention-days: 7
+          if-no-files-found: error
+
+  publish:
+    needs: verify
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      actions: read
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: original-signed-alpha18-reviewed
+          path: dist
+      - name: Publish prerelease and re-download for byte proof
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG='v0.1.0-alpha.18'
+          APK='dist/APKDrop-Companion-v0.1.0-alpha.18-preview.apk'
+          test -f "$APK"
+          python3 scripts/public-release-notes.py release/alpha18-notes.md
+          ! gh release view "$TAG" >/dev/null 2>&1
+          echo "5bcce84aeff5686f7a23f0676190f60786adaa5ee086830ccdf6316727974aa8  $APK" | sha256sum -c -
+          gh release create "$TAG" "$APK" --target "$GITHUB_SHA" --title 'APKDrop Companion Alpha 18 — Reliability and smart updates' --notes-file release/alpha18-notes.md --prerelease
+          mkdir -p /tmp/alpha18-download-proof
+          gh release download "$TAG" --pattern 'APKDrop-Companion-v0.1.0-alpha.18-preview.apk' --dir /tmp/alpha18-download-proof
+          echo '5bcce84aeff5686f7a23f0676190f60786adaa5ee086830ccdf6316727974aa8  /tmp/alpha18-download-proof/APKDrop-Companion-v0.1.0-alpha.18-preview.apk' | sha256sum -c -
+          echo 'PUBLISHED SIGNED ALPHA 18 VERIFIED'
