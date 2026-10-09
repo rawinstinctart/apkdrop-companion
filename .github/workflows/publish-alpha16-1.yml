@@ -1,0 +1,107 @@
+name: Publish original-signed Alpha 16.1 UI fix
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/publish-alpha16-1.yml'
+      - 'release/alpha16-1-signed.patch.zst.b64'
+      - 'release/reconstruct-alpha16-1.py'
+      - 'release/alpha16-1-notes.md'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-alpha16-1.yml'
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pin passing Android candidate source and checks
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(gh api repos/${{ github.repository }}/actions/runs/37957655229 --jq .head_sha)" = 'd303e5959631a312cc3189190f7cc786f1d01820'
+          test "$(gh api repos/${{ github.repository }}/actions/runs/37957655229 --jq .conclusion)" = 'success'
+      - name: Download exact tested Alpha 16.1 unsigned preview candidate
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 37957655229
+          name: apkdrop-companion-unsigned-preview
+          path: unsigned
+          github-token: ${{ github.token }}
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: ''
+      - name: Install pinned official Android build tools
+        run: sdkmanager 'build-tools;35.0.0'
+      - name: Reconstruct and verify locally original-signed APK
+        run: |
+          set -euo pipefail
+          sdk="$ANDROID_HOME/build-tools/35.0.0"
+          command -v zstd
+          test -f unsigned/app-preview-unsigned.apk
+          echo '376e34696d8632250f7799a8e922a7690639c717fec9f4654a7dca93a8c62d64  unsigned/app-preview-unsigned.apk' | sha256sum -c -
+          mkdir -p dist
+          "$sdk/zipalign" -p -f 4 unsigned/app-preview-unsigned.apk /tmp/alpha16-1-aligned.apk
+          echo '376e34696d8632250f7799a8e922a7690639c717fec9f4654a7dca93a8c62d64  /tmp/alpha16-1-aligned.apk' | sha256sum -c -
+          python3 release/reconstruct-alpha16-1.py /tmp/alpha16-1-aligned.apk release/alpha16-1-signed.patch.zst.b64 dist/APKDrop-Companion-v0.1.0-alpha.16.1-preview.apk
+          "$sdk/apksigner" verify --verbose --print-certs dist/APKDrop-Companion-v0.1.0-alpha.16.1-preview.apk > /tmp/alpha16-1-signature.txt
+          grep -q '^Verified using v2 scheme (APK Signature Scheme v2): true' /tmp/alpha16-1-signature.txt
+          grep -q '^Verified using v3 scheme (APK Signature Scheme v3): true' /tmp/alpha16-1-signature.txt
+          grep -q '^Number of signers: 1' /tmp/alpha16-1-signature.txt
+          grep -q '^Signer #1 certificate SHA-256 digest: 6cf70241a63498e5e9fce78bac9abec760364cf320928347114bf109abd81e2e' /tmp/alpha16-1-signature.txt
+          "$sdk/aapt" dump badging dist/APKDrop-Companion-v0.1.0-alpha.16.1-preview.apk > /tmp/alpha16-1-manifest.txt
+          grep -q "package: name='de.rawinstinctai.apkdrop.debug' versionCode='22' versionName='0.1.0-alpha.16.1-preview'" /tmp/alpha16-1-manifest.txt
+          grep -q "^sdkVersion:'26'" /tmp/alpha16-1-manifest.txt
+          grep -q "^targetSdkVersion:'36'" /tmp/alpha16-1-manifest.txt
+          ! grep -q '^application-debuggable' /tmp/alpha16-1-manifest.txt
+          "$sdk/zipalign" -c 4 dist/APKDrop-Companion-v0.1.0-alpha.16.1-preview.apk
+          echo 'c89676f8416c8e49d4b7c623de5007d853c70daaea9e6db80f7138999549c9a8  dist/APKDrop-Companion-v0.1.0-alpha.16.1-preview.apk' | sha256sum -c -
+          test "$(wc -c < dist/APKDrop-Companion-v0.1.0-alpha.16.1-preview.apk)" -eq 329167
+          python3 scripts/release-preflight.py dist/APKDrop-Companion-v0.1.0-alpha.16.1-preview.apk --profile alpha16-1-preview --sdk "$ANDROID_HOME"
+          echo 'ORIGINAL-SIGNED ALPHA 15.1 VERIFIED'
+      - name: Verify deployed APKDrop backend boundaries
+        run: python3 release/verify-alpha15-backend.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: original-signed-alpha16-1-reviewed
+          path: dist/APKDrop-Companion-v0.1.0-alpha.16.1-preview.apk
+          retention-days: 7
+          if-no-files-found: error
+
+  publish:
+    needs: verify
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      actions: read
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: original-signed-alpha16-1-reviewed
+          path: dist
+      - name: Publish prerelease and re-download for byte proof
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG='v0.1.0-alpha.16.1'
+          APK='dist/APKDrop-Companion-v0.1.0-alpha.16.1-preview.apk'
+          test -f "$APK"
+          ! gh release view "$TAG" >/dev/null 2>&1
+          echo "c89676f8416c8e49d4b7c623de5007d853c70daaea9e6db80f7138999549c9a8  $APK" | sha256sum -c -
+          gh release create "$TAG" "$APK" --target "$GITHUB_SHA" --title 'APKDrop Companion Alpha 16.1 — Professional Experience' --notes-file release/alpha16-1-notes.md --prerelease
+          mkdir -p /tmp/alpha16-1-download-proof
+          gh release download "$TAG" --pattern 'APKDrop-Companion-v0.1.0-alpha.16.1-preview.apk' --dir /tmp/alpha16-1-download-proof
+          echo 'c89676f8416c8e49d4b7c623de5007d853c70daaea9e6db80f7138999549c9a8  /tmp/alpha16-1-download-proof/APKDrop-Companion-v0.1.0-alpha.16.1-preview.apk' | sha256sum -c -
+          echo 'PUBLISHED SIGNED ALPHA 16.1 VERIFIED'
