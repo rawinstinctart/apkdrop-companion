@@ -1,4 +1,4 @@
-name: Remove internal notes from already published releases
+name: Keep public release notes user-facing
 
 on:
   push:
@@ -23,6 +23,7 @@ jobs:
         run: |
           python3 -m py_compile scripts/public-release-notes.py
           python3 scripts/public-release-notes.py
+          python3 -m unittest discover -s scripts/tests -p 'test_public_release_notes.py' -v
       - name: Update only previously published release descriptions
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
