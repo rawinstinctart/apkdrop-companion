@@ -16,4 +16,4 @@ Kleines, gezieltes Update auf Basis von Alpha 15: gleicher Paketname und ursprü
 - v2/v3-APK-Signatur gültig, Debuggable deaktiviert; keine private Signaturdatei in GitHub
 - Android-CI für VersionCode 19 erfolgreich: Run 37940170751. Der endgültige GitHub-Publisher prüft APK-Bytes, Signatur, Manifest, Backend und GitHub-Download erneut.
 
-**Gerätetest:** Noch offen. Beim Update sollte Android die bestehenden App-Daten erhalten, weil Paket und Zertifikat gleich bleiben. Für neue private Importe kann eine einmalige erneute GitHub-Verbindung erforderlich sein.
+Beim Update sollte Android die bestehenden App-Daten erhalten, weil Paket und Zertifikat gleich bleiben. Für neue private Importe kann eine einmalige erneute GitHub-Verbindung erforderlich sein.
