@@ -1,6 +1,13 @@
 name: Android CI
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'app/**'
+      - 'scripts/**'
+      - 'release/*-notes.md'
+      - '.github/workflows/ci.yml'
   pull_request:
   workflow_dispatch:
 
