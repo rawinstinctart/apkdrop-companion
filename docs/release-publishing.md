@@ -2,6 +2,12 @@
 
 The release publisher is deliberately **manual**, not connected to `push`, `pull_request`, or a commit event. It never stores or uploads a signing key or password.
 
+## Public release copy policy
+
+Public GitHub releases describe **what changed for users**, compatibility, security and the verified APK download. **Never paste internal status reports into the public notes**: no open physical-device acceptance, test-fixture discussion, real-account test plans, internal issue/gate references or future work packages. Keep these in development tasks and test reports instead. An Alpha/Preview must still be labeled as such, and relevant safety warnings must not be removed.
+
+Before creating or editing *any* public GitHub release, run `python3 scripts/public-release-notes.py path/to/release-notes.md`. The manual publisher refuses forbidden text; Android CI checks every file matching `release/*-notes.md`. New release workflows must run this same guard *before* `gh release create` or `gh release edit`. GitHub Release descriptions, not just source Markdown files, must use the approved copy.
+
 ## Gate sequence
 
 1. Build and test the Android source in an isolated environment with JDK 17, Gradle 8.13, Android SDK 36 and Build Tools 35.0.0.
