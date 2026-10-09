@@ -564,12 +564,13 @@ final class StoreController {
     private void renderCatalogEmpty() {
         final boolean filtered=!query.isEmpty()||!category.isEmpty();
         LinearLayout empty=card();
-        TextView title=label(filtered?"Keine passenden Apps":"Noch keine Apps in dieser Auswahl",20);
-        empty.addView(title);
+        empty.addView(label(filtered?"Keine passenden Apps":
+                developersOnly?"Noch keine Entwicklerprofile":"Noch keine Apps in dieser Auswahl",20));
         empty.addView(label(filtered
                 ?"Passe deine Suche an oder sieh dir alle verfügbaren Apps an."
+                :developersOnly?"Sobald Entwickler ihre Apps veröffentlichen, findest du ihre Profile hier."
                 :"Neue veröffentlichte Apps erscheinen hier automatisch. Du kannst auch einen App-Link direkt hinzufügen.",14));
-        if(filtered)empty.addView(button("Alle Apps ansehen →",()->{
+        if(filtered||developersOnly)empty.addView(button("Alle Apps ansehen →",()->{
             query="";category="";page=1;sortByName=false;newDiscover=false;developersOnly=false;
             ((EditText)activity.findViewById(R.id.discoverInput)).setText("");
             renderCategories();catalog();
