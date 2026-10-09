@@ -92,8 +92,8 @@ final class StoreController {
         });
         activity.findViewById(R.id.discoverSort).setOnClickListener(v->{
             PopupMenu options=new PopupMenu(activity,v);
-            options.getMenu().add("Neueste zuerst").setCheckable(true).setChecked(!sortByName).setOnMenuItemClickListener(item->{chooseSort(false);return true;});
-            options.getMenu().add("Name A–Z").setCheckable(true).setChecked(sortByName).setOnMenuItemClickListener(item->{chooseSort(true);return true;});
+            options.getMenu().add(0,1,0,"Neueste zuerst").setCheckable(true).setChecked(!sortByName).setOnMenuItemClickListener(item->{chooseSort(false);return true;});
+            options.getMenu().add(0,2,1,"Name A–Z").setCheckable(true).setChecked(sortByName).setOnMenuItemClickListener(item->{chooseSort(true);return true;});
             options.show();
         });
         activity.findViewById(R.id.discoverFilter).setOnClickListener(v->filters(v));
