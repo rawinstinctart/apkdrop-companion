@@ -258,7 +258,7 @@ final class StoreController {
         activity.findViewById(R.id.categoryScroll).setVisibility(visible?View.VISIBLE:View.GONE);
         activity.findViewById(R.id.discoverFilter).setVisibility(View.GONE);
         if(!visible)activity.findViewById(R.id.discoverCount).setVisibility(View.GONE);
-        activity.findViewById(R.id.discoverSort).setVisibility(visible?View.VISIBLE:View.GONE);
+        activity.findViewById(R.id.discoverSort).setVisibility(View.GONE);
         activity.findViewById(R.id.discoverReset).setVisibility(visible&&(!query.isEmpty()||!category.isEmpty()||sortByName)?View.VISIBLE:View.GONE);
     }
     void renderCatalog(JSONObject data) {
