@@ -47,6 +47,7 @@ final class StoreController {
     private String category="",query="";
     private int page=1;
     private static final int[] NAV={R.id.navHome,R.id.navDiscover,R.id.navApps,R.id.navUpdates,R.id.navSettings};
+    private static final String[] NAV_LABELS={"Home","Entdecken","Meine Apps","Updates","Mehr"};
     private static final String[] TITLES={"Home","Entdecken","Meine Apps","Updates","Einstellungen"};
 
     StoreController(Activity activity,AppLibraryController library,Consumer<String> select) {
@@ -178,8 +179,19 @@ final class StoreController {
         activity.findViewById(R.id.linkPanel).setVisibility(View.GONE);
         library.updatesOnly(tab==3);
         activity.findViewById(R.id.findInstalledApps).setVisibility(tab==2?View.VISIBLE:View.GONE);activity.findViewById(R.id.installedSuggestions).setVisibility(tab==2?View.VISIBLE:View.GONE);
-        for(int i=0;i<NAV.length;i++){View v=activity.findViewById(NAV[i]);v.setSelected(i==tab);((Button)v).setTextColor(activity.getColor(i==tab?R.color.lime:R.color.muted));
-            for(android.graphics.drawable.Drawable d:((Button)v).getCompoundDrawables())if(d!=null)d.mutate().setTint(activity.getColor(i==tab?R.color.lime:R.color.muted));}
+        for(int i=0;i<NAV.length;i++){
+            View v=activity.findViewById(NAV[i]);v.setSelected(i==tab);
+            Button button=(Button)v;
+            button.setTextColor(activity.getColor(i==tab?R.color.lime:R.color.muted));
+            button.setContentDescription(NAV_LABELS[i]+(i==tab?", ausgewählt":""));
+            button.setAccessibilityDelegate(new View.AccessibilityDelegate(){
+                @Override public void onInitializeAccessibilityNodeInfo(View host,android.view.accessibility.AccessibilityNodeInfo info) {
+                    super.onInitializeAccessibilityNodeInfo(host,info);
+                    info.setSelected(host.isSelected());
+                }
+            });
+            for(android.graphics.drawable.Drawable d:button.getCompoundDrawables())if(d!=null)d.mutate().setTint(activity.getColor(i==tab?R.color.lime:R.color.muted));
+        }
         changed();
     }
     void showDetail() {

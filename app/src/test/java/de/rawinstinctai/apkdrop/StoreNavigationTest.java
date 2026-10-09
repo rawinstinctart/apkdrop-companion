@@ -30,6 +30,22 @@ public final class StoreNavigationTest {
         a.findViewById(R.id.navUpdates).performClick();assertEquals("Updates",((TextView)a.findViewById(R.id.sectionTitle)).getText().toString());
         a.findViewById(R.id.navSettings).performClick();assertEquals(View.VISIBLE,a.findViewById(R.id.settingsPanel).getVisibility());assertEquals(View.GONE,a.findViewById(R.id.libraryPanel).getVisibility());
     }
+    @Test public void bottomNavigationAnnouncesSelectedTabAccessibly() {
+        MainActivity a=create(null);
+        int[] ids={R.id.navHome,R.id.navDiscover,R.id.navApps,R.id.navUpdates,R.id.navSettings};
+        String[] labels={"Home","Entdecken","Meine Apps","Updates","Mehr"};
+        for(int selected=0;selected<ids.length;selected++) {
+            a.findViewById(ids[selected]).performClick();
+            for(int i=0;i<ids.length;i++) {
+                Button tab=a.findViewById(ids[i]);
+                assertEquals(i==selected,tab.isSelected());
+                assertEquals(labels[i]+(i==selected?", ausgewählt":""),tab.getContentDescription().toString());
+                android.view.accessibility.AccessibilityNodeInfo node=tab.createAccessibilityNodeInfo();
+                assertEquals(i==selected,node.isSelected());
+                node.recycle();
+            }
+        }
+    }
     @Test public void restoresSelectedTabAndFollowsWithoutAccount() throws Exception {
         Bundle saved=new Bundle();saved.putInt("storeTab",4);MainActivity a=create(saved);
         assertEquals("Einstellungen",((TextView)a.findViewById(R.id.sectionTitle)).getText().toString());
