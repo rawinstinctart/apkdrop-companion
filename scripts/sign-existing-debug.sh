@@ -13,7 +13,7 @@ profile="${3:-alpha6}"
 case "$profile" in
   alpha5|alpha6|alpha6.1-debug|alpha6.1-preview|alpha7-debug|alpha7-preview|alpha8-debug|alpha8-preview|alpha9-debug|alpha9-preview|alpha9.1-debug|alpha9.1-preview|alpha10-debug|alpha10-preview|alpha11-debug|alpha11-preview|alpha12-debug|alpha12-preview|alpha13-debug|alpha13-preview|alpha14-debug|alpha14-preview|alpha15-debug|alpha15-preview) ;;
   alpha15.1-debug|alpha15.1-preview|alpha15.2-debug|alpha15.2-preview|alpha16-debug|alpha16-preview|alpha16.1-debug|alpha16.1-preview) ;;
-  alpha17-debug|alpha17-preview|alpha18-debug|alpha18-preview) ;;
+  alpha17-debug|alpha17-preview|alpha18-debug|alpha18-preview|alpha19-debug|alpha19-preview) ;;
   *) echo 'Only original-key alpha profiles are supported.' >&2; exit 2 ;;
 esac
 build_tools="${APKDROP_BUILD_TOOLS:-35.0.0}"

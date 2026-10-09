@@ -69,6 +69,7 @@ public final class MainActivity extends Activity {
         super.onCreate(state); setContentView(R.layout.activity_main);
         deferredLink=state==null?null:state.getString("deferredLink");
         applySystemInsets();
+        adaptActions();
         if(Build.VERSION.SDK_INT>=33) getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
                 android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT,this::backAction);
         input=findViewById(R.id.urlInput); checkButton=findViewById(R.id.checkButton); actionButton=findViewById(R.id.actionButton);
@@ -152,6 +153,16 @@ public final class MainActivity extends Activity {
             if(slug==null) slug=queue.current();
             if(slug==null) slug=library.pendingInstaller();
             if(slug!=null) load(slug);
+        }
+    }
+
+    private void adaptActions() {
+        status=findViewById(R.id.statusText);status.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
+        if(getResources().getConfiguration().screenWidthDp>=360 && getResources().getConfiguration().fontScale<1.3f)return;
+        View first=findViewById(R.id.backupExport);LinearLayout row=(LinearLayout)first.getParent();row.setOrientation(LinearLayout.VERTICAL);
+        for(int id:new int[]{R.id.backupExport,R.id.backupImport}) {
+            View action=findViewById(id);LinearLayout.LayoutParams p=(LinearLayout.LayoutParams)action.getLayoutParams();
+            p.width=LinearLayout.LayoutParams.MATCH_PARENT;p.weight=0;p.setMarginStart(0);p.topMargin=Math.round(8*getResources().getDisplayMetrics().density);action.setLayoutParams(p);
         }
     }
 
@@ -346,7 +357,12 @@ public final class MainActivity extends Activity {
         io.execute(()->{
             try {String mappedSlug=LinkImport.resolve(raw);post(ticket,()->{
                 setBusy(false,"");toast("Repository zugeordnet. Prüfe den aktuellen APKDrop-Release.");selectSingle(mappedSlug);
-            });}catch(Exception failed){post(ticket,()->showError(message(failed)));}
+            });}catch(Exception failed){post(ticket,()->{
+                showError(message(failed));
+                if(failed instanceof SecurityException) new AlertDialog.Builder(this).setTitle("Eigene GitHub-APK übernehmen?")
+                    .setMessage("Falls dieses Repository dir gehört, kannst du den Release über deine bestehende GitHub-Freigabe prüfen und privat hinzufügen.")
+                    .setNegativeButton("Schließen",null).setPositiveButton("Im Radar prüfen",(d,w)->store.importGitHubRelease(raw)).show();
+            });}
         });
     }
 

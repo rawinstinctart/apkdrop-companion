@@ -115,11 +115,13 @@ final class StoreController {
     void restoreTab(int value) {tab=value>=0&&value<5?value:0;renderNavigation();}
     int tab() {return tab;}
     void saveState(android.os.Bundle state) {
+        if(radar.sharedRelease()!=null)state.putString("sharedGithubRelease",radar.sharedRelease());
         state.putBoolean("newDiscover",newDiscover);state.putBoolean("developersOnly",developersOnly);state.putBoolean("githubRadar",githubRadar);state.putInt("storeTab",tab);state.putString("discoverQuery",bounded(query,100));state.putString("discoverCategory",category);
         state.putInt("discoverPage",page);state.putBoolean("discoverSortByName",sortByName);state.putBoolean("following",following);
         state.putBoolean("followingNewOnly",newOnly);state.putString("discoverProfile",activeProfile);
     }
     void restoreState(android.os.Bundle state) {
+        if(state!=null&&state.getString("sharedGithubRelease")!=null)radar.sharedRelease(state.getString("sharedGithubRelease"));
         if(state!=null) {
             newDiscover=state.getBoolean("newDiscover");developersOnly=state.getBoolean("developersOnly");query=bounded(state.getString("discoverQuery",""),100);category=state.getString("discoverCategory","");
             if(!java.util.Set.of("","communication","productivity","tools","privacy","media","games","education","other").contains(category))category="";
@@ -133,6 +135,7 @@ final class StoreController {
         renderCategories();restoreTab(state==null?0:state.getInt("storeTab",0));
     }
     void pause(){if(radar!=null)radar.pause();}
+    void importGitHubRelease(String raw){showGitHubRadar();radar.sharedRelease(raw);}
     void showGitHubRadar(){githubRadar=true;following=false;activeProfile=null;navigate(1);radar.show();}
     void resume() {radarStates.clear();started=false;radar.resume();if(tab==0&&!detail)homeFeed();if(tab==1&&!detail){if(githubRadar)radar.show();else if(activeProfile!=null)profile(activeProfile);else if(following)feed();else if(!started)catalog();}}
     void close() {installedApps.close();radar.close();closed=true;request++;detailRequest++;homeRequest++;network.shutdownNow();media.shutdownNow();images.evictAll();}
@@ -565,7 +568,7 @@ final class StoreController {
                             JSONObject item=feed.optJSONObject(i);if(item==null)continue;
                             try {String slug=StoreClient.slug(item.getString("slug"));if(!readState.unseen(item)||radarState(item)==ReleaseRadar.State.INSTALLED)continue;shown++;
                                 panel.addView(textAction(bounded(item.optString("name"),160)+" · "+bounded(item.optString("version"),120)
-                                        +(readState.unseen(item)?" · Neu →":" →"),()->{
+                                        +(readState.unseen(item)?" · Neu →":" →")+"\n"+ReleaseTeaser.summary(item.optString("notesSummary")),()->{
                                     try{readState.mark(new JSONArray().put(item));homeFeedAt=0;}catch(Exception e){error(e);}select.accept(slug);
                                 }));
                             }catch(Exception invalid){}

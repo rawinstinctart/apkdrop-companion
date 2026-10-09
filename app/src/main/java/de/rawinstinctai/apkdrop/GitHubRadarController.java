@@ -33,6 +33,10 @@ final class GitHubRadarController {
         try{connection=storage.read();}catch(Exception bad){message="Die lokale Verbindung ist nicht lesbar. Bitte neu verbinden.";}
         render();
     }
+    private String sharedUrl;
+    void sharedRelease(String raw){LinkImport.repository(raw);sharedUrl=raw;message="Geteilter GitHub-Release · Vorschau und Import bestätigst du einzeln.";render();}
+    String sharedRelease(){return sharedUrl;}
+    private void previewShared(){if(sharedUrl==null)return;try{String repo=LinkImport.repository(sharedUrl);preview(new JSONObject().put("fullName",repo).put("prerelease",sharedUrl.contains("/releases/" )).put("sharedUrl",sharedUrl));}catch(Exception e){failure(e);}}
     boolean connected(){return connection.optBoolean("connected")&&connection.optLong("expires")>System.currentTimeMillis()/1000;}
     int proposalCount(){return proposals.size();}
     boolean hasChecked(){return checkedAt>0;}
@@ -56,10 +60,10 @@ final class GitHubRadarController {
     private void start(){
         if(busy||closed)return;
         LinearLayout consent=new LinearLayout(activity);consent.setOrientation(LinearLayout.VERTICAL);consent.setPadding(dp(24),dp(8),dp(24),0);
-        consent.addView(label("APKDrop liest APK-Vorschläge aus deinen freigegebenen GitHub-Repositories. Anmeldung und Gerätebestätigung erfolgen im Browser.",14));
+        consent.addView(label("Im Browser anmelden und dieses Gerät bestätigen. APKDrop findet APKs in deinen freigegebenen GitHub-Releases.",14));
         CheckBox privateImports=new CheckBox(activity);privateImports.setText("Private Imports auf diesem Gerät erlauben");privateImports.setTextColor(activity.getColor(R.color.text));privateImports.setMinHeight(dp(48));privateImports.setChecked(false);consent.addView(privateImports);
-        consent.addView(label("Ohne diese Freigabe liest das Radar nur Vorschläge. Jeden Import bestätigst du einzeln. Veröffentlichung und Installation bleiben separate Schritte.",12));
-        consent.addView(label("„All repositories“ schließt neue Repos ein. Bei einer Auswahl gibst du neue Repos einzeln frei. Zugriff verwalten: Dashboard. Gerät trennen: hier.",13));
+        consent.addView(label("Optional: private Entwürfe hinzufügen. Jeden Import und jede Installation bestätigst du einzeln.",12));
+        consent.addView(label("„All repositories“ schließt neue Repos ein. Sonst einzeln in GitHub freigeben. Zugriff verwalten: Dashboard. Gerät trennen: hier.",13));
         ScrollView scroll=new ScrollView(activity);scroll.addView(consent);
         new AlertDialog.Builder(activity).setTitle("GitHub verbinden").setView(scroll).setNegativeButton("Abbrechen",null)
                 .setPositiveButton("Weiter",(d,w)->beginPairing(privateImports.isChecked())).show();
@@ -124,6 +128,7 @@ final class GitHubRadarController {
     private void render(){
         panel.removeAllViews();panel.addView(label("GitHub Radar",22));panel.addView(label("APKs aus deinen freigegebenen Repositories. Neue Repos erscheinen nach deiner GitHub-Freigabe.",14));
         if(!message.isEmpty())panel.addView(label(message,13));
+        if(sharedUrl!=null){panel.addView(label("Geteilt: "+LinkImport.repository(sharedUrl),13));if(connected())panel.addView(button("Geteilten Release prüfen →",this::previewShared));panel.addView(button("Geteilten Link verwerfen",()->{sharedUrl=null;render();}));}
         if(!connected()){
             if(connection.has("id")){panel.addView(button("Bestätigung im Browser öffnen →",()->open(RadarClient.verificationPath(connection.optString("id")))));panel.addView(button("Verbindung prüfen ↻",this::status));panel.addView(button("Bestätigung abbrechen",()->cancelPairing("Bestätigung abgebrochen.")));}
             panel.addView(button(connection.has("id")?"Verbindung neu starten":"GitHub verbinden →",this::start));
@@ -170,7 +175,7 @@ final class GitHubRadarController {
         final String repository=suggestion.optString("fullName");final boolean includeBeta=suggestion.optBoolean("prerelease");
         try{RadarClient.importPath(repository);}catch(Exception e){failure(e);return;}
         final int ticket=++request;busy=true;message="APK-Vorschau wird frisch geladen …";render();String token=connection.optString("deviceSecret");
-        io.execute(()->{try{JSONObject data=RadarClient.request("/api/companion/import/preview",new JSONObject().put("repo",repository).put("includeBeta",includeBeta),token);
+        io.execute(()->{try{JSONObject data=RadarClient.request("/api/companion/import/preview",new JSONObject().put("repo",suggestion.optString("sharedUrl",repository)).put("includeBeta",includeBeta),token);
             post(ticket,()->{busy=false;render();try{ImportPreview preview=ImportPreview.parse(repository,data);
                 if(!connection.optBoolean("privateImport")){new AlertDialog.Builder(activity).setTitle("Privaten Import freigeben").setMessage("Deine ältere Verbindung erlaubt nur das Lesen. Bestätige dieses Gerät einmal im Browser für private Imports.").setNegativeButton("Abbrechen",null).setPositiveButton("Neu verbinden",(d,w)->start()).show();return;}
                 new AlertDialog.Builder(activity).setTitle(preview.name.isBlank()?"APK gefunden":preview.name).setMessage(preview.summary()).setNegativeButton("Abbrechen",null).setPositiveButton("Privat hinzufügen",(d,w)->{if(!closed&&ticket==request&&token.equals(connection.optString("deviceSecret")))importApp(preview);}).show();
@@ -180,7 +185,7 @@ final class GitHubRadarController {
     private void importApp(ImportPreview preview){
         if(busy||!connected()||!connection.optBoolean("privateImport"))return;final int ticket=++request;busy=true;message="Privater Import wird gestartet …";render();String token=connection.optString("deviceSecret");
         io.execute(()->{try{RadarClient.request("/api/companion/import",preview.request(),token);
-            post(ticket,()->{busy=false;proposals.remove(preview.repository);message="Privat hinzugefügt ✓ · APK und App-Icon werden geprüft.";render();loadApps();});
+            post(ticket,()->{busy=false;proposals.remove(preview.repository);sharedUrl=null;message="Privat hinzugefügt ✓ · APK und App-Icon werden geprüft.";render();loadApps();});
         }catch(Exception e){post(ticket,()->failure(e));}});
     }
     private TextView label(String value,int size){TextView t=new TextView(activity);t.setText(value);t.setTextSize(size);t.setTextColor(activity.getColor(size>=20?R.color.text:R.color.muted));t.setPadding(0,dp(5),0,dp(5));return t;}
