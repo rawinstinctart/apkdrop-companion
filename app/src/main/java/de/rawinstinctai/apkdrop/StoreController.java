@@ -521,7 +521,12 @@ final class StoreController {
     private void renderActionCenter(){
         if(radar==null)return;LinearLayout panel=activity.findViewById(R.id.actionCenter);panel.removeAllViews();int releases=0;
         for(int i=0;i<homeReleases.length();i++){JSONObject item=homeReleases.optJSONObject(i);if(item!=null&&readState.unseen(item)&&radarState(item)!=ReleaseRadar.State.INSTALLED)releases++;}
-        ((TextView)activity.findViewById(R.id.actionSummary)).setText(library.updateCount()+" Updates · "+(radar.hasChecked()?DisplayText.proposals(radar.proposalCount()):"APK-Prüfung ausstehend")+" · "+(homeFeedKnown?releases+" neue Releases":"Release-Prüfung ausstehend"));
+        String overview=library.count()==0&&!radar.hasChecked()&&!homeFeedKnown
+                ?"Füge deine erste App hinzu. Neue Versionen werden hier sichtbar."
+                :library.updateCount()+" Updates"
+                    +(radar.hasChecked()?" · "+DisplayText.proposals(radar.proposalCount()):"")
+                    +(homeFeedKnown?" · "+releases+" neue Releases":"");
+        ((TextView)activity.findViewById(R.id.actionSummary)).setText(overview);
         if(library.updateCount()>0)panel.addView(textAction(library.updateCount()+" Updates · jetzt prüfen →",()->{navigate(3);library.updateOverview();}));
         String prepared=DropPilot.preparedSlug(activity);if(prepared!=null)panel.addView(textAction("Vorbereitetes Update · Installation prüfen →",()->select.accept(prepared)));
         radar.homeActions(panel);
@@ -549,7 +554,8 @@ final class StoreController {
             });
             chip.setMinWidth(dp(48));chip.setMinimumWidth(dp(48));chip.setTextSize(12);chip.setSelected(category.equals(value));chip.setTextColor(activity.getColor(category.equals(value)?R.color.lime_dark:R.color.muted));
             chip.setBackgroundResource(R.drawable.bg_chip);chip.setPadding(dp(14),0,dp(14),0);
-            LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-2,dp(48));lp.rightMargin=dp(8);chips.addView(chip,lp);
+            chip.setMinHeight(dp(48));chip.setPadding(dp(14),dp(6),dp(14),dp(6));
+            LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-2,-2);lp.rightMargin=dp(8);chips.addView(chip,lp);
         }
     }
     private Button textAction(String value,Runnable action) {
