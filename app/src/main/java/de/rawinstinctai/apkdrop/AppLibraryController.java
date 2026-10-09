@@ -44,9 +44,9 @@ final class AppLibraryController {
     String homeEntryLabel(AppLibrary.Entry entry) {
         State state=states.get(entry.slug);
         String status=state==null||state.decision==null?"Noch prüfen":state.decision.mode==InstallPolicy.Mode.UPDATE?"Update verfügbar":
-                state.decision.mode==InstallPolicy.Mode.CURRENT?"Aktuell":state.decision.mode==InstallPolicy.Mode.BLOCKED?"Blockiert":"Nicht installiert";
+                state.decision.mode==InstallPolicy.Mode.CURRENT?"Bei letzter Prüfung aktuell":state.decision.mode==InstallPolicy.Mode.BLOCKED?"Blockiert":"Nicht installiert";
         if(state!=null&&state.error!=null)status="Prüfung fehlgeschlagen";
-        return entry.name+" · "+status+(state!=null&&state.cached?" (letzter Stand)":"");
+        return entry.name+" · "+status+(state!=null&&state.cached&&state.decision.mode!=InstallPolicy.Mode.CURRENT?" (letzter Stand)":"");
     }
     String displayName(AppLibrary.Entry entry) {
         State state=states.get(entry.slug);return state!=null&&state.release!=null?state.release.appName:entry.name;
@@ -112,7 +112,7 @@ final class AppLibraryController {
             State state=states.get(entry.slug);
             String status=state==null || state.decision==null?"Noch prüfen":
                     state.decision.mode==InstallPolicy.Mode.UPDATE?"Update verfügbar":
-                    state.decision.mode==InstallPolicy.Mode.CURRENT?"Aktuell":
+                    state.decision.mode==InstallPolicy.Mode.CURRENT?"Bei letzter Prüfung aktuell":
                     state.decision.mode==InstallPolicy.Mode.BLOCKED?"Blockiert":"Nicht installiert";
             if(state!=null && state.error!=null) status="Prüfung fehlgeschlagen";
             if(out.length()>0) out.append("\n\n");

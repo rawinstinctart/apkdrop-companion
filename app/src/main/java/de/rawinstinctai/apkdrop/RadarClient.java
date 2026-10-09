@@ -5,13 +5,13 @@ import java.net.*;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 
-/** Only APKDrop's scoped radar endpoints. No GitHub token, cookies, or redirects. */
+/** Only APKDrop's scoped radar and explicit private-import endpoints. No GitHub token, cookies, or redirects. */
 final class RadarClient {
     static final class Unauthorized extends IOException {Unauthorized(){super("GitHub Radar bitte neu verbinden.");}}
     static String verificationPath(String id){if(id==null||!id.matches("[a-f0-9]{32}"))throw new SecurityException("Ungültige Verbindung.");return "/companion/connect?code="+id;}
     static String importPath(String repository){if(repository==null||!repository.matches("[A-Za-z0-9-]{1,39}/[A-Za-z0-9_.-]{1,100}"))throw new SecurityException("Ungültiges Repository.");return "/onboarding?repo="+android.net.Uri.encode("https://github.com/"+repository);}
     static JSONObject request(String path,JSONObject body,String token) throws Exception {
-        if(!path.matches("/api/companion/(?:pair(?:/status)?|disconnect|radar\\?offset=[0-9]{1,4})"))throw new SecurityException("Unzulässiger Radar-Pfad.");
+        if(!path.matches("/api/companion/(?:pair(?:/status)?|disconnect|apps|import(?:/preview)?|radar\\?offset=[0-9]{1,4})"))throw new SecurityException("Unzulässiger Radar-Pfad.");
         HttpURLConnection c=(HttpURLConnection)new URL(StoreClient.ORIGIN+path).openConnection();
         c.setInstanceFollowRedirects(false);c.setConnectTimeout(10000);c.setReadTimeout(60000);
         c.setRequestProperty("Accept","application/json");c.setRequestProperty("Accept-Encoding","identity");

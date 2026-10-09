@@ -84,8 +84,8 @@ public class EverydayExperienceTest {
         activity=Robolectric.buildActivity(MainActivity.class).create();MainActivity a=activity.get();StoreController store=store(a);
         JSONObject data=catalog("zulu-app");data.getJSONArray("apps").put(new JSONObject().put("slug","alpha-app").put("name","Alpha"));
         store.renderCatalog(data);a.findViewById(R.id.discoverSort).performClick();
-        LinearLayout rows=a.findViewById(R.id.discoverList);LinearLayout card=(LinearLayout)rows.getChildAt(0),heading=(LinearLayout)card.getChildAt(0);
-        assertEquals("Alpha",((TextView)heading.getChildAt(1)).getText().toString());assertEquals(2,rows.getChildCount());
+        LinearLayout rows=a.findViewById(R.id.discoverList);java.util.List<LinearLayout> apps=new java.util.ArrayList<>();for(int i=0;i<rows.getChildCount();i++)if(rows.getChildAt(i).getTag() instanceof String)apps.add((LinearLayout)rows.getChildAt(i));LinearLayout heading=(LinearLayout)apps.get(0).getChildAt(0);
+        assertEquals("alpha-app",apps.get(0).getTag());assertEquals("Alpha",((TextView)heading.getChildAt(1)).getText().toString());assertEquals(2,apps.size());
     }
     @Test public void trustSummaryRequiresActualVerificationAndExposesBlockedReason() {
         InstallContract r=new InstallContract("sample-app","Sample","r1","1.0",1,"dev.sample.app",26,36,List.of(),Set.of(),Set.of("a".repeat(64)),"b".repeat(64),4096,"stable","","","","");

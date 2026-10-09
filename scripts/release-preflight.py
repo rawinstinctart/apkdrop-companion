@@ -115,6 +115,13 @@ def policy(profile, expected_cert=None, version_code=None, version_name=None):
         return {"package": DEBUG_PACKAGE, "certificateSha256": DEBUG_CERT,
                 "versionCode": 10, "versionName": "0.1.0-alpha.8-" + ("debug" if is_debug else "preview"),
                 "debuggable": is_debug}
+    if profile in ("alpha15-debug", "alpha15-preview"):
+        if any(value is not None for value in (expected_cert, version_code, version_name)):
+            raise ValueError("Alpha 15 identity is fixed; overrides are not accepted.")
+        is_debug = profile == "alpha15-debug"
+        return {"package": DEBUG_PACKAGE, "certificateSha256": DEBUG_CERT,
+                "versionCode": 18, "versionName": "0.1.0-alpha.15-" + ("debug" if is_debug else "preview"),
+                "debuggable": is_debug}
     if profile in ("alpha14-debug", "alpha14-preview"):
         if any(value is not None for value in (expected_cert, version_code, version_name)):
             raise ValueError("Alpha 14 identity is fixed; overrides are not accepted.")
@@ -238,7 +245,7 @@ def inspect(apk, tools, expected):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("apk", type=Path)
-    parser.add_argument("--profile", choices=["alpha5", "alpha6", "alpha6.1-debug", "alpha6.1-preview", "alpha7-debug", "alpha7-preview", "alpha8-debug", "alpha8-preview", "alpha9-debug", "alpha9-preview", "alpha9.1-debug", "alpha9.1-preview", "alpha10-debug", "alpha10-preview", "alpha11-debug", "alpha11-preview", "alpha12-debug", "alpha12-preview", "alpha13-debug", "alpha13-preview", "alpha14-debug", "alpha14-preview", "production"], default="alpha14-preview")
+    parser.add_argument("--profile", choices=["alpha5", "alpha6", "alpha6.1-debug", "alpha6.1-preview", "alpha7-debug", "alpha7-preview", "alpha8-debug", "alpha8-preview", "alpha9-debug", "alpha9-preview", "alpha9.1-debug", "alpha9.1-preview", "alpha10-debug", "alpha10-preview", "alpha11-debug", "alpha11-preview", "alpha12-debug", "alpha12-preview", "alpha13-debug", "alpha13-preview", "alpha14-debug", "alpha14-preview", "alpha15-debug", "alpha15-preview", "production"], default="alpha15-preview")
     parser.add_argument("--sdk", default=os.environ.get("ANDROID_HOME") or os.environ.get("ANDROID_SDK_ROOT"))
     parser.add_argument("--build-tools", default="35.0.0")
     parser.add_argument("--expected-cert-sha256")
