@@ -748,7 +748,7 @@ public final class MainActivity extends Activity {
         notes.setVisibility(present?View.VISIBLE:View.GONE);
         if(!present)return;
         android.text.SpannableStringBuilder full=ReleaseNotes.render(currentRelease.notes);
-        CharSequence preview=ReleaseNotes.preview(full);
+        CharSequence preview=currentRelease.notesSummary.isBlank()?ReleaseNotes.preview(full):currentRelease.notesSummary;
         notes.setText(notesExpanded?full:preview);
         Button more=findViewById(R.id.notesButton);
         more.setVisibility(!preview.toString().equals(full.toString())?View.VISIBLE:View.GONE);
