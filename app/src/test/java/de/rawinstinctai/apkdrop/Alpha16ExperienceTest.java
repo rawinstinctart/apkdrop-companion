@@ -45,7 +45,7 @@ public class Alpha16ExperienceTest {
             if("alpha16-demo".equals(v.getTag()))card=(LinearLayout)v;
         }
         assertNotNull(card);
-        assertEquals("Details & Download →",((Button)card.getChildAt(card.getChildCount()-1)).getText().toString());
+        assertEquals("Details ansehen & prüfen →",((Button)card.getChildAt(card.getChildCount()-1)).getText().toString());
         LinearLayout heading=(LinearLayout)card.getChildAt(0);
         assertEquals("Sichere App",((TextView)heading.getChildAt(1)).getText().toString());
         assertEquals("1 App",((TextView)a.findViewById(R.id.discoverCount)).getText().toString());
