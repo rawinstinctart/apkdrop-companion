@@ -2,6 +2,8 @@
 """Exercise deployed Alpha 14 boundaries without a user's GitHub credentials."""
 import json
 import secrets
+import re
+import time
 import urllib.error
 import urllib.request
 
@@ -23,7 +25,10 @@ assert request('/api/companion/radar?offset=0')[0]==401, 'Radar must require dev
 poll,device=secrets.token_hex(32),secrets.token_hex(32)
 assert request('/api/companion/pair',{'pollSecret':poll,'deviceSecret':device},{'Origin':'https://invalid.example'})[0]==403
 status,pair=request('/api/companion/pair',{'pollSecret':poll,'deviceSecret':device})
-assert status==200 and pair['verificationUrl']==ORIGIN+'/companion/connect?code='+pair['id']
+assert status==200 and isinstance(pair,dict), 'Pairing endpoint is unavailable'
+assert isinstance(pair.get('id'),str) and re.fullmatch(r'[a-f0-9]{32}',pair['id']), 'Invalid Android pairing ID'
+assert type(pair.get('expires')) is int and time.time()<pair['expires']<=time.time()+630, 'Invalid pairing expiry'
+assert pair.get('verificationUrl')==ORIGIN+'/companion/connect?code='+pair['id']
 assert device not in json.dumps(pair) and poll not in json.dumps(pair)
 status,state=request('/api/companion/pair/status',{'id':pair['id'],'pollSecret':poll})
 assert status==200 and state['connected'] is False
