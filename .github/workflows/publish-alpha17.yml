@@ -1,0 +1,107 @@
+name: Publish original-signed Alpha 17 Onboarding and discovery
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/publish-alpha17.yml'
+      - 'release/alpha17-signed.patch.zst.b64'
+      - 'release/reconstruct-alpha17.py'
+      - 'release/alpha17-notes.md'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-alpha17.yml'
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pin passing Android candidate source and checks
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(gh api repos/${{ github.repository }}/actions/runs/37963866576 --jq .head_sha)" = '9eb39210defb8b27ff5b5f7f04e9e8d689ff19dd'
+          test "$(gh api repos/${{ github.repository }}/actions/runs/37963866576 --jq .conclusion)" = 'success'
+      - name: Download exact tested Alpha 17 unsigned preview candidate
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 37963866576
+          name: apkdrop-companion-unsigned-preview
+          path: unsigned
+          github-token: ${{ github.token }}
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: ''
+      - name: Install pinned official Android build tools
+        run: sdkmanager 'build-tools;35.0.0'
+      - name: Reconstruct and verify locally original-signed APK
+        run: |
+          set -euo pipefail
+          sdk="$ANDROID_HOME/build-tools/35.0.0"
+          command -v zstd
+          test -f unsigned/app-preview-unsigned.apk
+          echo '359014c994b8fd7b430f537fd7eb567854e93e08ed125383b7ede3ad6609672e  unsigned/app-preview-unsigned.apk' | sha256sum -c -
+          mkdir -p dist
+          "$sdk/zipalign" -p -f 4 unsigned/app-preview-unsigned.apk /tmp/alpha17-aligned.apk
+          echo '359014c994b8fd7b430f537fd7eb567854e93e08ed125383b7ede3ad6609672e  /tmp/alpha17-aligned.apk' | sha256sum -c -
+          python3 release/reconstruct-alpha17.py /tmp/alpha17-aligned.apk release/alpha17-signed.patch.zst.b64 dist/APKDrop-Companion-v0.1.0-alpha.17-preview.apk
+          "$sdk/apksigner" verify --verbose --print-certs dist/APKDrop-Companion-v0.1.0-alpha.17-preview.apk > /tmp/alpha17-signature.txt
+          grep -q '^Verified using v2 scheme (APK Signature Scheme v2): true' /tmp/alpha17-signature.txt
+          grep -q '^Verified using v3 scheme (APK Signature Scheme v3): true' /tmp/alpha17-signature.txt
+          grep -q '^Number of signers: 1' /tmp/alpha17-signature.txt
+          grep -q '^Signer #1 certificate SHA-256 digest: 6cf70241a63498e5e9fce78bac9abec760364cf320928347114bf109abd81e2e' /tmp/alpha17-signature.txt
+          "$sdk/aapt" dump badging dist/APKDrop-Companion-v0.1.0-alpha.17-preview.apk > /tmp/alpha17-manifest.txt
+          grep -q "package: name='de.rawinstinctai.apkdrop.debug' versionCode='23' versionName='0.1.0-alpha.17-preview'" /tmp/alpha17-manifest.txt
+          grep -q "^sdkVersion:'26'" /tmp/alpha17-manifest.txt
+          grep -q "^targetSdkVersion:'36'" /tmp/alpha17-manifest.txt
+          ! grep -q '^application-debuggable' /tmp/alpha17-manifest.txt
+          "$sdk/zipalign" -c 4 dist/APKDrop-Companion-v0.1.0-alpha.17-preview.apk
+          echo '5424c8092a3ee365efd46559ecf9289db67921832a03cbdb849c03923bd4926d  dist/APKDrop-Companion-v0.1.0-alpha.17-preview.apk' | sha256sum -c -
+          test "$(wc -c < dist/APKDrop-Companion-v0.1.0-alpha.17-preview.apk)" -eq 333263
+          python3 scripts/release-preflight.py dist/APKDrop-Companion-v0.1.0-alpha.17-preview.apk --profile alpha17-preview --sdk "$ANDROID_HOME"
+          echo 'ORIGINAL-SIGNED ALPHA 17 VERIFIED'
+      - name: Verify deployed APKDrop backend boundaries
+        run: python3 release/verify-alpha15-backend.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: original-signed-alpha17-reviewed
+          path: dist/APKDrop-Companion-v0.1.0-alpha.17-preview.apk
+          retention-days: 7
+          if-no-files-found: error
+
+  publish:
+    needs: verify
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      actions: read
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: original-signed-alpha17-reviewed
+          path: dist
+      - name: Publish prerelease and re-download for byte proof
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG='v0.1.0-alpha.17'
+          APK='dist/APKDrop-Companion-v0.1.0-alpha.17-preview.apk'
+          test -f "$APK"
+          ! gh release view "$TAG" >/dev/null 2>&1
+          echo "5424c8092a3ee365efd46559ecf9289db67921832a03cbdb849c03923bd4926d  $APK" | sha256sum -c -
+          gh release create "$TAG" "$APK" --target "$GITHUB_SHA" --title 'APKDrop Companion Alpha 17 — Onboarding and discovery' --notes-file release/alpha17-notes.md --prerelease
+          mkdir -p /tmp/alpha17-download-proof
+          gh release download "$TAG" --pattern 'APKDrop-Companion-v0.1.0-alpha.17-preview.apk' --dir /tmp/alpha17-download-proof
+          echo '5424c8092a3ee365efd46559ecf9289db67921832a03cbdb849c03923bd4926d  /tmp/alpha17-download-proof/APKDrop-Companion-v0.1.0-alpha.17-preview.apk' | sha256sum -c -
+          echo 'PUBLISHED SIGNED ALPHA 17 VERIFIED'

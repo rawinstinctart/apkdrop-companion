@@ -2,17 +2,17 @@
 
 Native Android companion for verified APKDrop installs and updates.
 
-## Alpha 16.1 — Professional Experience
+## Alpha 17 — GitHub onboarding and discovery
 
-An original-signed, non-debuggable Android preview with a clear first-use Home, consistent saved-app cards, actionable empty/search/update states, uncluttered Discover collections and accessible navigation that accommodates large system text. Long app names and launch actions have separate space. Installation and verification remain explicit.
+An original-signed, non-debuggable Android preview with cancellable GitHub onboarding, separately granted private-import capability and a fresh APK confirmation before each private draft. Failed or abandoned consent upgrades restore the previous device connection. Public app descriptions expand with developer attribution, empty profiles/catalogs explain private drafts, and shared GitHub repository roots use the verified public mapping and fresh install contract.
 
 - Preview package: `de.rawinstinctai.apkdrop.debug` (preserved for existing alpha upgrades).
-- Version: `0.1.0-alpha.16.1-preview`, versionCode **22**, Android 8.0+.
+- Version: `0.1.0-alpha.17-preview`, versionCode **23**, Android 8.0+.
 - Original alpha certificate: `6cf70241a63498e5e9fce78bac9abec760364cf320928347114bf109abd81e2e`.
 - Android CI checks debug and preview tests, lint and builds. The release workflow independently verifies the exact signed artifact and its public download; signing keys never enter GitHub.
-- Physical-device visual and upgrade acceptance remains open. Roadmap: #30 (experience), #31 (onboarding/discovery), #32 (reliability), #33 (1.0 release gate). This preview does not claim production readiness.
+- Physical-device and real GitHub account acceptance remains open. Roadmap: #31 (onboarding/discovery acceptance), #32 (reliability), #33 (1.0 release gate). This preview does not claim production readiness.
 
-See [experience changes and acceptance](docs/alpha16-1-experience.md). Historical release notes below describe their respective versions.
+See [changes and physical acceptance](docs/alpha17-experience.md). Historical release notes below describe their respective versions.
 
 ## Alpha 7: useful everyday shortcuts (source candidate)
 
