@@ -27,6 +27,7 @@ final class StoreController {
         @Override protected int sizeOf(String key,Bitmap image) {return image.getByteCount();}
     };
     private JSONObject catalogData;
+    private final java.util.concurrent.ConcurrentHashMap<String,ReleaseRadar.State> radarStates=new java.util.concurrent.ConcurrentHashMap<>();
     private boolean catalogCached,sortByName;
     private long catalogAt;
     private String activeProfile;
@@ -123,7 +124,7 @@ final class StoreController {
     }
     void pause(){if(radar!=null)radar.pause();}
     void showGitHubRadar(){githubRadar=true;following=false;activeProfile=null;navigate(1);radar.show();}
-    void resume() {radar.resume();if(tab==0&&!detail)homeFeed();if(tab==1&&!detail){if(githubRadar)radar.show();else if(activeProfile!=null)profile(activeProfile);else if(following)feed();else if(!started)catalog();}}
+    void resume() {radarStates.clear();started=false;radar.resume();if(tab==0&&!detail)homeFeed();if(tab==1&&!detail){if(githubRadar)radar.show();else if(activeProfile!=null)profile(activeProfile);else if(following)feed();else if(!started)catalog();}}
     void close() {radar.close();closed=true;request++;detailRequest++;homeRequest++;network.shutdownNow();media.shutdownNow();images.evictAll();}
     void changed() {
         int count=library.count(),updates=library.updateCount();
@@ -164,6 +165,7 @@ final class StoreController {
         activity.findViewById(R.id.radarApps).setSelected(!githubRadar&&!following);
         activity.findViewById(R.id.radarReleases).setSelected(!githubRadar&&following);
         activity.findViewById(R.id.radarGitHub).setSelected(githubRadar);
+        for(int id:new int[]{R.id.radarApps,R.id.radarReleases,R.id.radarGitHub}){Button chip=activity.findViewById(id);chip.setTextColor(activity.getColor(chip.isSelected()?R.color.lime_dark:R.color.lime));}
         activity.findViewById(R.id.libraryPanel).setVisibility(!detail&&(tab==2||tab==3)?View.VISIBLE:View.GONE);
         activity.findViewById(R.id.settingsPanel).setVisibility(!detail&&tab==4?View.VISIBLE:View.GONE);
         activity.findViewById(R.id.linkPanel).setVisibility(View.GONE);
@@ -193,6 +195,23 @@ final class StoreController {
             activeProfile=null;category=value;page=1;following=false;((Button)anchor).setText(name);renderCategories();catalog();return true;
         });}menu.show();
     }
+    private static String radarKey(JSONObject release){return release.optString("packageName")+"/"+release.optLong("versionCode")+"/"+String.valueOf(release.optJSONArray("signers"));}
+    private ReleaseRadar.State radarState(JSONObject release){return radarStates.getOrDefault(radarKey(release),ReleaseRadar.State.UNKNOWN);}
+    private void prepareRadar(JSONArray releases) {
+        if(releases==null)return;
+        java.util.Map<String,InstalledState> installed=new java.util.HashMap<>();
+        java.util.Set<String> unavailable=new java.util.HashSet<>();
+        if(radarStates.size()>500)radarStates.clear();
+        for(int i=0;i<releases.length();i++){
+            JSONObject release=releases.optJSONObject(i);if(release==null)continue;
+            String pkg=release.optString("packageName");ReleaseRadar.State state=ReleaseRadar.State.UNKNOWN;
+            if(pkg.matches("[A-Za-z][A-Za-z0-9_]*(?:\\.[A-Za-z][A-Za-z0-9_]*)+")){
+                if(!installed.containsKey(pkg)&&!unavailable.contains(pkg))try{installed.put(pkg,InstalledState.read(activity,pkg));}catch(Exception e){unavailable.add(pkg);}
+                if(!unavailable.contains(pkg))state=ReleaseRadar.compare(release,installed.get(pkg));
+            }
+            radarStates.put(radarKey(release),state);
+        }
+    }
     private void catalog() {
         githubRadar=false;activeProfile=null;following=false;started=true;catalogControls(true);
         final int ticket=++request;((ThreadPoolExecutor)media).getQueue().clear();
@@ -201,9 +220,9 @@ final class StoreController {
         final String path="/api/discover?q="+q+"&category="+category+"&page="+page;
         network.execute(()->{
             CatalogCache.Entry saved=cache.read(path);
-            if(saved!=null)post(ticket,()->{catalogData=saved.data;catalogCached=true;catalogAt=saved.at;renderCatalogState();});
+            if(saved!=null){prepareRadar(saved.data.optJSONArray("apps"));}if(saved!=null)post(ticket,()->{catalogData=saved.data;catalogCached=true;catalogAt=saved.at;renderCatalogState();});
             try {
-                JSONObject data=StoreClient.get(path);CatalogCache.validate(data);cache.save(path,data);
+                JSONObject data=StoreClient.get(path);CatalogCache.validate(data);cache.save(path,data);prepareRadar(data.optJSONArray("apps"));
                 post(ticket,()->{catalogData=data;catalogCached=false;catalogAt=System.currentTimeMillis();renderCatalogState();});
             } catch(Exception e) {
                 if(!(e instanceof java.io.IOException))cache.remove(path);
@@ -247,7 +266,7 @@ final class StoreController {
             ImageView icon=icon(52);icon.setImageDrawable(new AppPlaceholder(name));heading.addView(icon);TextView title=label(name,20);title.setPadding(dp(12),0,0,0);heading.addView(title,new LinearLayout.LayoutParams(0,-2,1));card.addView(heading);
             loadImage(app.optString("iconUrl",""),icon);
             AppLibrary.Entry saved=library.find(slug);if(saved!=null)icon.setImageDrawable(library.appIcon(saved));
-            boolean unseen=readState.unseen(app);ReleaseRadar.State state=ReleaseRadar.state(activity,app);
+            boolean unseen=readState.unseen(app);ReleaseRadar.State state=radarState(app);
             TextView signal=label(ReleaseRadar.label(state,unseen),12);signal.setTextColor(activity.getColor(state==ReleaseRadar.State.DIFFERENT_SIGNER?R.color.danger:R.color.lime));card.addView(signal);
             String description=bounded(app.optString("description"),400);if(!description.isEmpty()){TextView summary=label(description,13);summary.setMaxLines(3);summary.setEllipsize(android.text.TextUtils.TruncateAt.END);card.addView(summary);}
             JSONObject latest=app.optJSONObject("latest");String version=latest!=null?latest.optString("version"):app.optString("version");
@@ -265,6 +284,7 @@ final class StoreController {
         submit(()->{
             JSONObject p=StoreClient.get("/api/dropid/"+handle+".json");JSONObject github=p.getJSONObject("github");String id=github.getString("id");
             if(!"apkdrop.dropid.v1".equals(p.optString("schema")) || !p.optBoolean("published") || !handle.equals(p.optString("handle")) || !DeveloperFollows.validId(id))throw new SecurityException("Entwicklerprofil nicht verfügbar.");
+            prepareRadar(p.optJSONArray("apps"));
             final String name=bounded(p.getString("name"),160);final boolean saved=follows.contains(id);
             post(ticket,()->{
                 resultStatus.setText("DropID · @"+handle);
@@ -328,13 +348,13 @@ final class StoreController {
             submit(()->{
                 JSONObject data=StoreClient.following(ids);JSONArray releases=data.getJSONArray("feed");
                 if(releases.length()>60)throw new SecurityException("Release-Liste zu groß.");
-                post(ticket,()->renderFeed(releases,data.optBoolean("truncated")));
+                prepareRadar(releases);post(ticket,()->renderFeed(releases,data.optBoolean("truncated")));
 
             },ticket);
         } catch(Exception e) {resultStatus.setText(message(e));}
     }
     private void renderFeed(JSONArray releases,boolean truncated) {
-        int unseen=0;for(int i=0;i<releases.length();i++)if(releases.optJSONObject(i)!=null&&readState.unseen(releases.optJSONObject(i))&&ReleaseRadar.state(activity,releases.optJSONObject(i))!=ReleaseRadar.State.INSTALLED)unseen++;
+        int unseen=0;for(int i=0;i<releases.length();i++)if(releases.optJSONObject(i)!=null&&readState.unseen(releases.optJSONObject(i))&&radarState(releases.optJSONObject(i))!=ReleaseRadar.State.INSTALLED)unseen++;
         resultStatus.setText(unseen+" neu für dich · "+releases.length()+" öffentliche Releases"+(truncated?" · Liste begrenzt":""));
         LinearLayout feedRows=new LinearLayout(activity);feedRows.setOrientation(LinearLayout.VERTICAL);results.addView(feedRows);
         feedRows.addView(button(newOnly?"Alle Releases anzeigen":"Nur neue Releases anzeigen",()->{newOnly=!newOnly;results.removeView(feedRows);renderFeed(releases,truncated);}));
@@ -345,7 +365,7 @@ final class StoreController {
         for(int i=0;i<releases.length();i++) {
             JSONObject r=releases.optJSONObject(i);if(r==null)continue;
             try {
-                String slug=StoreClient.slug(r.getString("slug"));boolean isNew=readState.unseen(r);ReleaseRadar.State installed=ReleaseRadar.state(activity,r);if(newOnly&&(!isNew||installed==ReleaseRadar.State.INSTALLED))continue;shown++;
+                String slug=StoreClient.slug(r.getString("slug"));boolean isNew=readState.unseen(r);ReleaseRadar.State installed=radarState(r);if(newOnly&&(!isNew||installed==ReleaseRadar.State.INSTALLED))continue;shown++;
                 LinearLayout c=card();c.addView(label(bounded(r.optString("name"),160),20));
                 c.addView(label((ReleaseRadar.label(installed,isNew)+" · ")+bounded(r.optString("version"),120)+" · "+bounded(r.optString("channel"),20)+"\n"+bounded(r.optString("publishedAt"),80),13));
                 c.addView(button("App-Standard prüfen →",()->{
@@ -421,10 +441,10 @@ final class StoreController {
             network.execute(()->{
                 try {
                     JSONArray feed=StoreClient.following(ids).getJSONArray("feed");if(feed.length()>60)throw new SecurityException("Release-Liste zu groß.");
-                    activity.runOnUiThread(()->{if(closed||ticket!=homeRequest)return;panel.removeAllViews();
+                    prepareRadar(feed);activity.runOnUiThread(()->{if(closed||ticket!=homeRequest)return;panel.removeAllViews();
                         int shown=0;for(int i=0;i<feed.length()&&shown<2;i++){
                             JSONObject item=feed.optJSONObject(i);if(item==null)continue;
-                            try {String slug=StoreClient.slug(item.getString("slug"));if(!readState.unseen(item)||ReleaseRadar.state(activity,item)==ReleaseRadar.State.INSTALLED)continue;shown++;
+                            try {String slug=StoreClient.slug(item.getString("slug"));if(!readState.unseen(item)||radarState(item)==ReleaseRadar.State.INSTALLED)continue;shown++;
                                 panel.addView(textAction(bounded(item.optString("name"),160)+" · "+bounded(item.optString("version"),120)
                                         +(readState.unseen(item)?" · Neu →":" →"),()->{
                                     try{readState.mark(new JSONArray().put(item));homeFeedAt=0;}catch(Exception e){error(e);}select.accept(slug);

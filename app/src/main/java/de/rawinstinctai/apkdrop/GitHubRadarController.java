@@ -74,7 +74,7 @@ final class GitHubRadarController {
                 for(int i=0;i<list.length();i++){JSONObject item=list.optJSONObject(i);if(item!=null&&proposals.size()<120)proposals.put(item.optString("fullName"),item);}
                 nextOffset=data.isNull("nextOffset")?-1:data.optInt("nextOffset",-1);if(nextOffset<0||nextOffset>9999)nextOffset=-1;
                 message=data.optBoolean("needsGitHub")?"GitHub bitte im Dashboard neu verbinden.":data.optBoolean("needsAccess")?"Gib der APKDrop GitHub App Zugriff auf deine Repositories.":proposals.isEmpty()?"Noch keine neue Release-APK gefunden.":proposals.size()+" APK-Vorschläge gefunden.";
-                if(data.optInt("unavailable")>0)message+=" Einige Repositories waren nicht erreichbar.";render();});
+                if(data.optInt("unavailable")>0)message+=" Einige Repositories waren nicht erreichbar.";if(data.optBoolean("repositoriesTruncated"))message+=" Es konnten nicht alle Repositories geprüft werden.";render();});
         }catch(Exception e){post(ticket,()->{if(e instanceof RadarClient.Unauthorized){storage.clear();connection=new JSONObject();result=null;proposals.clear();}failure(e);});}});
     }
     private void disconnect(){

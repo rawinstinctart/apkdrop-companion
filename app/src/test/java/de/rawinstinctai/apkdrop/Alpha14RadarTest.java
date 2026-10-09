@@ -38,7 +38,14 @@ public class Alpha14RadarTest {
         MainActivity a=create();a.findViewById(R.id.homeGitHubRadar).performClick();
         assertEquals(View.VISIBLE,a.findViewById(R.id.githubRadarPanel).getVisibility());assertEquals(View.GONE,a.findViewById(R.id.discoverControls).getVisibility());
         LinearLayout panel=a.findViewById(R.id.githubRadarPanel);boolean connect=false;for(int i=0;i<panel.getChildCount();i++)if(panel.getChildAt(i) instanceof Button b&&b.getText().toString().equals("GitHub verbinden →"))connect=true;
-        assertTrue(connect);a.findViewById(R.id.radarApps).performClick();assertEquals(View.GONE,panel.getVisibility());assertEquals(View.VISIBLE,a.findViewById(R.id.discoverControls).getVisibility());
+        assertTrue(connect);assertEquals(a.getColor(R.color.lime_dark),((Button)a.findViewById(R.id.radarGitHub)).getCurrentTextColor());a.findViewById(R.id.radarApps).performClick();assertEquals(View.GONE,panel.getVisibility());assertEquals(View.VISIBLE,a.findViewById(R.id.discoverControls).getVisibility());
+    }
+    @Test public void preparedInstalledStatesAreReusedWithoutPackageLookupsDuringRender() throws Exception {
+        MainActivity a=create();java.lang.reflect.Field field=MainActivity.class.getDeclaredField("store");field.setAccessible(true);Object store=field.get(a);
+        java.lang.reflect.Method prepare=StoreController.class.getDeclaredMethod("prepareRadar",JSONArray.class),state=StoreController.class.getDeclaredMethod("radarState",JSONObject.class);prepare.setAccessible(true);state.setAccessible(true);
+        JSONObject candidate=release(12);assertEquals(ReleaseRadar.State.UNKNOWN,state.invoke(store,candidate));
+        Thread worker=new Thread(()->{try{prepare.invoke(store,new JSONArray().put(candidate).put(candidate));}catch(Exception e){throw new AssertionError(e);}});worker.start();worker.join();
+        assertEquals(ReleaseRadar.State.NOT_INSTALLED,state.invoke(store,candidate));assertEquals(ReleaseRadar.State.NOT_INSTALLED,state.invoke(store,candidate));
     }
     @Test public void librarySearchFiltersOnlyRowsAndSurvivesRotation() throws Exception {
         MainActivity a=create();java.lang.reflect.Field f=MainActivity.class.getDeclaredField("library");f.setAccessible(true);AppLibraryController l=(AppLibraryController)f.get(a);
