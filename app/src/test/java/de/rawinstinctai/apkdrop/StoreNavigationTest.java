@@ -193,6 +193,11 @@ public final class StoreNavigationTest {
         assertTrue(treeHasText(results,"Profil ansehen"));
         assertFalse(treeHasText(results,"Keine passenden Apps"));
         assertTrue(treeHasText(results,"Entwickler entdecken"));
+        store.renderCatalog(new org.json.JSONObject().put("schema","apkdrop.discover.v1")
+                .put("apps",new org.json.JSONArray()).put("total",0).put("page",1).put("pages",1));
+        assertTrue(treeHasText(results,"Noch keine Entwicklerprofile"));
+        assertTrue(treeHasText(results,"Alle Apps ansehen"));
+        assertFalse(treeHasText(results,"App-Link hinzufügen"));
     }
     @Test @GraphicsMode(GraphicsMode.Mode.NATIVE) public void largeTextKeepsNavigationInsideWindow() throws Exception {
         RuntimeEnvironment.setFontScale(1.4f);MainActivity a=create(null);a.findViewById(R.id.navSettings).performClick();
