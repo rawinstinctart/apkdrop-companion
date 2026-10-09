@@ -26,4 +26,4 @@ jobs:
           test "$(gh api repos/${{ github.repository }}/actions/runs/37933347390 --jq .conclusion)" = 'success'
           sha256sum unsigned/app-preview-unsigned.apk
           base64 -w0 unsigned/app-preview-unsigned.apk > /tmp/unsigned.b64
-          gh api -X POST repos/${{ github.repository }}/git/blobs -f encoding=base64 -F content=@/tmp/unsigned.b64 --jq '"TESTED_UNSIGNED_BLOB=" + .sha'
+          gh api -X POST repos/${{ github.repository }}/git/blobs -f encoding=utf-8 -F content=@/tmp/unsigned.b64 --jq '"TESTED_UNSIGNED_BASE64_BLOB=" + .sha'
