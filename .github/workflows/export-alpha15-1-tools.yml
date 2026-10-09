@@ -1,0 +1,38 @@
+name: Export public Android signing tools for local signing
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/export-alpha15-1-tools.yml'
+      - 'app/build.gradle'
+      - 'scripts/release-preflight.py'
+      - '.github/workflows/ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  tools:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: ''
+      - run: sdkmanager 'build-tools;35.0.0'
+      - name: Export official verification tools without any signing keys
+        run: |
+          set -euo pipefail
+          src="$ANDROID_HOME/build-tools/35.0.0"
+          mkdir -p export/build-tools/35.0.0/lib
+          cp "$src/zipalign" "$src/apksigner" "$src/aapt" export/build-tools/35.0.0/
+          cp "$src/lib/apksigner.jar" export/build-tools/35.0.0/lib/
+          if [ -d "$src/lib64" ]; then cp -R "$src/lib64" export/build-tools/35.0.0/; fi
+          test -s export/build-tools/35.0.0/lib/apksigner.jar
+          sha256sum export/build-tools/35.0.0/lib/apksigner.jar
+      - uses: actions/upload-artifact@v4
+        with:
+          name: alpha15-1-android-build-tools-35
+          path: export/
+          retention-days: 3
+          if-no-files-found: error
