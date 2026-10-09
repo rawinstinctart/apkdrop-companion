@@ -7,7 +7,7 @@ import urllib.request
 
 ORIGIN = 'https://apkdrop.rawinstinctai.de'
 def request(path, data=None, headers=None):
-    req=urllib.request.Request(ORIGIN+path, data=None if data is None else json.dumps(data).encode(),headers={'Content-Type':'application/json',**(headers or {})})
+    req=urllib.request.Request(ORIGIN+path, data=None if data is None else json.dumps(data).encode(),headers={'Content-Type':'application/json','User-Agent':'APKDrop-Companion/0.1.0-alpha.14',**(headers or {})})
     try:
         response=urllib.request.urlopen(req,timeout=30)
     except urllib.error.HTTPError as error:
