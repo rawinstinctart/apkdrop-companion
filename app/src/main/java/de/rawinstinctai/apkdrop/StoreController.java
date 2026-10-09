@@ -543,7 +543,7 @@ final class StoreController {
             });
             choice.setContentDescription(title.equals("Aktuell")?"Frisch aktualisierte Apps":
                     title.equals("Neu")?"Neu entdeckte Apps":"Entwickler entdecken");
-            choice.setTextSize(12);choice.setSingleLine(true);
+            choice.setTextSize(12);
             choice.setPadding(dp(7),dp(5),dp(7),dp(5));choice.setMinHeight(dp(48));
             choice.setSelected(developersOnly?title.equals("Entwickler"):
                     newDiscover?title.equals("Neu"):title.equals("Aktuell"));
