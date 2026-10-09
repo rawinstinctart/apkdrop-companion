@@ -786,7 +786,7 @@ public final class MainActivity extends Activity {
         return String.format(java.util.Locale.GERMANY,"%.1f MiB",bytes/1048576.0);
     }
     private static String message(Exception e) {
-        String value=e.getMessage(); return value==null||value.trim().isEmpty()?"Vorgang fehlgeschlagen. Bitte erneut versuchen.":value;
+        return UpdateFailure.message(e);
     }
     // Android 13+ uses the registered gesture callback; older Android uses this method.
     @android.annotation.SuppressLint("GestureBackNavigation")
