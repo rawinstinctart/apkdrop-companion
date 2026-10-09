@@ -333,7 +333,7 @@ final class StoreController {
                 card.addView(textAction("@"+handle+" · DropID ↗",()->profile(handle)));
             }
             String action=state==ReleaseRadar.State.INSTALLED?"App ansehen →":
-                    state==ReleaseRadar.State.UPDATE?"Update ansehen →":"Details & Download →";
+                    state==ReleaseRadar.State.UPDATE?"Update ansehen & prüfen →":"Details ansehen & prüfen →";
             card.addView(button(action,()->{
                 try{readState.mark(new JSONArray().put(app));}catch(Exception e){error(e);}
                 select.accept(slug);
