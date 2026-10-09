@@ -14,6 +14,6 @@ Für den privaten Import eine bestehende GitHub-Verbindung einmal trennen und er
 
 150 Android-Tests erfolgreich; Debug und Preview in GitHub CI geprüft, Lint und Builds erfolgreich. 37 Release-Prüfungen erfolgreich. 138 Backend-Tests lokal und in Cloudflare Builds erfolgreich. Datenbankmigration und produktives Deployment abgeschlossen; Live-Check für Katalog, Geräteautorisierung und private Import-Endpunkte erfolgreich.
 
-Die APK stammt aus dem erfolgreich geprüften GitHub-CI-Build und wurde mit dem ursprünglichen Schlüssel signiert. Der Schlüssel bleibt außerhalb von GitHub. Originalsignierte, nicht-debuggbare Preview; Paket `de.rawinstinctai.apkdrop.debug`, VersionCode 18, Version `0.1.0-alpha.15-preview`, Android 8 oder neuer. Ein Update über Alpha 14 erhält die App-Daten. Die Installation und Verbindung mit einem echten Konto auf einem physischen Android-Gerät bleiben noch zu testen.
+Die APK stammt aus dem erfolgreich geprüften GitHub-CI-Build und wurde mit dem ursprünglichen Schlüssel signiert. Der Schlüssel bleibt außerhalb von GitHub. Originalsignierte, nicht-debuggbare Preview; Paket `de.rawinstinctai.apkdrop.debug`, VersionCode 18, Version `0.1.0-alpha.15-preview`, Android 8 oder neuer. Ein Update über Alpha 14 erhält die App-Daten.
 
 SHA-256: `a0bb5148b0fb79bddcbf4592f5d5e27caf19d619a4f011a8968446433eb54286`
