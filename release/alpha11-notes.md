@@ -8,6 +8,6 @@
 
 CI tests and unsigned build verified; signed APK reconstructed byte-for-byte from the original locally signed artifact, with exact pinned SHA-256 and certificate checked before publishing. GitHub receives only public artifact bytes and a public binary delta, never the keystore.
 
-**Physical device acceptance remains OPEN:** sharesheet, Android 14 JobScheduler, WLAN/charging prefetch, system installer, Play Protect, encrypted backup roundtrip, rotation. Do not treat the Preview as Play-Protect-approved or production-ready.
+**Hinweis:** Dies ist eine Preview, keine Produktionsfreigabe oder Play-Protect-Zertifizierung.
 
 SHA-256: `d05665a7340eff6dc88c8d3d563f31444477ff2b1e7470b82676051d924895c5`
