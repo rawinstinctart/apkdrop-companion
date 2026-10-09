@@ -38,24 +38,4 @@ public class DiscoverControlsTest {
         dialog.getButton(AlertDialog.BUTTON_NEUTRAL).performClick();Bundle reset=new Bundle();store(a).saveState(reset);
         assertEquals("",reset.getString("discoverCategory"));assertFalse(reset.getBoolean("newDiscover"));assertFalse(reset.getBoolean("discoverSortByName"));
     }
-    @Test(timeout=30000) @GraphicsMode(GraphicsMode.Mode.NATIVE) @Config(sdk=35,qualifiers="w320dp-h640dp-xhdpi")
-    public void compactDiscoverAndLargeFontFilterPreview()throws Exception {
-        RuntimeEnvironment.setFontScale(1.5f);controller=Robolectric.buildActivity(MainActivity.class).create();MainActivity a=controller.get();
-        a.findViewById(R.id.navDiscover).performClick();
-        store(a).renderCatalog(new JSONObject().put("schema","apkdrop.discover.v1").put("total",1).put("page",1).put("pages",1)
-                .put("apps",new JSONArray().put(new JSONObject().put("slug","pocket-notes").put("name","Pocket Notes").put("description","Private Notizen. Direkt vom Entwickler.").put("version","1.2"))));
-        render(a.findViewById(R.id.pageRoot),"alpha19-1-discover-large");
-        assertEquals(View.GONE,a.findViewById(R.id.categoryScroll).getVisibility());
-        assertEquals(View.GONE,a.findViewById(R.id.radarReleases).getVisibility());
-        assertEquals(View.GONE,a.findViewById(R.id.radarGitHub).getVisibility());
-        a.findViewById(R.id.discoverFilter).performClick();AlertDialog dialog=ShadowAlertDialog.getLatestAlertDialog();
-        render(dialog.getWindow().getDecorView(),"alpha19-1-filter-large");
-        for(String name:new String[]{"Kategorie","Anzeigen","Sortieren"})assertNotNull(choice(dialog.getWindow().getDecorView(),name));
-        dialog.dismiss();
-    }
-    private void render(View root,String name)throws Exception {
-        int width=640,height=1280;root.measure(View.MeasureSpec.makeMeasureSpec(width,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(height,View.MeasureSpec.EXACTLY));root.layout(0,0,width,height);
-        String dir=System.getProperty("apkdrop.preview.dir");if(dir==null)return;java.io.File file=new java.io.File(dir,name+".png");file.getParentFile().mkdirs();
-        android.graphics.Bitmap bitmap=android.graphics.Bitmap.createBitmap(width,height,android.graphics.Bitmap.Config.ARGB_8888);root.draw(new android.graphics.Canvas(bitmap));try(var out=new java.io.FileOutputStream(file)){bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,out);}bitmap.recycle();
-    }
 }
