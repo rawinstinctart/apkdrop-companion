@@ -1,0 +1,23 @@
+name: Remove internal notes from already published releases
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/sanitize-public-release-notes.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sanitize-public-release-descriptions:
+    if: github.repository == 'rawinstinctart/apkdrop-companion'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update only previously published release descriptions
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/public-release-notes.py --repair-live
