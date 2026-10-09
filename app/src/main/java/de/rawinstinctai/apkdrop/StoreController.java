@@ -88,11 +88,13 @@ final class StoreController {
             query="";category="";page=1;following=false;activeProfile=null;sortByName=false;newDiscover=false;developersOnly=false;renderCategories();
             ((EditText)activity.findViewById(R.id.discoverInput)).setText("");
             ((Button)activity.findViewById(R.id.discoverFilter)).setText("Alle Kategorien");
-            ((Button)activity.findViewById(R.id.discoverSort)).setText("Sortierung");catalog();
+            updateSortLabel();catalog();
         });
         activity.findViewById(R.id.discoverSort).setOnClickListener(v->{
-            sortByName=!sortByName;((Button)v).setText(sortByName?"Name A–Z":"Sortierung");
-            if(catalogData!=null)renderCatalogState();
+            PopupMenu options=new PopupMenu(activity,v);
+            options.getMenu().add(0,1,0,"Neueste zuerst").setCheckable(true).setChecked(!sortByName).setOnMenuItemClickListener(item->{chooseSort(false);return true;});
+            options.getMenu().add(0,2,1,"Name A–Z").setCheckable(true).setChecked(sortByName).setOnMenuItemClickListener(item->{chooseSort(true);return true;});
+            options.show();
         });
         activity.findViewById(R.id.discoverFilter).setOnClickListener(v->filters(v));
         radar=new GitHubRadarController(activity,()->{if(radar!=null)renderActionCenter();},select);
@@ -123,7 +125,7 @@ final class StoreController {
         }
         ((EditText)activity.findViewById(R.id.discoverInput)).setText(query);
         ((Button)activity.findViewById(R.id.discoverFilter)).setText(categoryName(category));
-        ((Button)activity.findViewById(R.id.discoverSort)).setText(sortByName?"Name A–Z":"Sortierung");
+        updateSortLabel();
         renderCategories();restoreTab(state==null?0:state.getInt("storeTab",0));
     }
     void pause(){if(radar!=null)radar.pause();}
@@ -165,7 +167,7 @@ final class StoreController {
         activity.findViewById(R.id.discoverPanel).setVisibility(!detail&&tab==1?View.VISIBLE:View.GONE);
         activity.findViewById(R.id.discoverControls).setVisibility(!githubRadar&&!following?View.VISIBLE:View.GONE);
         activity.findViewById(R.id.discoverList).setVisibility(!githubRadar?View.VISIBLE:View.GONE);
-        activity.findViewById(R.id.discoverStatus).setVisibility(!githubRadar?View.VISIBLE:View.GONE);
+        activity.findViewById(R.id.discoverStatus).setVisibility(!githubRadar&&resultStatus.length()>0?View.VISIBLE:View.GONE);
         activity.findViewById(R.id.githubRadarPanel).setVisibility(githubRadar?View.VISIBLE:View.GONE);
         activity.findViewById(R.id.radarApps).setSelected(!githubRadar&&!following);
         activity.findViewById(R.id.radarReleases).setSelected(!githubRadar&&following);
@@ -192,6 +194,15 @@ final class StoreController {
             case "privacy" -> "Privacy";case "media" -> "Medien";case "games" -> "Spiele";case "education" -> "Lernen";
             case "other" -> "Andere";default -> "Alle Kategorien";
         };
+    }
+    private void updateSortLabel() {
+        Button sort=activity.findViewById(R.id.discoverSort);
+        sort.setText(sortByName?"Name A–Z ▾":"Neueste ▾");
+        sort.setContentDescription(sortByName?"Sortierung: Name A bis Z":"Sortierung: Neueste zuerst");
+    }
+    private void chooseSort(boolean byName) {
+        sortByName=byName;updateSortLabel();
+        if(catalogData!=null)renderCatalogState();
     }
     private void filters(View anchor) {
         PopupMenu menu=new PopupMenu(activity,anchor);
@@ -221,7 +232,9 @@ final class StoreController {
     private void catalog() {
         githubRadar=false;activeProfile=null;following=false;started=true;catalogControls(true);
         final int ticket=++request;((ThreadPoolExecutor)media).getQueue().clear();
-        results.removeAllViews();skeletons();catalogData=null;resultStatus.setText(activity.getString(R.string.message_storecontroller_18));
+        results.removeAllViews();skeletons();catalogData=null;
+        activity.findViewById(R.id.discoverCount).setVisibility(View.GONE);
+        resultStatus.setVisibility(View.VISIBLE);resultStatus.setText(activity.getString(R.string.message_storecontroller_18));
         String q=encode(query.substring(0,Math.min(100,query.length())));
         final String path="/api/discover?q="+q+"&category="+category+"&page="+page+"&sort="+(newDiscover?"new":"updated");
         network.execute(()->{
@@ -244,6 +257,7 @@ final class StoreController {
     private void catalogControls(boolean visible) {
         activity.findViewById(R.id.categoryScroll).setVisibility(visible?View.VISIBLE:View.GONE);
         activity.findViewById(R.id.discoverFilter).setVisibility(View.GONE);
+        if(!visible)activity.findViewById(R.id.discoverCount).setVisibility(View.GONE);
         activity.findViewById(R.id.discoverSort).setVisibility(visible?View.VISIBLE:View.GONE);
         activity.findViewById(R.id.discoverReset).setVisibility(visible&&(!query.isEmpty()||!category.isEmpty()||sortByName)?View.VISIBLE:View.GONE);
     }
@@ -254,14 +268,18 @@ final class StoreController {
         JSONObject data=catalogData;
         try {CatalogCache.validate(data);}catch(Exception bad){throw new SecurityException("Ungültiger App-Katalog.",bad);}
         JSONArray apps=data.optJSONArray("apps");results.removeAllViews();catalogControls(true);
-        resultStatus.setText(data.optInt("total")+(data.optInt("total")==1?" App · Seite ":" Apps · Seite ")+data.optInt("page",1)+" / "+data.optInt("pages",1)
-                +(catalogCached?"\nGespeicherter Katalog · "+java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT,java.text.DateFormat.SHORT).format(new java.util.Date(catalogAt))+"\nApp-Details und Downloads brauchen eine neue Online-Prüfung.":""));
+        int total=data.optInt("total"),pages=data.optInt("pages",1);
+        TextView count=activity.findViewById(R.id.discoverCount);
+        count.setText(total+(total==1?" App":" Apps")+(pages>1?" · Seite "+data.optInt("page",1)+"/"+pages:""));
+        count.setVisibility(View.VISIBLE);
+        resultStatus.setText(catalogCached?"Gespeicherter Katalog · "+java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT,java.text.DateFormat.SHORT).format(new java.util.Date(catalogAt))+"\nApp-Details und Downloads brauchen eine neue Online-Prüfung.":"");
+        resultStatus.setVisibility(catalogCached?View.VISIBLE:View.GONE);
         if(query.isEmpty()&&category.isEmpty()){renderCollections();}
         java.util.List<JSONObject> entries=new java.util.ArrayList<>();for(int i=0;i<apps.length();i++)entries.add(apps.optJSONObject(i));
         if(sortByName)entries.sort(java.util.Comparator.comparing(app->app.optString("name",app.optString("slug")),String.CASE_INSENSITIVE_ORDER));
-        if(developersOnly){renderCatalogDevelopers(entries);}else{results.addView(label(newDiscover?"Neu entdeckt":"Frisch aktualisiert",20));results.addView(label(newDiscover?"Nach öffentlichem App-Launch sortiert":"Nach dem Datum des neuesten Releases sortiert",12));for(JSONObject app:entries)appCard(app,results);}
+        if(developersOnly){renderCatalogDevelopers(entries);}else{results.addView(label(newDiscover?"Neu entdeckt":"Frisch aktualisiert",20));results.addView(label(sortByName?"Alphabetisch nach App-Namen sortiert"+(pages>1?" (diese Seite)":""):newDiscover?"Nach öffentlichem App-Launch sortiert":"Nach dem Datum des neuesten Releases sortiert",12));for(JSONObject app:entries)appCard(app,results);}
         if(apps.length()==0) results.addView(label("Hier ist noch kein Treffer. Versuche einen anderen Begriff oder setze Suche & Filter zurück.",16));
-        int current=data.optInt("page",1),pages=data.optInt("pages",1);
+        int current=data.optInt("page",1);
         if(current>1)results.addView(button("← Vorherige Seite",()->{page=current-1;catalog();scroll.scrollTo(0,0);}));
         if(current<pages)results.addView(button("Weitere Apps →",()->{page=current+1;catalog();scroll.scrollTo(0,0);}));
     }
@@ -288,7 +306,7 @@ final class StoreController {
     void profile(String handle) {
         try {StoreClient.handle(handle);}catch(Exception e){error(e);return;}
         githubRadar=false;activeProfile=handle;following=false;catalogControls(false);tab=1;detail=false;activity.findViewById(R.id.detailPanel).setVisibility(View.GONE);renderNavigation();
-        final int ticket=++request;((ThreadPoolExecutor)media).getQueue().clear();results.removeAllViews();resultStatus.setText(activity.getString(R.string.message_storecontroller_19));
+        final int ticket=++request;((ThreadPoolExecutor)media).getQueue().clear();results.removeAllViews();resultStatus.setVisibility(View.VISIBLE);resultStatus.setText(activity.getString(R.string.message_storecontroller_19));
         submit(()->{
             JSONObject p=StoreClient.get("/api/dropid/"+handle+".json");JSONObject github=p.getJSONObject("github");String id=github.getString("id");
             if(!"apkdrop.dropid.v1".equals(p.optString("schema")) || !p.optBoolean("published") || !handle.equals(p.optString("handle")) || !DeveloperFollows.validId(id))throw new SecurityException("Entwicklerprofil nicht verfügbar.");
@@ -344,7 +362,7 @@ final class StoreController {
     }
     private void feed() {
         githubRadar=false;activeProfile=null;following=true;catalogControls(false);
-        final int ticket=++request;((ThreadPoolExecutor)media).getQueue().clear();results.removeAllViews();resultStatus.setText(activity.getString(R.string.message_storecontroller_20));
+        final int ticket=++request;((ThreadPoolExecutor)media).getQueue().clear();results.removeAllViews();resultStatus.setVisibility(View.VISIBLE);resultStatus.setText(activity.getString(R.string.message_storecontroller_20));
         try {
             JSONArray ids=follows.ids();if(ids.length()==0){resultStatus.setText(activity.getString(R.string.message_storecontroller_21));return;}
             submit(()->{
@@ -356,7 +374,7 @@ final class StoreController {
         } catch(Exception e) {resultStatus.setText(message(e));}
     }
     private void renderFeed(JSONArray releases,boolean truncated) {
-        results.removeAllViews();
+        resultStatus.setVisibility(View.VISIBLE);results.removeAllViews();
         int unseen=0;for(int i=0;i<releases.length();i++)if(releases.optJSONObject(i)!=null&&readState.unseen(releases.optJSONObject(i))&&radarState(releases.optJSONObject(i))!=ReleaseRadar.State.INSTALLED)unseen++;
         resultStatus.setText(unseen+" neu für dich · "+releases.length()+" öffentliche Releases"+(truncated?" · Liste begrenzt":""));
         LinearLayout feedRows=new LinearLayout(activity);feedRows.setOrientation(LinearLayout.VERTICAL);results.addView(feedRows);

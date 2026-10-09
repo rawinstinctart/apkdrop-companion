@@ -34,5 +34,33 @@ public class Alpha15AssistantTest {
         a.findViewById(R.id.navDiscover).performClick();s.renderCatalog(new JSONObject().put("schema","apkdrop.discover.v1").put("apps",new JSONArray().put(app)).put("total",1).put("page",1).put("pages",1));render(a,"alpha15-discover");
         var method=StoreController.class.getDeclaredMethod("renderFeed",JSONArray.class,boolean.class);method.setAccessible(true);method.invoke(s,new JSONArray().put(app.put("notes","## Was ist neu?\nSchnellere Suche und Offline-Notizen.")),false);render(a,"alpha15-release-feed");
     }
+    @Test public void discoverToolbarKeepsSortingAndCountReadable() throws Exception {
+        MainActivity a=create();StoreController s=store(a);
+        a.findViewById(R.id.navDiscover).performClick();
+        JSONObject entry=new JSONObject().put("slug","sample-app").put("name","Sample App");
+        JSONObject single=new JSONObject().put("schema","apkdrop.discover.v1")
+                .put("apps",new JSONArray().put(entry)).put("total",1).put("page",1).put("pages",1);
+        s.renderCatalog(single);
+        TextView count=a.findViewById(R.id.discoverCount),status=a.findViewById(R.id.discoverStatus);
+        Button sort=a.findViewById(R.id.discoverSort),refresh=a.findViewById(R.id.discoverRefresh);
+        assertEquals("1 App",count.getText().toString());
+        assertEquals(View.VISIBLE,count.getVisibility());
+        assertEquals(View.GONE,status.getVisibility());
+        assertEquals("Neueste ▾",sort.getText().toString());
+        assertEquals(View.GONE,a.findViewById(R.id.discoverFilter).getVisibility());
+        assertEquals(View.VISIBLE,refresh.getVisibility());
+        View root=a.findViewById(R.id.pageRoot);
+        root.measure(View.MeasureSpec.makeMeasureSpec(720,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(1600,View.MeasureSpec.EXACTLY));
+        root.layout(0,0,720,1600);
+        assertTrue(count.getRight()<=sort.getLeft());
+        assertTrue(sort.getRight()<=refresh.getLeft());
+        java.lang.reflect.Method change=StoreController.class.getDeclaredMethod("chooseSort",boolean.class);
+        change.setAccessible(true);change.invoke(s,true);
+        assertEquals("Name A–Z ▾",sort.getText().toString());
+        assertTrue(sort.getContentDescription().toString().contains("Name A bis Z"));
+        JSONObject multiple=new JSONObject(single.toString()).put("total",26).put("page",2).put("pages",3);
+        s.renderCatalog(multiple);
+        assertEquals("26 Apps · Seite 2/3",count.getText().toString());
+    }
     private void render(MainActivity a,String name)throws Exception{View root=a.findViewById(R.id.pageRoot);root.measure(View.MeasureSpec.makeMeasureSpec(720,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(1600,View.MeasureSpec.EXACTLY));root.layout(0,0,720,1600);String dir=System.getProperty("apkdrop.preview.dir");if(dir==null)return;java.io.File file=new java.io.File(dir,name+".png");file.getParentFile().mkdirs();android.graphics.Bitmap bitmap=android.graphics.Bitmap.createBitmap(720,1600,android.graphics.Bitmap.Config.ARGB_8888);root.draw(new android.graphics.Canvas(bitmap));try(var out=new java.io.FileOutputStream(file)){bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,out);}bitmap.recycle();}
 }
