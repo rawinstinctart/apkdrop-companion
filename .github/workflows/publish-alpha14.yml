@@ -1,0 +1,99 @@
+name: Publish original-signed Alpha 14 preview
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/publish-alpha14.yml'
+      - 'release/alpha14-signed.patch.zst.b64'
+      - 'release/reconstruct-alpha14.py'
+      - 'release/alpha14-notes.md'
+      - 'release/verify-alpha14-backend.py'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-alpha14.yml'
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download exact tested unsigned Alpha 14 candidate
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 37925807179
+          name: apkdrop-companion-unsigned-preview
+          path: unsigned
+          github-token: ${{ github.token }}
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: ''
+      - name: Install official Android build tools
+        run: sdkmanager 'build-tools;35.0.0'
+      - name: Reconstruct and verify exact original-signed Alpha 14
+        run: |
+          set -euo pipefail
+          command -v zstd
+          mkdir -p dist
+          test -f unsigned/app-preview-unsigned.apk
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -p -f 4 unsigned/app-preview-unsigned.apk /tmp/alpha14-aligned.apk
+          echo '2988bcae409a9252c6f124091761828aa1aa6e3bbf7f93babef413ebc045917a  /tmp/alpha14-aligned.apk' | sha256sum -c -
+          python3 release/reconstruct-alpha14.py /tmp/alpha14-aligned.apk release/alpha14-signed.patch.zst.b64 dist/APKDrop-Companion-v0.1.0-alpha.14-preview.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs dist/APKDrop-Companion-v0.1.0-alpha.14-preview.apk > /tmp/alpha14-signature.txt
+          grep -q '^Verified using v2 scheme (APK Signature Scheme v2): true' /tmp/alpha14-signature.txt
+          grep -q '^Verified using v3 scheme (APK Signature Scheme v3): true' /tmp/alpha14-signature.txt
+          grep -q '^Number of signers: 1' /tmp/alpha14-signature.txt
+          grep -q '^Signer #1 certificate SHA-256 digest: 6cf70241a63498e5e9fce78bac9abec760364cf320928347114bf109abd81e2e' /tmp/alpha14-signature.txt
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging dist/APKDrop-Companion-v0.1.0-alpha.14-preview.apk > /tmp/alpha14-manifest.txt
+          grep -q "package: name='de.rawinstinctai.apkdrop.debug' versionCode='17' versionName='0.1.0-alpha.14-preview'" /tmp/alpha14-manifest.txt
+          grep -q "^sdkVersion:'26'" /tmp/alpha14-manifest.txt
+          grep -q "^targetSdkVersion:'36'" /tmp/alpha14-manifest.txt
+          grep -q "^uses-permission: name='android.permission.ACCESS_NETWORK_STATE'" /tmp/alpha14-manifest.txt
+          ! grep -q '^application-debuggable' /tmp/alpha14-manifest.txt
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c 4 dist/APKDrop-Companion-v0.1.0-alpha.14-preview.apk
+          echo 'c5d30661aba74148e89812ddc7821148bfb7c72af2ca71ad3adfe557e314e3a0  dist/APKDrop-Companion-v0.1.0-alpha.14-preview.apk' | sha256sum -c -
+          test "$(wc -c < dist/APKDrop-Companion-v0.1.0-alpha.14-preview.apk)" -eq 312783
+          python3 scripts/release-preflight.py dist/APKDrop-Companion-v0.1.0-alpha.14-preview.apk --profile alpha14-preview --sdk "$ANDROID_HOME"
+          echo 'ORIGINAL-SIGNED ALPHA14 VERIFIED'
+      - name: Verify deployed Alpha 14 backend boundaries
+        run: python3 release/verify-alpha14-backend.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: original-signed-alpha14-reviewed
+          path: dist/APKDrop-Companion-v0.1.0-alpha.14-preview.apk
+          retention-days: 7
+
+  publish:
+    needs: verify
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+      actions: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: original-signed-alpha14-reviewed
+          path: dist
+      - name: Publish prerelease and independently verify GitHub download
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG='v0.1.0-alpha.14'
+          APK=$(find dist -type f -name 'APKDrop-Companion-v0.1.0-alpha.14-preview.apk' -print -quit)
+          test -n "$APK" && test -f "$APK"
+          ! gh release view "$TAG" >/dev/null 2>&1
+          echo "c5d30661aba74148e89812ddc7821148bfb7c72af2ca71ad3adfe557e314e3a0  $APK" | sha256sum -c -
+          gh release create "$TAG" "$APK" --target 0b87196b323c0296b62f77b22d69accf8354bdde --title 'APKDrop Companion Alpha 14 Preview — Smart Home & Release Radar' --notes-file release/alpha14-notes.md --prerelease
+          mkdir -p /tmp/alpha14-download-proof
+          gh release download "$TAG" --pattern 'APKDrop-Companion-v0.1.0-alpha.14-preview.apk' --dir /tmp/alpha14-download-proof
+          echo 'c5d30661aba74148e89812ddc7821148bfb7c72af2ca71ad3adfe557e314e3a0  /tmp/alpha14-download-proof/APKDrop-Companion-v0.1.0-alpha.14-preview.apk' | sha256sum -c -
+          echo 'PUBLIC SIGNED ALPHA14 GITHUB RELEASE VERIFIED'
