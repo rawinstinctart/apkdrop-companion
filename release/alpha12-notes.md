@@ -17,6 +17,3 @@ Diese Alpha ist ein Upgrade der bestehenden Companion-Preview. Sie verwendet die
 - **Signatur-Zertifikat SHA-256:** `6cf70241a63498e5e9fce78bac9abec760364cf320928347114bf109abd81e2e`
 - **APK SHA-256:** `2673a83cd65a1badb3e9f6a12a7720122c0a8879155863d7ba9ef9e1993ba504`
 - **APK-Größe:** 296200 Bytes.
-
-## Offene Geräte-Abnahme
-Das physische Upgrade über Alpha 11, bestehende gespeicherte Apps und Entwickler-Follows, Android-14+-Hintergrundprüfung, Installer und Play-Protect-Verhalten müssen abschließend auf einem echten Gerät geprüft werden. Die Freigabe ist ein **Pre-release**, kein Production-Release.
