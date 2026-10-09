@@ -35,6 +35,7 @@ REPOSITORY=rawinstinctart/apkdrop-companion
 
 [[ -f "$APK" ]] || { echo 'Signed APK is missing.' >&2; exit 2; }
 [[ -f "$NOTES" ]] || { echo 'Release notes file is missing.' >&2; exit 2; }
+python3 "$(dirname "${BASH_SOURCE[0]}")/public-release-notes.py" "$NOTES"
 [[ -f "$ROOT/scripts/release-preflight.py" ]] || { echo 'Run from the Companion repository.' >&2; exit 2; }
 [[ -n "${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}" ]] || { echo 'Set ANDROID_HOME or ANDROID_SDK_ROOT.' >&2; exit 2; }
 command -v python3 >/dev/null
