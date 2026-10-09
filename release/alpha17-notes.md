@@ -16,5 +16,3 @@
 - APK: **333263 Bytes**, SHA-256 `5424c8092a3ee365efd46559ecf9289db67921832a03cbdb849c03923bd4926d`.
 - GitHub rekonstruiert und prüft die exakt lokal signierten Bytes unabhängig, prüft die Live-Backend-Grenzen und lädt den veröffentlichten Download erneut zur Hash-Prüfung herunter. Der private Keystore bleibt lokal.
 - Native 320dp-/Großschrift-Vorschauen geprüft. Abbruch, Ablauf, Lesezugriff, Importbestätigung und Repository-Share sind durch Android-Tests abgedeckt.
-
-**Noch offen:** Upgrade/Installation und visuelle Abnahme auf echten Android-Geräten sowie ein Durchlauf mit deinem realen GitHub-Konto, neu autorisierten Repositories und einem privaten Import. Fixture-Tests ersetzen diese Abnahme nicht. Alpha 18 behandelt Zuverlässigkeit und Updates; das 1.0-Gate bleibt in #33.
