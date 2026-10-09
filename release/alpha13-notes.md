@@ -16,5 +16,3 @@ Alpha 13 macht das Entwicklerprofil persönlicher: Die Companion-App zeigt das G
 - Veröffentlichtes APK SHA-256: `2794815ae0b58180e9cedc53cd0f450d1c2946c371b40df67797a9c3447789d9`, 300495 Bytes
 - Android-Build geprüft mit GitHub Actions Run `37850625603`, Source `74954e3f23dbe73fdf6a3e0cac6e093f6c21f4cd`.
 - Die Originalsignierung fand außerhalb von GitHub statt; nur ein öffentlicher Binärpatch wird für die byte-identische Rekonstruktion veröffentlicht. Kein privater Signierschlüssel in GitHub.
-
-**Geräteabnahme bleibt offen:** Über Alpha 12 installieren (nicht deinstallieren), DropID `@rawinstinctart` öffnen und Avatar, Offline-Fallback, gespeicherte Apps und Follows auf dem Smartphone prüfen. Dies ist ein Preview-Release.
