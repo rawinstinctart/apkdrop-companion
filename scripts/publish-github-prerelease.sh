@@ -20,6 +20,7 @@ PROFILE=$3
 case "$PROFILE" in
   alpha5|alpha6|alpha6.1-preview|alpha7-preview|alpha8-preview|alpha9-preview|alpha9.1-preview|alpha10-preview|alpha11-preview|alpha12-preview|alpha13-preview|alpha14-preview|alpha15-preview|production) ;;
   alpha15.1-preview|alpha15.2-preview|alpha16-preview|alpha16.1-preview) ;;
+  alpha17-preview) ;;
   *) echo 'Unknown release profile.' >&2; exit 2 ;;
 esac
 TITLE=$4

@@ -397,9 +397,9 @@ public final class MainActivity extends Activity {
         radar.setText((decision.mode==InstallPolicy.Mode.CURRENT?"":ReleaseIntelligence.summary(release,installed,decision)+"\n\n")
                 +ReleaseIntelligence.radar(release,installed,library.previous(release)));
         meta.setText((installed==null?"Nicht installiert":"Installiert: "+AppLibraryController.installedVersion(installed))
-                +"\n"+(decision.mode==InstallPolicy.Mode.CURRENT?"Neueste Version: v":"Verfügbar: v")+release.version+" · "+formatSize(release.size)+" · "+release.channel);
+                +"\n"+(decision.mode==InstallPolicy.Mode.CURRENT?"Neueste Version: ":"Verfügbar: ")+DisplayText.version(release.version)+" · "+formatSize(release.size)+" · "+release.channel);
         String signer=String.join("\n",release.signers);
-        proof.setText("Paket: "+release.packageName+"\n\nNachweise im Release-Vertrag (vor Download noch nicht lokal verifiziert)\n\nSHA-256  "+release.sha256
+        proof.setText("Paket: "+release.packageName+"\nVersionscode: "+release.versionCode+"\n\nNachweise im Release-Vertrag (vor Download noch nicht lokal verifiziert)\n\nSHA-256  "+release.sha256
                 +"\nSIGNER   "+signer
                 +"\nSDK      "+release.minSdk+" → "+(release.targetSdk==0?"—":release.targetSdk));
 

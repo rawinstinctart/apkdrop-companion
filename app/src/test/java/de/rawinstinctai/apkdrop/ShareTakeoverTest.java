@@ -67,6 +67,10 @@ public class ShareTakeoverTest {
     @Test @GraphicsMode(GraphicsMode.Mode.NATIVE) public void apkdropShareTakesOverWithOneTapAndPersistsMonitoring() throws Exception {
         MainActivity a=share("https://apkdrop.rawinstinctai.de/install/test-app");ready(a);render(a,"alpha9-share-details");takeOver(a,true);
     }
+    @Test public void githubRepositoryShareUsesTheSameReviewedPublicImportFlow() throws Exception {
+        MainActivity a=share("https://github.com/fixture-dev/example");ready(a);
+        assertTrue(fetched.contains("/api/dropid/fixture-dev.json"));takeOver(a);
+    }
     @Test public void githubShareUsesVerifiedMappingThenTheCurrentApkdropContract() throws Exception {
         MainActivity a=share("https://github.com/fixture-dev/example/releases/tag/old-tag");ready(a);
         assertTrue(fetched.contains("/api/dropid/fixture-dev.json"));assertTrue(fetched.contains("contract:test-app"));takeOver(a);

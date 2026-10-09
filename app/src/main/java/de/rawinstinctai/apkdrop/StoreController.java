@@ -223,7 +223,7 @@ final class StoreController {
         return switch(category) {
             case "communication" -> "Kommunikation";case "productivity" -> "Produktivität";case "tools" -> "Tools";
             case "privacy" -> "Privacy";case "media" -> "Medien";case "games" -> "Spiele";case "education" -> "Lernen";
-            case "other" -> "Andere";default -> "Alle Kategorien";
+            case "other" -> "Andere";case "" -> "Alle Kategorien";default -> "Nicht zugeordnet";
         };
     }
     private void updateSortLabel() {
@@ -378,13 +378,20 @@ final class StoreController {
             post(ticket,()->{
                 resultStatus.setText("DropID · @"+handle);
                 renderDeveloperHeader(name,handle,id,p.optString("avatarUrl",""));
-                results.addView(label(bounded(p.optString("bio"),400),14));
+                String bio=bounded(p.optString("bio"),1000);if(!bio.isBlank())results.addView(label(bio,14));
                 results.addView(label("GitHub-Identität: "+("verified".equals(github.optString("status"))?"bestätigt":"Prüfung abgelaufen")+"\nBestätigt am: "+bounded(github.optString("verifiedAt"),80)+"\nDies bestätigt keine amtliche Identität oder Malware-Sicherheit.",12));
                 results.addView(button(saved?"Entwickler nicht mehr folgen":"Entwickler folgen +",()->{try{follows.toggle(id,handle,name);profile(handle);}catch(Exception e){error(e);}}));
                 results.addView(button("← Alle Apps entdecken",()->{following=false;catalog();}));results.addView(label("Veröffentlichte Apps",22));
-                JSONArray apps=p.optJSONArray("apps");if(apps!=null)for(int i=0;i<Math.min(100,apps.length());i++)appCard(apps.optJSONObject(i),results);
+                renderPublishedApps(p.optJSONArray("apps"));
             });
         },ticket);
+    }
+    void renderPublishedApps(JSONArray apps) {
+        if(apps==null||apps.length()==0){
+            results.addView(label("Dieser Entwickler hat noch keine öffentlichen Apps. Private Entwürfe bleiben im GitHub Radar und Dashboard des Eigentümers.",14));
+            return;
+        }
+        for(int i=0;i<Math.min(100,apps.length());i++)appCard(apps.optJSONObject(i),results);
     }
     /** Profile picture is display-only and cannot influence DropID verification or installs. */
     void renderDeveloperHeader(String name,String handle,String githubId,String avatarUrl) {
@@ -467,6 +474,8 @@ final class StoreController {
         ((ImageView)activity.findViewById(R.id.detailIcon)).setImageDrawable(new AppPlaceholder("App"));
         activity.findViewById(R.id.detailIcon).setTag(null);
         ((TextView)activity.findViewById(R.id.developerText)).setText("");
+        ((LinearLayout)activity.findViewById(R.id.appDescriptionPanel)).removeAllViews();
+        activity.findViewById(R.id.appDescriptionPanel).setVisibility(View.GONE);
         activity.findViewById(R.id.developerButton).setVisibility(View.GONE);
         ((LinearLayout)activity.findViewById(R.id.screenshotList)).removeAllViews();
         activity.findViewById(R.id.screenshotScroll).setVisibility(View.GONE);activity.findViewById(R.id.mediaCaption).setVisibility(View.GONE);
@@ -482,18 +491,40 @@ final class StoreController {
                 JSONObject data=StoreClient.get("/api/"+StoreClient.slug(slug)+"/store.json");
                 if(!"apkdrop.store.v1".equals(data.optString("schema")) || !slug.equals(data.optString("slug")))throw new SecurityException("App-Details stimmen nicht überein.");
                 activity.runOnUiThread(()->{if(closed||ticket!=detailRequest)return;
-                    loadImage(data.optString("iconUrl"),icon);JSONObject developer=data.optJSONObject("publisher");
-                    publisher.setText(developer==null?"Kein öffentliches Entwicklerprofil verfügbar.":bounded(developer.optString("name"),160)+" · @"+bounded(developer.optString("handle"),39)+"\nGitHub-Identität: "+(developer.optBoolean("githubVerified")?"bestätigt":"Prüfung abgelaufen")+"\nRepository-Zuordnung: "+(developer.optJSONObject("repository")!=null&&"verified".equals(developer.optJSONObject("repository").optString("status"))?"bestätigt":"nicht aktuell bestätigt"));
-                    if(developer!=null)try{String handle=StoreClient.handle(developer.getString("handle"));View b=activity.findViewById(R.id.developerButton);b.setVisibility(View.VISIBLE);b.setOnClickListener(v->profile(handle));}catch(Exception ignored){}
-                    JSONArray screenshots=data.optJSONArray("screenshots");if(screenshots!=null)for(int i=0;i<Math.min(6,screenshots.length());i++){
-                        ImageView shot=new ImageView(activity);shot.setContentDescription("Entwickler-Screenshot "+(i+1));shot.setAdjustViewBounds(true);shot.setScaleType(ImageView.ScaleType.FIT_CENTER);
-                        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(dp(160),dp(285));lp.setMargins(0,0,dp(12),0);gallery.addView(shot,lp);String imageUrl=screenshots.optString(i);loadImage(imageUrl,shot);shot.setOnClickListener(v->showScreenshot(imageUrl));
-                    }
-                    activity.findViewById(R.id.screenshotScroll).setVisibility(gallery.getChildCount()>0?View.VISIBLE:View.GONE);
-                    activity.findViewById(R.id.mediaCaption).setVisibility(gallery.getChildCount()>0?View.VISIBLE:View.GONE);
+                    try{renderReleaseMetadata(slug,data);}catch(Exception invalid){publisher.setText("App-Metadaten nicht verfügbar.");}
                 });
             } catch(Exception e) {activity.runOnUiThread(()->{if(!closed&&ticket==detailRequest)publisher.setText(activity.getString(R.string.message_storecontroller_23));});}
         });
+    }
+    void renderReleaseMetadata(String slug,JSONObject data) throws Exception {
+        if(!"apkdrop.store.v1".equals(data.optString("schema"))||!slug.equals(data.optString("slug")))throw new SecurityException("App-Details stimmen nicht überein.");
+        TextView publisher=activity.findViewById(R.id.developerText);
+        LinearLayout gallery=activity.findViewById(R.id.screenshotList);gallery.removeAllViews();
+        ImageView icon=activity.findViewById(R.id.detailIcon);
+        activity.findViewById(R.id.developerButton).setVisibility(View.GONE);
+        renderDescription(data.optString("description"));
+        loadImage(data.optString("iconUrl"),icon);JSONObject developer=data.optJSONObject("publisher");
+        publisher.setText(developer==null?"Kein öffentliches Entwicklerprofil verfügbar.":bounded(developer.optString("name"),160)+" · @"+bounded(developer.optString("handle"),39)+"\nGitHub-Identität: "+(developer.optBoolean("githubVerified")?"bestätigt":"Prüfung abgelaufen")+"\nRepository-Zuordnung: "+(developer.optJSONObject("repository")!=null&&"verified".equals(developer.optJSONObject("repository").optString("status"))?"bestätigt":"nicht aktuell bestätigt"));
+        if(developer!=null)try{String handle=StoreClient.handle(developer.getString("handle"));View b=activity.findViewById(R.id.developerButton);b.setVisibility(View.VISIBLE);b.setOnClickListener(v->profile(handle));}catch(Exception ignored){}
+        JSONArray screenshots=data.optJSONArray("screenshots");if(screenshots!=null)for(int i=0;i<Math.min(6,screenshots.length());i++){
+            ImageView shot=new ImageView(activity);shot.setContentDescription("Entwickler-Screenshot "+(i+1));shot.setAdjustViewBounds(true);shot.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(dp(160),dp(285));lp.setMargins(0,0,dp(12),0);gallery.addView(shot,lp);String imageUrl=screenshots.optString(i);loadImage(imageUrl,shot);shot.setOnClickListener(v->showScreenshot(imageUrl));
+        }
+        activity.findViewById(R.id.screenshotScroll).setVisibility(gallery.getChildCount()>0?View.VISIBLE:View.GONE);
+        activity.findViewById(R.id.mediaCaption).setVisibility(gallery.getChildCount()>0?View.VISIBLE:View.GONE);
+    }
+    private void renderDescription(String value) {
+        LinearLayout panel=activity.findViewById(R.id.appDescriptionPanel);panel.removeAllViews();panel.setVisibility(View.VISIBLE);
+        TextView heading=label("Über diese App",20);if(android.os.Build.VERSION.SDK_INT>=28)heading.setAccessibilityHeading(true);panel.addView(heading);
+        String description=bounded(value,6000).trim();
+        TextView text=label(description.isEmpty()?"Der Entwickler hat noch keine Beschreibung hinterlegt.":description,14);
+        text.setLineSpacing(dp(2),1f);text.setMaxLines(4);text.setEllipsize(android.text.TextUtils.TruncateAt.END);panel.addView(text);
+        if(!description.isEmpty()){
+            Button expand=textAction("Beschreibung vollständig lesen +",()->{});
+            expand.setOnClickListener(v->{boolean open=text.getMaxLines()==4;text.setMaxLines(open?Integer.MAX_VALUE:4);
+                text.setEllipsize(open?null:android.text.TextUtils.TruncateAt.END);expand.setText(open?"Beschreibung einklappen −":"Beschreibung vollständig lesen +");});panel.addView(expand);
+        }
+        panel.addView(label("Beschreibung und Bilder stammen vom Entwickler. APK-Nachweise findest du im Trust Center.",11));
     }
     private void loadImage(String url,ImageView view) {loadImage(url,null,view);}
     private void loadDeveloperAvatar(String url,String githubId,ImageView view) {loadImage(url,githubId,view);}
@@ -586,7 +617,7 @@ final class StoreController {
         empty.addView(label(filtered
                 ?"Passe deine Suche an oder sieh dir alle verfügbaren Apps an."
                 :developersOnly?"Sobald Entwickler ihre Apps veröffentlichen, findest du ihre Profile hier."
-                :"Neue veröffentlichte Apps erscheinen hier automatisch. Du kannst auch einen App-Link direkt hinzufügen.",14));
+                :"Hier erscheinen nur veröffentlichte Apps. Du kannst auch einen bestätigten App-Link direkt hinzufügen. Deine privaten Entwürfe bleiben im GitHub Radar und Dashboard.",14));
         if(filtered||developersOnly)empty.addView(button("Alle Apps ansehen →",()->{
             query="";category="";page=1;sortByName=false;newDiscover=false;developersOnly=false;
             ((EditText)activity.findViewById(R.id.discoverInput)).setText("");
@@ -620,6 +651,7 @@ final class StoreController {
             card.addView(button("Profil ansehen →",()->profile(handle)));
             results.addView(card);
         }
+        ((TextView)activity.findViewById(R.id.discoverCount)).setText(seen.size()+(seen.size()==1?" Entwicklerprofil":" Entwicklerprofile")+" · auf dieser App-Seite");
         if(seen.isEmpty())renderCatalogEmpty();
     }
     private void hideKeyboard() {

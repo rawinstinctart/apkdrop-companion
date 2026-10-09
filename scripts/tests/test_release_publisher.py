@@ -35,7 +35,7 @@ class PublisherProfileTest(unittest.TestCase):
         source=PUBLISHER.read_text()
         selector=re.search(r"BUILD_VARIANT=Debug.*?\nfi", source, re.S).group(0)
         for profile in ("alpha6.1-preview", "alpha13-preview", "alpha14-preview", "alpha15-preview",
-                        "alpha15.1-preview", "alpha15.2-preview", "alpha16-preview", "alpha16.1-preview"):
+                        "alpha15.1-preview", "alpha15.2-preview", "alpha16-preview", "alpha16.1-preview", "alpha17-preview"):
             result=subprocess.run(["bash", "-c", selector+'\nprintf "%s %s" "$BUILD_VARIANT" "$LINT_VARIANT"'],
                 env={**os.environ, "PROFILE":profile},capture_output=True,text=True,check=True)
             self.assertEqual(result.stdout,"Preview preview",profile)

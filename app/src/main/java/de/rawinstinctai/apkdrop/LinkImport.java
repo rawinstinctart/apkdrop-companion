@@ -19,8 +19,8 @@ final class LinkImport {
         if(!"https".equalsIgnoreCase(uri.getScheme())||!"github.com".equalsIgnoreCase(uri.getHost())||uri.getUserInfo()!=null
                 ||uri.getPort()!=-1||uri.getQuery()!=null||uri.getFragment()!=null||uri.getRawPath().contains("%"))
             throw new IllegalArgumentException("Unzulässiger GitHub-Release-Link.");
-        Matcher path=Pattern.compile("^/([A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?)/([A-Za-z0-9_.-]{1,100})/releases(?:/latest|/tag/[A-Za-z0-9_.+-]+|/download/[A-Za-z0-9_.+-]+/[A-Za-z0-9_.+-]+\\.apk)?/?$").matcher(uri.getPath());
-        if(!path.matches()||path.group(2).equals(".")||path.group(2).equals(".."))throw new IllegalArgumentException("Teile eine GitHub-Release-Seite oder APK-Adresse.");
+        Matcher path=Pattern.compile("^/([A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?)/([A-Za-z0-9_.-]{1,100})(?:/releases(?:/latest|/tag/[A-Za-z0-9_.+-]+|/download/[A-Za-z0-9_.+-]+/[A-Za-z0-9_.+-]+\\.apk)?)?/?$").matcher(uri.getPath());
+        if(!path.matches()||path.group(2).equals(".")||path.group(2).equals(".."))throw new IllegalArgumentException("Teile ein GitHub-Repository, eine Release-Seite oder APK-Adresse.");
         return (path.group(1)+"/"+path.group(2)).toLowerCase(Locale.ROOT);
     }
     static String match(String repository,JSONObject profile) throws Exception {

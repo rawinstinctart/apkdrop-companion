@@ -54,10 +54,21 @@ final class GitHubRadarController {
     void close(){closed=true;request++;main.removeCallbacks(poll);io.shutdownNow();}
     void show(){render();resume();}
     private void start(){
-        if(busy)return;final int ticket=++request;busy=true;message="Verbindung wird vorbereitet …";render();
+        if(busy||closed)return;
+        LinearLayout consent=new LinearLayout(activity);consent.setOrientation(LinearLayout.VERTICAL);consent.setPadding(dp(24),dp(8),dp(24),0);
+        consent.addView(label("APKDrop liest APK-Vorschläge aus den Repositories, die du der GitHub App freigibst. Deine GitHub-Zugangsdaten bleiben im Browser.",14));
+        consent.addView(label("Bei „All repositories“ werden auch neue Repos freigegeben. Bei einer Auswahl musst du neue Repos einzeln ergänzen. Den Zugriff kannst du im Dashboard verwalten und dieses Gerät hier trennen.",13));
+        CheckBox privateImports=new CheckBox(activity);privateImports.setText("Private Imports auf diesem Gerät erlauben");privateImports.setTextColor(activity.getColor(R.color.text));privateImports.setMinHeight(dp(48));privateImports.setChecked(false);consent.addView(privateImports);
+        consent.addView(label("Ohne diese Freigabe liest das Radar nur Vorschläge. Jeder private Import braucht eine zusätzliche Bestätigung. Es wird nichts automatisch veröffentlicht oder installiert.",12));
+        ScrollView scroll=new ScrollView(activity);scroll.addView(consent);
+        new AlertDialog.Builder(activity).setTitle("GitHub verbinden").setView(scroll).setNegativeButton("Abbrechen",null)
+                .setPositiveButton("Im Browser bestätigen",(d,w)->beginPairing(privateImports.isChecked())).show();
+    }
+    private void beginPairing(boolean allowPrivateImports){
+        if(busy||closed)return;final int ticket=++request;busy=true;message="Verbindung wird vorbereitet …";render();
         io.execute(()->{try{
             String pollSecret=RadarConnection.secret(),deviceSecret=RadarConnection.secret();
-            JSONObject data=RadarClient.request("/api/companion/pair",new JSONObject().put("pollSecret",pollSecret).put("deviceSecret",deviceSecret).put("privateImport",true),null);
+            JSONObject data=RadarClient.request("/api/companion/pair",new JSONObject().put("pollSecret",pollSecret).put("deviceSecret",deviceSecret).put("privateImport",allowPrivateImports),null);
             String id=data.getString("id");RadarClient.verificationPath(id);
             JSONObject next=new JSONObject().put("id",id).put("pollSecret",pollSecret).put("deviceSecret",deviceSecret).put("pairExpires",data.getLong("expires"));
             post(ticket,()->{try{storage.save(next);connection=next;proposals.clear();ownApps=new JSONArray();checkedAt=0;appsAt=0;busy=false;message="Vergleichscode: "+id.substring(0,8).toUpperCase(java.util.Locale.ROOT)+" · Im Browser bestätigen, dann zurückkehren.";render();open(RadarClient.verificationPath(id));}catch(Exception e){failure(e);}});
@@ -98,14 +109,18 @@ final class GitHubRadarController {
     private void clear(){storage.clear();connection=new JSONObject();result=null;proposals.clear();ownApps=new JSONArray();appsAt=0;nextOffset=-1;checkedAt=0;busy=false;message="Verbindung getrennt.";render();}
     private void failure(Exception e){busy=false;if(e instanceof RadarClient.Unauthorized){storage.clear();connection=new JSONObject();proposals.clear();ownApps=new JSONArray();}message=e.getMessage()==null?"Radar nicht erreichbar. Bitte erneut versuchen.":e.getMessage();render();}
     private void render(){
-        panel.removeAllViews();panel.addView(label("GitHub Radar",22));panel.addView(label("Neue APKs aus deinen freigegebenen Repositories. Auch aus Repos, die du später anlegst.",14));
+        panel.removeAllViews();panel.addView(label("GitHub Radar",22));panel.addView(label("APKs aus deinen freigegebenen Repositories. Neue Repos erscheinen nach deiner GitHub-Freigabe.",14));
         if(!message.isEmpty())panel.addView(label(message,13));
         if(!connected()){
             if(connection.has("id")){panel.addView(button("Bestätigung im Browser öffnen →",()->open(RadarClient.verificationPath(connection.optString("id")))));panel.addView(button("Verbindung prüfen ↻",this::status));}
             panel.addView(button(connection.has("id")?"Verbindung neu starten":"GitHub verbinden →",this::start));
             panel.addView(label("Einmal im Browser anmelden und dieses Gerät bestätigen. Deine GitHub-Zugangsdaten bleiben dort.",12));
         }else{
-            panel.addView(label("Verbunden mit @"+connection.optString("login"),14));panel.addView(button("Repositories jetzt prüfen ↻",()->refresh(0)));
+            panel.addView(label("Verbunden mit @"+connection.optString("login"),14));
+            panel.addView(label(connection.optBoolean("privateImport")?"Private Imports erlaubt · Jeden Import einzeln bestätigen.":"Nur Vorschläge lesen · Private Imports nicht freigegeben.",12));
+            panel.addView(button("Repositories jetzt prüfen ↻",()->refresh(0)));
+            if(!connection.optBoolean("privateImport"))panel.addView(button("Private Imports freigeben →",this::start));
+            if(checkedAt>0&&proposals.isEmpty())panel.addView(label("Das Radar erkennt APK-Dateien in GitHub Releases. Prüfe den Repository-Zugriff im Dashboard und ob ein Release eine .apk-Datei enthält. Private Entwürfe findest du unter deinen GitHub-Apps; sie erscheinen nicht im öffentlichen Katalog.",13));
             if(checkedAt>0)panel.addView(label("Zuletzt geprüft: "+java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT,java.text.DateFormat.SHORT).format(new java.util.Date(checkedAt)),12));
             for(JSONObject item:proposals.values()){
                 LinearLayout row=new LinearLayout(activity);row.setOrientation(LinearLayout.VERTICAL);row.setBackgroundResource(R.drawable.bg_card);row.setPadding(dp(16),dp(16),dp(16),dp(16));
@@ -140,17 +155,16 @@ final class GitHubRadarController {
     private void preview(JSONObject suggestion){
         if(busy||!connected())return;final int ticket=++request;busy=true;message="APK-Vorschau wird frisch geladen …";render();String token=connection.optString("deviceSecret");
         io.execute(()->{try{JSONObject data=RadarClient.request("/api/companion/import/preview",new JSONObject().put("repo",suggestion.getString("fullName")).put("includeBeta",suggestion.optBoolean("prerelease")),token);
-            post(ticket,()->{busy=false;render();try{JSONObject selected=data.getJSONObject("selection"),repo=data.getJSONObject("repository");if(!"ready".equals(data.optString("state")))throw new SecurityException("Keine passende APK verfügbar. Bitte Radar erneut prüfen.");
-                String text=repo.optString("description")+"\n\n"+DisplayText.version(selected.optString("version"))+" · "+selected.optString("filename")+"\nEntwickler: @"+suggestion.getString("fullName").split("/")[0]+"\nQuelle: github.com/"+suggestion.getString("fullName")+"\n\nDie APK wird privat übernommen und geprüft. Das echte App-Icon wird aus der APK gelesen. Veröffentlichung und Installation bleiben eigene Entscheidungen.";
+            post(ticket,()->{busy=false;render();try{ImportPreview preview=ImportPreview.parse(suggestion.getString("fullName"),data);
                 if(!connection.optBoolean("privateImport")){new AlertDialog.Builder(activity).setTitle("Privaten Import freigeben").setMessage("Deine ältere Verbindung erlaubt nur das Lesen. Bestätige dieses Gerät einmal im Browser für private Imports.").setNegativeButton("Abbrechen",null).setPositiveButton("Neu verbinden",(d,w)->start()).show();return;}
-                new AlertDialog.Builder(activity).setTitle(repo.optString("name","APK gefunden")).setMessage(text).setNegativeButton("Abbrechen",null).setPositiveButton("Privat hinzufügen",(d,w)->importApp(suggestion,selected)).show();
+                new AlertDialog.Builder(activity).setTitle(preview.name.isBlank()?"APK gefunden":preview.name).setMessage(preview.summary()).setNegativeButton("Abbrechen",null).setPositiveButton("Privat hinzufügen",(d,w)->{if(!closed&&ticket==request&&token.equals(connection.optString("deviceSecret")))importApp(preview);}).show();
             }catch(Exception e){failure(e);}});
         }catch(Exception e){post(ticket,()->failure(e));}});
     }
-    private void importApp(JSONObject suggestion,JSONObject selected){
-        if(busy)return;final int ticket=++request;busy=true;message="Privater Import wird gestartet …";render();String token=connection.optString("deviceSecret");
-        io.execute(()->{try{RadarClient.request("/api/companion/import",new JSONObject().put("repo",suggestion.getString("fullName")).put("version",selected.getString("version")).put("filename",selected.getString("filename")).put("includeBeta",selected.optBoolean("prerelease")).put("importConsent",true),token);
-            post(ticket,()->{busy=false;proposals.remove(suggestion.optString("fullName"));message="Privat hinzugefügt ✓ · APK und App-Icon werden geprüft.";render();loadApps();});
+    private void importApp(ImportPreview preview){
+        if(busy||!connected()||!connection.optBoolean("privateImport"))return;final int ticket=++request;busy=true;message="Privater Import wird gestartet …";render();String token=connection.optString("deviceSecret");
+        io.execute(()->{try{RadarClient.request("/api/companion/import",preview.request(),token);
+            post(ticket,()->{busy=false;proposals.remove(preview.repository);message="Privat hinzugefügt ✓ · APK und App-Icon werden geprüft.";render();loadApps();});
         }catch(Exception e){post(ticket,()->failure(e));}});
     }
     private TextView label(String value,int size){TextView t=new TextView(activity);t.setText(value);t.setTextSize(size);t.setTextColor(activity.getColor(size>=20?R.color.text:R.color.muted));t.setPadding(0,dp(5),0,dp(5));return t;}
