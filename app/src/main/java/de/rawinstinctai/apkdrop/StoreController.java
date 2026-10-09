@@ -196,7 +196,10 @@ final class StoreController {
             // TextView wrap_content alone can measure less than drawable + multiline text.
             android.text.TextPaint navPaint=new android.text.TextPaint(button.getPaint());
             navPaint.setTextSize(button.getAutoSizeMaxTextSize());
-            int navHeight=Math.max(dp(68),(int)Math.ceil(navPaint.getFontSpacing())*button.getMaxLines()
+            android.graphics.Paint.FontMetricsInt navMetrics=navPaint.getFontMetricsInt();
+            int navTextHeight=navMetrics.bottom-navMetrics.top
+                    +(int)Math.ceil(navPaint.getFontSpacing())*(button.getMaxLines()-1);
+            int navHeight=Math.max(dp(68),navTextHeight
                     +button.getCompoundPaddingTop()+button.getCompoundPaddingBottom());
             button.setMinHeight(navHeight);button.setMinimumHeight(navHeight);
             button.setContentDescription(NAV_LABELS[i]+(i==tab?", ausgewählt":""));
