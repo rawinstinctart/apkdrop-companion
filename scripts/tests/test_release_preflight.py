@@ -18,6 +18,19 @@ MANIFEST += "".join("uses-permission: name='" + name + "'\n" for name in sorted(
 
 
 class ReleasePolicyTest(unittest.TestCase):
+    def test_alpha17_upgrades_original_identity_with_fixed_non_debuggable_preview(self):
+        previous=p.policy("alpha16.1-preview")
+        expected=p.policy("alpha17-preview")
+        self.assertEqual(expected["versionCode"],23)
+        self.assertEqual(expected["versionName"],"0.1.0-alpha.17-preview")
+        self.assertEqual(expected["certificateSha256"],previous["certificateSha256"])
+        self.assertEqual(expected["package"],previous["package"])
+        self.assertGreater(expected["versionCode"],previous["versionCode"])
+        self.assertFalse(expected["debuggable"])
+        self.assertTrue(p.policy("alpha17-debug")["debuggable"])
+        for overrides in ({"version_code":22},{"version_name":"wrong"},{"expected_cert":"f"*64}):
+            with self.assertRaises(ValueError):p.policy("alpha17-preview",**overrides)
+
     def test_alpha_identity_cannot_be_overridden(self):
         for kwargs in [{"expected_cert": "a" * 64}, {"version_code": 7}, {"version_name": "other"}]:
             with self.assertRaises(ValueError):
