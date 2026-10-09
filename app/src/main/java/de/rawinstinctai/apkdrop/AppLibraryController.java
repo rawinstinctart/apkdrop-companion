@@ -317,7 +317,7 @@ final class AppLibraryController {
             String reason;
             if(state==null) { badge.setText(activity.getString(R.string.message_applibrarycontroller_14)); reason="Öffne die Details oder prüfe unter Updates."; }
             else if(state.error!=null) {
-                badge.setText(state.blocked?"BLOCKIERT":"PRÜFUNG FEHLGESCHLAGEN");
+                badge.setText(state.blocked?"BLOCKIERT":state.error.startsWith("Offline")?"OFFLINE":state.error.startsWith("Zeitüberschreitung")?"ZEITÜBERSCHREITUNG":"PRÜFUNG FEHLGESCHLAGEN");
                 badge.setTextColor(activity.getColor(R.color.danger)); reason=state.error;
             } else if(state.decision==null) { badge.setText(activity.getString(R.string.message_applibrarycontroller_14)); reason="Der installierte Stand ist erfasst. Prüfe jetzt den verfügbaren Release."; }
             else {
@@ -423,7 +423,7 @@ final class AppLibraryController {
                         try {
                             AppLibrary next=library.remove(entry.slug); store.save(next); library=next;
                             generation++; states.remove(entry.slug); snapshots.prune(next);
-                            UpdateNotifications.remove(activity,entry.slug); UpdateScheduler.reconcile(activity);DropPilot.reconcile(activity);render();
+                            UpdateNotifications.forget(activity,entry.slug); UpdateScheduler.reconcile(activity);DropPilot.reconcile(activity);render();
                         } catch(Exception e) { Toast.makeText(activity,message(e),Toast.LENGTH_LONG).show(); }
                     }).show();
             return true;
@@ -440,6 +440,6 @@ final class AppLibraryController {
     static String installedVersion(InstalledState state) {
         return state.versionName==null||state.versionName.trim().isEmpty() ? "Build "+state.versionCode : "v"+state.versionName;
     }
-    private static String message(Exception e) { return e.getMessage()==null?"Prüfung fehlgeschlagen. Bitte erneut versuchen.":e.getMessage(); }
+    private static String message(Exception e) { return UpdateFailure.message(e); }
 }
 

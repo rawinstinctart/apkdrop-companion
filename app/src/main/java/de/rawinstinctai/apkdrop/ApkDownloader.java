@@ -11,6 +11,8 @@ final class ApkDownloader {
     interface ConnectionOpener { HttpURLConnection open(URL url) throws IOException; }
     static final class Cancellation {
         private volatile boolean cancelled;
+        private volatile boolean keepPartial;
+        void pause() { keepPartial=true; cancel(); }
         private HttpURLConnection connection;
         synchronized void attach(HttpURLConnection active) {
             connection=active;
@@ -66,18 +68,30 @@ final class ApkDownloader {
             if(!dir.isDirectory() && !dir.mkdirs()) throw new IOException("Privater APKDrop-Cache konnte nicht angelegt werden.");
             VerifiedApkFiles.prepare(dir);
             String name=VerifiedApkFiles.newName();
-            part=new File(dir,name+".part");
+            part=new File(dir,"resume-"+release.sha256+".part");
+            long offset=part.isFile()?part.length():0;
+            if(offset>=release.size) { if(!part.delete())throw new IOException("Download konnte nicht neu gestartet werden."); offset=0; }
+            File[] old=dir.listFiles(f->f.getName().startsWith("resume-") && !f.getName().equals(partName(release)));
+            if(old!=null)for(File f:old)f.delete();
+            if(offset>0)c.setRequestProperty("Range","bytes="+offset+"-");
             verified=new File(dir,name);
             cancellation.check();
             int status=c.getResponseCode();
             cancellation.check();
-            if(status!=200) throw new IOException("APK-Download nicht verfügbar ("+status+").");
+            if(status!=200 && status!=206) throw new IOException("APK-Download nicht verfügbar ("+status+").");
+            if(status==206) {
+                String expected="bytes "+offset+"-"+(release.size-1)+"/"+release.size;
+                if(offset==0 || !expected.equals(c.getHeaderField("Content-Range")))throw new SecurityException("Ungültige Download-Fortsetzung.");
+            } else offset=0;
             long declared=c.getContentLengthLong();
-            if(declared>0 && declared!=release.size) throw new SecurityException("Unerwartete Dateigröße.");
+            if(declared>0 && declared!=release.size-offset) throw new SecurityException("Unerwartete Dateigröße.");
 
             MessageDigest digest=MessageDigest.getInstance("SHA-256");
-            long count=0; int last=-1;
-            try(InputStream in=c.getInputStream(); FileOutputStream out=new FileOutputStream(part)) {
+            long count=offset; int last=-1;
+            if(offset>0)try(InputStream prior=new FileInputStream(part)) {
+                byte[] b=new byte[65536];for(int n;(n=prior.read(b))!=-1;){cancellation.check();digest.update(b,0,n);}
+            }
+            try(InputStream in=c.getInputStream(); FileOutputStream out=new FileOutputStream(part,offset>0)) {
                 byte[] buffer=new byte[65536];
                 for(;;) {
                     cancellation.check();
@@ -102,11 +116,14 @@ final class ApkDownloader {
             cancellation.check();
             return verified;
         } catch(Exception e) {
-            if(part!=null) part.delete();
+            if(part!=null && (!(e instanceof IOException) || cancellation.cancelled) && !cancellation.keepPartial) part.delete();
+            if(part!=null && e instanceof SecurityException) part.delete();
             if(verified!=null) verified.delete();
             throw e;
         } finally { cancellation.detach(c); c.disconnect(); }
     }
+
+    private static String partName(InstallContract release) {return "resume-"+release.sha256+".part";}
 
     private static String hex(byte[] bytes) {
         StringBuilder out=new StringBuilder(bytes.length*2);
