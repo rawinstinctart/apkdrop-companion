@@ -15,4 +15,4 @@ Dieses gezielte Update entfernt die zwei überflüssigen Steuerelemente, die die
 - Mit dem ursprünglichen Schlüssel signierte, nicht-debuggbare Preview (v2 + v3).
 - CI: Android-Tests, Lint, Debug- und Preview-Build erfolgreich (Run 37942638987). Der Release-Workflow prüft dieselben signierten Bytes, Signatur, Android-Manifest und Live-Backend erneut. Private Schlüssel werden nie zu GitHub übertragen.
 
-Die vorhandene Installation kann aufgrund unverändertem Paket und Signierer ohne Löschen der App-Daten aktualisiert werden. Ein echter Android-Gerätetest bleibt separat offen.
+Die vorhandene Installation kann aufgrund unverändertem Paket und Signierer ohne Löschen der App-Daten aktualisiert werden.
