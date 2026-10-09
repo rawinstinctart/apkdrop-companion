@@ -139,7 +139,7 @@ final class StoreController {
     void changed() {
         renderActionCenter();
         int count=library.count(),updates=library.updateCount();
-        ((Button)activity.findViewById(R.id.navUpdates)).setText(updates>0?"Updates ("+updates+")":"Updates");
+        ((Button)activity.findViewById(R.id.navUpdates)).setText("Updates");
         ((TextView)activity.findViewById(R.id.homeAppCount)).setText(String.valueOf(count));
         ((TextView)activity.findViewById(R.id.homeUpdateCount)).setText(String.valueOf(updates));
         ((TextView)activity.findViewById(R.id.homePreview)).setText(library.homePreview());

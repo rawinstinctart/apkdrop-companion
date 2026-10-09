@@ -96,13 +96,13 @@ final class AppLibraryController {
             if(state!=null && state.cached) cached=true;
             if(state!=null && state.decision!=null && state.decision.mode==InstallPolicy.Mode.INSTALL)notInstalled++;
         }
-        if(blocked>0) return blocked+" App(s) mit Prüfproblemen. Details unter Meine Apps ansehen.";
-        if(unknown>0) return unknown+" App(s) noch nicht aktuell geprüft. Letzte Ergebnisse sind gekennzeichnet.";
+        if(blocked>0) return blocked+(blocked==1?" App":" Apps")+" mit Prüfproblemen. Details unter Meine Apps ansehen.";
+        if(unknown>0) return unknown+(unknown==1?" App":" Apps")+" noch nicht aktuell geprüft. Letzte Ergebnisse sind gekennzeichnet.";
         int updates=updateCount();
-        if(updates>0) return updates+" neue Version(en) "+(cached
+        if(updates>0) return updates+(updates==1?" neue Version ":" neue Versionen ")+(cached
                 ?"laut gespeichertem Prüfstand verfügbar; vor dem Download wird frisch geprüft. "
                 :"laut letzter Prüfung verfügbar. ")+"Jede Installation bleibt deine Entscheidung.";
-        if(notInstalled>0)return notInstalled+" gespeicherte App(s) noch nicht installiert. Öffne ihre Details, wenn du loslegen möchtest.";
+        if(notInstalled>0)return notInstalled+(notInstalled==1?" gespeicherte App":" gespeicherte Apps")+" noch nicht installiert. Öffne ihre Details, wenn du loslegen möchtest.";
         return "Alle gespeicherten Apps laut letzter Prüfung aktuell.";
     }
     String homePreview() {
