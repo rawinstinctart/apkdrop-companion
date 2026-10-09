@@ -47,7 +47,7 @@ public class Alpha15AssistantTest {
         assertEquals(View.VISIBLE,count.getVisibility());
         assertEquals(View.GONE,status.getVisibility());
         assertEquals(View.GONE,sort.getVisibility());
-        assertEquals(View.GONE,a.findViewById(R.id.discoverFilter).getVisibility());
+        assertEquals(View.VISIBLE,a.findViewById(R.id.discoverFilter).getVisibility());
         assertEquals(View.GONE,refresh.getVisibility());
         View root=a.findViewById(R.id.pageRoot);
         root.measure(View.MeasureSpec.makeMeasureSpec(720,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(1600,View.MeasureSpec.EXACTLY));

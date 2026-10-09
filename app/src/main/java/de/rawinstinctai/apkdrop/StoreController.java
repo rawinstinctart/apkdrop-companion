@@ -88,7 +88,6 @@ final class StoreController {
         activity.findViewById(R.id.discoverReset).setOnClickListener(v->{
             query="";category="";page=1;following=false;activeProfile=null;sortByName=false;newDiscover=false;developersOnly=false;renderCategories();
             ((EditText)activity.findViewById(R.id.discoverInput)).setText("");
-            ((Button)activity.findViewById(R.id.discoverFilter)).setText("Alle Kategorien");
             updateSortLabel();catalog();
         });
         activity.findViewById(R.id.discoverSort).setOnClickListener(v->{
@@ -104,7 +103,7 @@ final class StoreController {
         activity.findViewById(R.id.settingsGitHubRadar).setOnClickListener(v->showGitHubRadar());
         activity.findViewById(R.id.radarGitHub).setOnClickListener(v->showGitHubRadar());
         activity.findViewById(R.id.radarReleases).setOnClickListener(v->{githubRadar=false;activeProfile=null;following=true;renderNavigation();feed();});
-        activity.findViewById(R.id.radarApps).setOnClickListener(v->{githubRadar=false;activeProfile=null;following=false;renderNavigation();catalog();});
+        activity.findViewById(R.id.radarApps).setOnClickListener(this::discoverViews);
         activity.findViewById(R.id.libraryDiscover).setOnClickListener(v->{
             if(library.hasSearch()) ((EditText)activity.findViewById(R.id.librarySearch)).setText("");
             else navigate(library.updatesOnly()&&library.count()>0?2:1);
@@ -182,10 +181,11 @@ final class StoreController {
         activity.findViewById(R.id.discoverList).setVisibility(!githubRadar?View.VISIBLE:View.GONE);
         activity.findViewById(R.id.discoverStatus).setVisibility(!githubRadar&&resultStatus.length()>0?View.VISIBLE:View.GONE);
         activity.findViewById(R.id.githubRadarPanel).setVisibility(githubRadar?View.VISIBLE:View.GONE);
-        activity.findViewById(R.id.radarApps).setSelected(!githubRadar&&!following);
+        ((Button)activity.findViewById(R.id.radarApps)).setText(githubRadar?"GitHub Radar ▾":following?"Release Radar ▾":"Apps entdecken ▾");
+        activity.findViewById(R.id.radarApps).setSelected(false);
         activity.findViewById(R.id.radarReleases).setSelected(!githubRadar&&following);
         activity.findViewById(R.id.radarGitHub).setSelected(githubRadar);
-        for(int id:new int[]{R.id.radarApps,R.id.radarReleases,R.id.radarGitHub}){Button chip=activity.findViewById(id);chip.setTextColor(activity.getColor(chip.isSelected()?R.color.lime_dark:R.color.lime));}
+        for(int id:new int[]{R.id.radarApps,R.id.radarReleases,R.id.radarGitHub}){Button chip=activity.findViewById(id);chip.setTextColor(activity.getColor(R.color.lime));}
         activity.findViewById(R.id.libraryPanel).setVisibility(!detail&&(tab==2||tab==3)?View.VISIBLE:View.GONE);
         activity.findViewById(R.id.settingsPanel).setVisibility(!detail&&tab==4?View.VISIBLE:View.GONE);
         activity.findViewById(R.id.linkPanel).setVisibility(View.GONE);
@@ -238,13 +238,43 @@ final class StoreController {
         sortByName=byName;updateSortLabel();
         if(catalogData!=null)renderCatalogState();
     }
-    private void filters(View anchor) {
+    private void discoverViews(View anchor) {
         PopupMenu menu=new PopupMenu(activity,anchor);
+        menu.getMenu().add(0,1,0,"Apps entdecken").setCheckable(true).setChecked(!githubRadar&&!following)
+                .setOnMenuItemClickListener(item->{githubRadar=false;activeProfile=null;following=false;renderNavigation();catalog();return true;});
+        menu.getMenu().add(0,2,1,"Release Radar").setCheckable(true).setChecked(!githubRadar&&following)
+                .setOnMenuItemClickListener(item->{activity.findViewById(R.id.radarReleases).performClick();return true;});
+        menu.getMenu().add(0,3,2,"GitHub Radar").setCheckable(true).setChecked(githubRadar)
+                .setOnMenuItemClickListener(item->{showGitHubRadar();return true;});
+        menu.show();
+    }
+    private void filters(View anchor) {
         String[] values={"","communication","productivity","tools","privacy","media","games","education","other"};
         String[] names={"Alle Kategorien","Kommunikation","Produktivität","Tools","Privacy","Medien","Spiele","Lernen","Andere"};
-        for(int i=0;i<values.length;i++){final String value=values[i],name=names[i];menu.getMenu().add(name).setOnMenuItemClickListener(item->{
-            activeProfile=null;category=value;page=1;following=false;((Button)anchor).setText(name);renderCategories();catalog();return true;
-        });}menu.show();
+        LinearLayout content=new LinearLayout(activity);content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(dp(20),dp(8),dp(20),dp(8));
+        int selected=java.util.Arrays.asList(values).indexOf(category);
+        Spinner categories=filterChoice(content,"Kategorie",names,Math.max(0,selected));
+        Spinner collection=filterChoice(content,"Anzeigen",new String[]{"Aktuelle Apps","Neue Apps","Entwickler"},developersOnly?2:newDiscover?1:0);
+        Spinner order=filterChoice(content,"Sortieren",new String[]{"Neueste zuerst","Name A–Z"},sortByName?1:0);
+        ScrollView scroll=new ScrollView(activity);scroll.addView(content);
+        new AlertDialog.Builder(activity).setTitle("Filter & Sortierung").setView(scroll)
+                .setNegativeButton("Abbrechen",null)
+                .setNeutralButton("Zurücksetzen",(dialog,which)->activity.findViewById(R.id.discoverReset).performClick())
+                .setPositiveButton("Anwenden",(dialog,which)->{
+                    category=values[categories.getSelectedItemPosition()];
+                    newDiscover=collection.getSelectedItemPosition()==1;developersOnly=collection.getSelectedItemPosition()==2;
+                    sortByName=order.getSelectedItemPosition()==1;page=1;activeProfile=null;following=false;
+                    renderCategories();updateSortLabel();catalog();
+                }).show();
+    }
+    private Spinner filterChoice(LinearLayout parent,String title,String[] choices,int selected) {
+        TextView label=label(title,14);label.setPadding(0,dp(12),0,0);parent.addView(label);
+        Spinner spinner=new Spinner(activity);spinner.setId(View.generateViewId());spinner.setContentDescription(title);
+        ArrayAdapter<String> adapter=new ArrayAdapter<>(activity,android.R.layout.simple_spinner_item,choices);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinner.setAdapter(adapter);spinner.setSelection(selected);spinner.setMinimumHeight(dp(48));
+        parent.addView(spinner,new LinearLayout.LayoutParams(-1,-2));label.setLabelFor(spinner.getId());return spinner;
     }
     private static String radarKey(JSONObject release){return release.optString("packageName")+"/"+release.optLong("versionCode")+"/"+String.valueOf(release.optJSONArray("signers"));}
     private ReleaseRadar.State radarState(JSONObject release){return radarStates.getOrDefault(radarKey(release),ReleaseRadar.State.UNKNOWN);}
@@ -289,11 +319,12 @@ final class StoreController {
         });
     }
     private void catalogControls(boolean visible) {
-        activity.findViewById(R.id.categoryScroll).setVisibility(visible?View.VISIBLE:View.GONE);
-        activity.findViewById(R.id.discoverFilter).setVisibility(View.GONE);
+        updateFilterLabel();
+        activity.findViewById(R.id.categoryScroll).setVisibility(View.GONE);
+        activity.findViewById(R.id.discoverFilter).setVisibility(visible?View.VISIBLE:View.GONE);
         if(!visible)activity.findViewById(R.id.discoverCount).setVisibility(View.GONE);
         activity.findViewById(R.id.discoverSort).setVisibility(View.GONE);
-        activity.findViewById(R.id.discoverReset).setVisibility(visible&&(!query.isEmpty()||!category.isEmpty()||sortByName)?View.VISIBLE:View.GONE);
+        activity.findViewById(R.id.discoverReset).setVisibility(View.GONE);
     }
     void renderCatalog(JSONObject data) {
         catalogData=data;catalogCached=false;catalogAt=System.currentTimeMillis();renderCatalogState();
@@ -308,7 +339,6 @@ final class StoreController {
         count.setVisibility(View.VISIBLE);
         resultStatus.setText(catalogCached?"Gespeicherter Katalog · "+java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT,java.text.DateFormat.SHORT).format(new java.util.Date(catalogAt))+"\nApp-Details und Downloads brauchen eine neue Online-Prüfung.":"");
         resultStatus.setVisibility(catalogCached?View.VISIBLE:View.GONE);
-        if(query.isEmpty()&&category.isEmpty()){renderCollections();}
         java.util.List<JSONObject> entries=new java.util.ArrayList<>();for(int i=0;i<apps.length();i++)entries.add(apps.optJSONObject(i));
         if(sortByName)entries.sort(java.util.Comparator.comparing(app->app.optString("name",app.optString("slug")),String.CASE_INSENSITIVE_ORDER));
         if(developersOnly) {
@@ -593,27 +623,6 @@ final class StoreController {
         panel.addView(textAction("Release Radar öffnen →",()->{githubRadar=false;following=true;activeProfile=null;navigate(1);}));
     }
     private void manageFollows(){try{JSONObject saved=follows.read();java.util.List<String> ids=new java.util.ArrayList<>(),labels=new java.util.ArrayList<>();java.util.Iterator<String> it=saved.keys();while(it.hasNext()){String id=it.next();ids.add(id);labels.add(saved.getJSONObject(id).optString("name")+" · nicht mehr folgen");}new AlertDialog.Builder(activity).setTitle("Gefolgte Entwickler").setItems(labels.toArray(new String[0]),(d,w)->new AlertDialog.Builder(activity).setTitle("Nicht mehr folgen?").setNegativeButton("Abbrechen",null).setPositiveButton("Entfernen",(dialog,which)->{try{follows.remove(ids.get(w));homeFeedAt=0;feed();}catch(Exception e){error(e);}}).show()).setPositiveButton("Schließen",null).show();}catch(Exception e){error(e);}}
-    private void renderCollections(){
-        LinearLayout row=new LinearLayout(activity);row.setOrientation(LinearLayout.HORIZONTAL);
-        for(String title:new String[]{"Aktuell","Neu","Entwickler"}){
-            Button choice=button(title,()->{
-                newDiscover=title.equals("Neu");developersOnly=title.equals("Entwickler");
-                page=1;catalog();
-            });
-            boolean selected=developersOnly?title.equals("Entwickler"):
-                    newDiscover?title.equals("Neu"):title.equals("Aktuell");
-            choice.setContentDescription((title.equals("Aktuell")?"Frisch aktualisierte Apps":
-                    title.equals("Neu")?"Neu entdeckte Apps":"Entwickler entdecken")+(selected?", ausgewählt":""));
-            choice.setTextSize(12);
-            choice.setPadding(dp(7),dp(5),dp(7),dp(5));choice.setMinHeight(dp(48));
-            choice.setSelected(selected);
-            choice.setBackgroundResource(R.drawable.bg_chip);
-            choice.setTextColor(activity.getColor(choice.isSelected()?R.color.lime_dark:R.color.lime));
-            LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,-2,1);
-            lp.rightMargin=dp(4);row.addView(choice,lp);
-        }
-        row.setPadding(0,dp(4),0,dp(6));results.addView(row);
-    }
     private void renderCatalogEmpty() {
         final boolean filtered=!query.isEmpty()||!category.isEmpty();
         LinearLayout empty=card();
@@ -663,7 +672,14 @@ final class StoreController {
         View focus=activity.getCurrentFocus();if(focus!=null){
             ((android.view.inputmethod.InputMethodManager)activity.getSystemService(android.content.Context.INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(focus.getWindowToken(),0);focus.clearFocus();}
     }
+    private void updateFilterLabel() {
+        Button filter=activity.findViewById(R.id.discoverFilter);
+        boolean filtered=!category.isEmpty()||newDiscover||developersOnly||sortByName;
+        filter.setText(filtered?"Filter •":"Filter ▾");
+        filter.setContentDescription("Filter und Sortierung"+(filtered?", aktiv: "+categoryName(category)+", "+(developersOnly?"Entwickler":newDiscover?"Neue Apps":"Aktuelle Apps")+", "+(sortByName?"Name A bis Z":"Neueste zuerst"):""));
+    }
     private void renderCategories() {
+        updateFilterLabel();
         LinearLayout chips=activity.findViewById(R.id.categoryChips);chips.removeAllViews();
         for(String value:new String[]{"","communication","productivity","tools","privacy","media","games","education","other"}) {
             Button chip=button(value.isEmpty()?"Alle":categoryName(value),()->{

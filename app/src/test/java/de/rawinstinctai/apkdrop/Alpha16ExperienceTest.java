@@ -37,12 +37,12 @@ public class Alpha16ExperienceTest {
         StoreController s=store(a);
         s.renderCatalog(catalog("alpha16-demo"));
         LinearLayout list=a.findViewById(R.id.discoverList);
-        LinearLayout choices=(LinearLayout)list.getChildAt(0);
-        assertEquals("Aktuell",((Button)choices.getChildAt(0)).getText().toString());
-        assertEquals("Neu",((Button)choices.getChildAt(1)).getText().toString());
-        assertEquals("Entwickler",((Button)choices.getChildAt(2)).getText().toString());
-        assertEquals("Apps für dich",((TextView)list.getChildAt(1)).getText().toString());
-        assertEquals("Aktuelle Releases zuerst",((TextView)list.getChildAt(2)).getText().toString());
+        assertEquals("Apps für dich",((TextView)list.getChildAt(0)).getText().toString());
+        assertEquals("Aktuelle Releases zuerst",((TextView)list.getChildAt(1)).getText().toString());
+        assertEquals(View.GONE,a.findViewById(R.id.categoryScroll).getVisibility());
+        assertEquals(View.GONE,a.findViewById(R.id.radarReleases).getVisibility());
+        assertEquals(View.GONE,a.findViewById(R.id.radarGitHub).getVisibility());
+        assertEquals(View.VISIBLE,a.findViewById(R.id.discoverFilter).getVisibility());
         LinearLayout card=null;
         for(int i=0;i<list.getChildCount();i++) {
             View v=list.getChildAt(i);
