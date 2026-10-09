@@ -35,21 +35,22 @@ public class Alpha12ExperienceTest {
         assertFalse(result.toString().contains("javascript:"));
         assertTrue(result.toString().contains("<script>literal</script>"));
     }
-    @Test @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE) public void previewPreservesStylesAndFullNotesCanBeExpanded() throws Exception {
+    @Test @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE) public void previewShowsOnlyBackendSummaryWithoutRawNotes() throws Exception {
         controller=Robolectric.buildActivity(MainActivity.class).create();MainActivity activity=controller.get();
         String original="# FREY\n\n"+("- **Ein Update** mit ausführlicher Erklärung.\n").repeat(30);
-        InstallContract release=new InstallContract("sample-app","FREY","r1","1.2",12,"de.example.frey",26,35,List.of(),Set.of(),Set.of("a".repeat(64)),"b".repeat(64),4,"beta",original,"https://apkdrop.rawinstinctai.de/sample-app/releases/file.apk","https://apkdrop.rawinstinctai.de/sample-app/receipt","https://apkdrop.rawinstinctai.de/sample-app");
+        InstallContract release=new InstallContract("sample-app","FREY","r1","1.2",12,"de.example.frey",26,35,List.of(),Set.of(),Set.of("a".repeat(64)),"b".repeat(64),4,"beta",original,"FREY: Push-Einstellungen sind leichter erreichbar.","https://apkdrop.rawinstinctai.de/sample-app/releases/file.apk","https://apkdrop.rawinstinctai.de/sample-app/receipt","https://apkdrop.rawinstinctai.de/sample-app");
         java.lang.reflect.Method show=MainActivity.class.getDeclaredMethod("show",InstallContract.class,InstalledState.class,InstallPolicy.Result.class,boolean.class,boolean.class);show.setAccessible(true);
         show.invoke(activity,release,null,InstallPolicy.evaluate(release,null,35,new String[]{"arm64-v8a"}),false,false);
         TextView notes=activity.findViewById(R.id.notesText);String shortText=notes.getText().toString();
-        assertTrue(shortText.length()<ReleaseNotes.render(original).length());
+        assertEquals("FREY: Push-Einstellungen sind leichter erreichbar.",shortText);
+        assertFalse(shortText.contains("Ein Update"));
+        assertEquals(View.GONE,activity.findViewById(R.id.notesButton).getVisibility());
         assertEquals(View.GONE,activity.findViewById(R.id.radarText).getVisibility());
         assertEquals(View.GONE,activity.findViewById(R.id.trustSummary).getVisibility());
         java.lang.reflect.Field store=MainActivity.class.getDeclaredField("store");store.setAccessible(true);((StoreController)store.get(activity)).showDetail();
         activity.findViewById(R.id.releaseCard).setVisibility(View.VISIBLE);
         render(activity,"alpha12-detail");
-        activity.findViewById(R.id.notesButton).performClick();assertEquals(ReleaseNotes.render(original).toString(),notes.getText().toString());
-        activity.findViewById(R.id.notesButton).performClick();assertEquals(shortText,notes.getText().toString());
+        assertEquals(shortText,notes.getText().toString());
         activity.findViewById(R.id.radarButton).performClick();assertEquals(View.VISIBLE,activity.findViewById(R.id.radarText).getVisibility());
         activity.findViewById(R.id.trustButton).performClick();assertEquals(View.VISIBLE,activity.findViewById(R.id.trustSummary).getVisibility());
         java.lang.reflect.Method reset=MainActivity.class.getDeclaredMethod("resetCandidate");reset.setAccessible(true);reset.invoke(activity);
