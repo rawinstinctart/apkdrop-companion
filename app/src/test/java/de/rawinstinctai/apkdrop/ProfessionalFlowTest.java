@@ -90,6 +90,8 @@ public class ProfessionalFlowTest {
         assertTrue(a.findViewById(R.id.bottomNav).getBottom()<=1280);
         for(int id:new int[]{R.id.navHome,R.id.navDiscover,R.id.navApps,R.id.navUpdates,R.id.navSettings}) {
             TextView nav=a.findViewById(id);
+            View bar=a.findViewById(R.id.bottomNav);
+            assertTrue("Navigation child extends below its bar: "+nav.getText(),nav.getBottom()<=bar.getHeight());
             int last=nav.getLayout().getLineCount()-1;
             assertTrue("Navigation text clips for "+nav.getText(),
                     nav.getLayout().getLineBottom(last)+nav.getCompoundPaddingTop()+nav.getCompoundPaddingBottom()<=nav.getHeight());

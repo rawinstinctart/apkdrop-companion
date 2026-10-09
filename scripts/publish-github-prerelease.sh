@@ -79,7 +79,7 @@ python3 -m unittest discover -s scripts/tests -v
 
 BUILD_VARIANT=Debug
 LINT_VARIANT=debug
-if [[ "$PROFILE" == alpha6.1-preview || "$PROFILE" == alpha7-preview || "$PROFILE" == alpha8-preview || "$PROFILE" == alpha9-preview || "$PROFILE" == alpha9.1-preview || "$PROFILE" == alpha10-preview || "$PROFILE" == alpha11-preview || "$PROFILE" == alpha12-preview || "$PROFILE" == alpha13-preview ]]; then
+if [[ "$PROFILE" == *-preview ]]; then
   BUILD_VARIANT=Preview
   LINT_VARIANT=preview
 elif [[ "$PROFILE" == production ]]; then
