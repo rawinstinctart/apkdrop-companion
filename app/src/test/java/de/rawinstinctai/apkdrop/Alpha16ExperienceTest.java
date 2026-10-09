@@ -37,6 +37,11 @@ public class Alpha16ExperienceTest {
         StoreController s=store(a);
         s.renderCatalog(catalog("alpha16-demo"));
         LinearLayout list=a.findViewById(R.id.discoverList);
+        LinearLayout choices=(LinearLayout)list.getChildAt(0);
+        assertEquals("Aktuell",((Button)choices.getChildAt(0)).getText().toString());
+        assertEquals("Neu",((Button)choices.getChildAt(1)).getText().toString());
+        assertEquals("Entwickler",((Button)choices.getChildAt(2)).getText().toString());
+        for(int i=0;i<choices.getChildCount();i++) assertEquals(1,((Button)choices.getChildAt(i)).getMaxLines());
         assertEquals("Apps für dich",((TextView)list.getChildAt(1)).getText().toString());
         assertEquals("Aktuelle Releases zuerst",((TextView)list.getChildAt(2)).getText().toString());
         LinearLayout card=null;
