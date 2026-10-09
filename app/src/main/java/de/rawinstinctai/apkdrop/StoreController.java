@@ -521,7 +521,7 @@ final class StoreController {
     private void renderActionCenter(){
         if(radar==null)return;LinearLayout panel=activity.findViewById(R.id.actionCenter);panel.removeAllViews();int releases=0;
         for(int i=0;i<homeReleases.length();i++){JSONObject item=homeReleases.optJSONObject(i);if(item!=null&&readState.unseen(item)&&radarState(item)!=ReleaseRadar.State.INSTALLED)releases++;}
-        String overview=library.count()==0&&!radar.hasChecked()&&!homeFeedKnown
+        String overview=library.count()==0&&!radar.hasChecked()
                 ?"Füge deine erste App hinzu. Neue Versionen werden hier sichtbar."
                 :library.updateCount()+" Updates"
                     +(radar.hasChecked()?" · "+DisplayText.proposals(radar.proposalCount()):"")
