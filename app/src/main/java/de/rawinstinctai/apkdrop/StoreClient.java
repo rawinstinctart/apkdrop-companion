@@ -45,10 +45,13 @@ final class StoreClient {
     static JSONObject following(org.json.JSONArray ids) throws Exception {
         return json("/api/following",new JSONObject().put("slugs",new org.json.JSONArray()).put("developerIds",ids));
     }
-    private static JSONObject json(String path,JSONObject data) throws Exception {
-        if(!path.matches("/api/(?:discover(?:\\?q=[^#]*&category=[a-z]*&page=[0-9]+)?|dropid/[a-z0-9-]+\\.json|[a-z0-9-]{3,40}/store\\.json|following)"))
+    static URI apiUri(String path) {
+        if(path==null || !path.matches("/api/(?:discover(?:\\?(?:page=[0-9]+|q=[^#&]*&category=[a-z]*&page=[0-9]+(?:&sort=(?:new|updated))?))?|dropid/[a-z0-9-]+\\.json|[a-z0-9-]{3,40}/store\\.json|following)"))
             throw new SecurityException("Unzulässiger API-Pfad.");
-        HttpURLConnection c=connect(URI.create(ORIGIN+path));
+        return URI.create(ORIGIN+path);
+    }
+    private static JSONObject json(String path,JSONObject data) throws Exception {
+        HttpURLConnection c=connect(apiUri(path));
         try {
             c.setRequestProperty("Accept","application/json");
             if(data!=null) {
