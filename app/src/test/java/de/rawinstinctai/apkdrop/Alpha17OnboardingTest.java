@@ -16,12 +16,12 @@ import java.util.concurrent.*;
 import static org.junit.Assert.*;
 
 @RunWith(RobolectricTestRunner.class)
-@Config(sdk=26,qualifiers="w360dp-h800dp-xhdpi",shadows=Alpha17OnboardingTest.Radar.class)
+@Config(sdk=26,qualifiers="w360dp-h800dp-xhdpi",shadows={Alpha17OnboardingTest.Radar.class,Alpha17OnboardingTest.Connection.class})
 public class Alpha17OnboardingTest {
     private ActivityController<MainActivity> controller;
     static final List<String> paths=new CopyOnWriteArrayList<>();
     static final List<JSONObject> bodies=new CopyOnWriteArrayList<>();
-    @Before public void setup(){paths.clear();bodies.clear();RuntimeEnvironment.getApplication().getSharedPreferences("github-radar-v1",0).edit().clear().commit();}
+    @Before public void setup(){paths.clear();bodies.clear();Connection.saved=new JSONObject();RuntimeEnvironment.getApplication().getSharedPreferences("github-radar-v1",0).edit().clear().commit();}
     @After public void close(){if(controller!=null)controller.destroy();RuntimeEnvironment.setFontScale(1f);}
     private MainActivity create(){controller=Robolectric.buildActivity(MainActivity.class).create();return controller.get();}
     private StoreController store(MainActivity a)throws Exception{return (StoreController)field(a,"store");}
@@ -46,6 +46,18 @@ public class Alpha17OnboardingTest {
     @Test public void defaultPairingRequestsReadOnlyAccess()throws Exception{
         MainActivity a=create();start(radar(a));ShadowAlertDialog.getLatestAlertDialog().getButton(AlertDialog.BUTTON_POSITIVE).performClick();waitFor(()->paths.contains("/api/companion/pair"));
         assertFalse(bodies.get(paths.indexOf("/api/companion/pair")).getBoolean("privateImport"));
+    }
+    private void pendingUpgrade(GitHubRadarController r)throws Exception{
+        connect(r,false);start(r);AlertDialog d=ShadowAlertDialog.getLatestAlertDialog();checkbox(d.getWindow().getDecorView()).setChecked(true);d.getButton(AlertDialog.BUTTON_POSITIVE).performClick();waitFor(()->Connection.saved.has("previous"));
+    }
+    @Test public void cancelingConsentUpgradeRestoresTheWorkingConnectionAcrossRestart()throws Exception{
+        MainActivity a=create();GitHubRadarController r=radar(a);pendingUpgrade(r);invoke(r,"cancelPairing",String.class,"Bestätigung abgebrochen.");
+        assertTrue(r.connected());assertEquals("a".repeat(64),Connection.saved.getString("deviceSecret"));assertFalse(Connection.saved.getBoolean("privateImport"));
+        controller.destroy();a=create();assertTrue(radar(a).connected());assertFalse(((JSONObject)field(radar(a),"connection")).getBoolean("privateImport"));
+    }
+    @Test public void expiredUpgradeRestoresThePreviousConnectionAfterRestart()throws Exception{
+        MainActivity a=create();pendingUpgrade(radar(a));controller.destroy();Connection.saved.put("pairExpires",0);a=create();radar(a).resume();
+        assertTrue(radar(a).connected());assertEquals("a".repeat(64),Connection.saved.getString("deviceSecret"));assertFalse(Connection.saved.has("previous"));
     }
     @Test public void freshPrivatePreviewNeedsConfirmationAndCannotPublishOrInstall()throws Exception{
         MainActivity a=create();GitHubRadarController r=radar(a);connect(r,true);JSONObject suggestion=new JSONObject().put("fullName","fixture-dev/new-app").put("version","old").put("private",false);
@@ -84,6 +96,12 @@ public class Alpha17OnboardingTest {
     }
     private void render(View root,String name,int width,int height)throws Exception{root.measure(View.MeasureSpec.makeMeasureSpec(width,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(height,View.MeasureSpec.EXACTLY));root.layout(0,0,width,height);String dir=System.getProperty("apkdrop.preview.dir");if(dir==null)return;java.io.File file=new java.io.File(dir,name+".png");file.getParentFile().mkdirs();android.graphics.Bitmap image=android.graphics.Bitmap.createBitmap(width,height,android.graphics.Bitmap.Config.ARGB_8888);root.draw(new android.graphics.Canvas(image));try(var out=new java.io.FileOutputStream(file)){image.compress(android.graphics.Bitmap.CompressFormat.PNG,100,out);}image.recycle();}
     static JSONObject preview()throws Exception{return new JSONObject().put("state","ready").put("repository",new JSONObject().put("name","Fresh App").put("description","Fresh description").put("private",true)).put("selection",new JSONObject().put("version","v2.0").put("filename","fresh.apk").put("size",4096).put("prerelease",false));}
+    @Implements(value=RadarConnection.class,isInAndroidSdk=false) public static class Connection {
+        static volatile JSONObject saved=new JSONObject();
+        @Implementation protected JSONObject read()throws Exception{return new JSONObject(saved.toString());}
+        @Implementation protected void save(JSONObject data)throws Exception{saved=new JSONObject(data.toString());}
+        @Implementation protected void clear(){saved=new JSONObject();}
+    }
     @Implements(value=RadarClient.class,isInAndroidSdk=false) public static class Radar {
         @Implementation protected static JSONObject request(String path,JSONObject body,String token)throws Exception{
             bodies.add(body==null?new JSONObject():new JSONObject(body.toString()));paths.add(path);

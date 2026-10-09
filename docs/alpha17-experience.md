@@ -4,6 +4,7 @@
 
 - GitHub access starts with a cancellable native explanation. Private-import capability is an unchecked, explicit option; the browser still approves the device. New repositories appear only within the GitHub App permissions selected by the owner.
 - Read-only connections can discover suggestions and request a new consent flow for imports. Every private import shows fresh version, APK filename, size and repository visibility. Its frozen selection is sent only after confirmation, without a publication flag. A changed connection or subsequent request invalidates an old preview confirmation.
+- While requesting new consent, the previous working device credentials remain in encrypted storage. Canceling or expiring the new pairing restores that connection, including after process restart. Successful approval replaces it.
 - App descriptions are bounded display metadata, expandable and attributed to the developer. Missing descriptions and empty public developer profiles have specific explanations. Descriptions and images cannot authorize an install.
 - Public catalog empty states explain where private drafts remain. Developer counts describe profiles on the current catalog page. Categories remain a controlled list; unknown metadata is shown as unassigned.
 - Shared GitHub repository roots now use the existing verified public DropID mapping and fresh install contract. Private, expired, ambiguous or missing public mappings fail closed. Release links continue to choose the current APKDrop app standard, not an unverified historical GitHub asset.

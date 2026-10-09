@@ -46,7 +46,7 @@ final class GitHubRadarController {
         resumed=true;main.removeCallbacks(poll);
         if(busy||closed)return;
         if(connection.has("id")&&!connection.optBoolean("connected")){
-            if(connection.optLong("pairExpires")<=System.currentTimeMillis()/1000){storage.clear();connection=new JSONObject();message="Verbindung abgelaufen. Bitte erneut starten.";render();return;}
+            if(connection.optLong("pairExpires")<=System.currentTimeMillis()/1000){cancelPairing("Bestätigung abgelaufen.");return;}
             status();
         }else if(connected()){if(System.currentTimeMillis()-checkedAt>300000)refresh(0);else if(System.currentTimeMillis()-appsAt>30000)loadApps();}
     }
@@ -66,13 +66,26 @@ final class GitHubRadarController {
     }
     private void beginPairing(boolean allowPrivateImports){
         if(busy||closed)return;final int ticket=++request;busy=true;message="Verbindung wird vorbereitet …";render();
+        final JSONObject previous=connected()?connection:connection.optJSONObject("previous");
         io.execute(()->{try{
             String pollSecret=RadarConnection.secret(),deviceSecret=RadarConnection.secret();
             JSONObject data=RadarClient.request("/api/companion/pair",new JSONObject().put("pollSecret",pollSecret).put("deviceSecret",deviceSecret).put("privateImport",allowPrivateImports),null);
             String id=data.getString("id");RadarClient.verificationPath(id);
             JSONObject next=new JSONObject().put("id",id).put("pollSecret",pollSecret).put("deviceSecret",deviceSecret).put("pairExpires",data.getLong("expires"));
+            if(previous!=null&&previous.optBoolean("connected")&&previous.optLong("expires")>System.currentTimeMillis()/1000)next.put("previous",previous);
             post(ticket,()->{try{storage.save(next);connection=next;proposals.clear();ownApps=new JSONArray();checkedAt=0;appsAt=0;busy=false;message="Vergleichscode: "+id.substring(0,8).toUpperCase(java.util.Locale.ROOT)+" · Im Browser bestätigen, dann zurückkehren.";render();open(RadarClient.verificationPath(id));}catch(Exception e){failure(e);}});
         }catch(Exception e){post(ticket,()->failure(e));}});
+    }
+    private void cancelPairing(String reason){
+        if(busy||closed)return;
+        request++;main.removeCallbacks(poll);
+        JSONObject previous=connection.optJSONObject("previous");
+        try{
+            if(previous!=null&&previous.optBoolean("connected")&&previous.optLong("expires")>System.currentTimeMillis()/1000){
+                storage.save(previous);connection=previous;message=reason+" Deine bisherige Verbindung bleibt aktiv.";
+            }else{storage.clear();connection=new JSONObject();message=reason+" Bitte erneut verbinden.";}
+            result=null;proposals.clear();ownApps=new JSONArray();checkedAt=0;appsAt=0;nextOffset=-1;render();
+        }catch(Exception e){failure(e);}
     }
     private void status(){
         final int ticket=++request;busy=true;render();JSONObject saved=connection;
@@ -107,12 +120,12 @@ final class GitHubRadarController {
                 }).show();
     }
     private void clear(){storage.clear();connection=new JSONObject();result=null;proposals.clear();ownApps=new JSONArray();appsAt=0;nextOffset=-1;checkedAt=0;busy=false;message="Verbindung getrennt.";render();}
-    private void failure(Exception e){busy=false;if(e instanceof RadarClient.Unauthorized){storage.clear();connection=new JSONObject();proposals.clear();ownApps=new JSONArray();}message=e.getMessage()==null?"Radar nicht erreichbar. Bitte erneut versuchen.":e.getMessage();render();}
+    private void failure(Exception e){busy=false;if(e instanceof RadarClient.Unauthorized){if(!connection.optBoolean("connected")&&connection.has("previous")){cancelPairing("Neue Verbindung nicht bestätigt.");return;}storage.clear();connection=new JSONObject();proposals.clear();ownApps=new JSONArray();}message=e.getMessage()==null?"Radar nicht erreichbar. Bitte erneut versuchen.":e.getMessage();render();}
     private void render(){
         panel.removeAllViews();panel.addView(label("GitHub Radar",22));panel.addView(label("APKs aus deinen freigegebenen Repositories. Neue Repos erscheinen nach deiner GitHub-Freigabe.",14));
         if(!message.isEmpty())panel.addView(label(message,13));
         if(!connected()){
-            if(connection.has("id")){panel.addView(button("Bestätigung im Browser öffnen →",()->open(RadarClient.verificationPath(connection.optString("id")))));panel.addView(button("Verbindung prüfen ↻",this::status));}
+            if(connection.has("id")){panel.addView(button("Bestätigung im Browser öffnen →",()->open(RadarClient.verificationPath(connection.optString("id")))));panel.addView(button("Verbindung prüfen ↻",this::status));panel.addView(button("Bestätigung abbrechen",()->cancelPairing("Bestätigung abgebrochen.")));}
             panel.addView(button(connection.has("id")?"Verbindung neu starten":"GitHub verbinden →",this::start));
             panel.addView(label("Einmal im Browser anmelden und dieses Gerät bestätigen. Deine GitHub-Zugangsdaten bleiben dort.",12));
         }else{
@@ -153,9 +166,12 @@ final class GitHubRadarController {
         }
     }
     private void preview(JSONObject suggestion){
-        if(busy||!connected())return;final int ticket=++request;busy=true;message="APK-Vorschau wird frisch geladen …";render();String token=connection.optString("deviceSecret");
-        io.execute(()->{try{JSONObject data=RadarClient.request("/api/companion/import/preview",new JSONObject().put("repo",suggestion.getString("fullName")).put("includeBeta",suggestion.optBoolean("prerelease")),token);
-            post(ticket,()->{busy=false;render();try{ImportPreview preview=ImportPreview.parse(suggestion.getString("fullName"),data);
+        if(busy||!connected())return;
+        final String repository=suggestion.optString("fullName");final boolean includeBeta=suggestion.optBoolean("prerelease");
+        try{RadarClient.importPath(repository);}catch(Exception e){failure(e);return;}
+        final int ticket=++request;busy=true;message="APK-Vorschau wird frisch geladen …";render();String token=connection.optString("deviceSecret");
+        io.execute(()->{try{JSONObject data=RadarClient.request("/api/companion/import/preview",new JSONObject().put("repo",repository).put("includeBeta",includeBeta),token);
+            post(ticket,()->{busy=false;render();try{ImportPreview preview=ImportPreview.parse(repository,data);
                 if(!connection.optBoolean("privateImport")){new AlertDialog.Builder(activity).setTitle("Privaten Import freigeben").setMessage("Deine ältere Verbindung erlaubt nur das Lesen. Bestätige dieses Gerät einmal im Browser für private Imports.").setNegativeButton("Abbrechen",null).setPositiveButton("Neu verbinden",(d,w)->start()).show();return;}
                 new AlertDialog.Builder(activity).setTitle(preview.name.isBlank()?"APK gefunden":preview.name).setMessage(preview.summary()).setNegativeButton("Abbrechen",null).setPositiveButton("Privat hinzufügen",(d,w)->{if(!closed&&ticket==request&&token.equals(connection.optString("deviceSecret")))importApp(preview);}).show();
             }catch(Exception e){failure(e);}});
