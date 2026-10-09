@@ -319,6 +319,7 @@ final class StoreController {
         });
     }
     private void catalogControls(boolean visible) {
+        updateFilterLabel();
         activity.findViewById(R.id.categoryScroll).setVisibility(View.GONE);
         activity.findViewById(R.id.discoverFilter).setVisibility(visible?View.VISIBLE:View.GONE);
         if(!visible)activity.findViewById(R.id.discoverCount).setVisibility(View.GONE);
@@ -671,11 +672,14 @@ final class StoreController {
         View focus=activity.getCurrentFocus();if(focus!=null){
             ((android.view.inputmethod.InputMethodManager)activity.getSystemService(android.content.Context.INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(focus.getWindowToken(),0);focus.clearFocus();}
     }
-    private void renderCategories() {
+    private void updateFilterLabel() {
         Button filter=activity.findViewById(R.id.discoverFilter);
         boolean filtered=!category.isEmpty()||newDiscover||developersOnly||sortByName;
         filter.setText(filtered?"Filter •":"Filter ▾");
         filter.setContentDescription("Filter und Sortierung"+(filtered?", aktiv: "+categoryName(category)+", "+(developersOnly?"Entwickler":newDiscover?"Neue Apps":"Aktuelle Apps")+", "+(sortByName?"Name A bis Z":"Neueste zuerst"):""));
+    }
+    private void renderCategories() {
+        updateFilterLabel();
         LinearLayout chips=activity.findViewById(R.id.categoryChips);chips.removeAllViews();
         for(String value:new String[]{"","communication","productivity","tools","privacy","media","games","education","other"}) {
             Button chip=button(value.isEmpty()?"Alle":categoryName(value),()->{
