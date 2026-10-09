@@ -536,7 +536,23 @@ final class StoreController {
     private void manageFollows(){try{JSONObject saved=follows.read();java.util.List<String> ids=new java.util.ArrayList<>(),labels=new java.util.ArrayList<>();java.util.Iterator<String> it=saved.keys();while(it.hasNext()){String id=it.next();ids.add(id);labels.add(saved.getJSONObject(id).optString("name")+" · nicht mehr folgen");}new AlertDialog.Builder(activity).setTitle("Gefolgte Entwickler").setItems(labels.toArray(new String[0]),(d,w)->new AlertDialog.Builder(activity).setTitle("Nicht mehr folgen?").setNegativeButton("Abbrechen",null).setPositiveButton("Entfernen",(dialog,which)->{try{follows.remove(ids.get(w));homeFeedAt=0;feed();}catch(Exception e){error(e);}}).show()).setPositiveButton("Schließen",null).show();}catch(Exception e){error(e);}}
     private void renderCollections(){
         LinearLayout row=new LinearLayout(activity);row.setOrientation(LinearLayout.HORIZONTAL);
-        for(String title:new String[]{"Frisch aktualisiert","Neu entdeckt","Entwickler"}){Button choice=button(title,()->{newDiscover=title.equals("Neu entdeckt");developersOnly=title.equals("Entwickler");page=1;catalog();});choice.setTextSize(12);choice.setPadding(dp(7),dp(5),dp(7),dp(5));choice.setMinHeight(dp(48));choice.setSelected(developersOnly?title.equals("Entwickler"):newDiscover?title.equals("Neu entdeckt"):title.equals("Frisch aktualisiert"));choice.setBackgroundResource(R.drawable.bg_chip);choice.setTextColor(activity.getColor(choice.isSelected()?R.color.lime_dark:R.color.lime));LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,-2,1);lp.rightMargin=dp(4);row.addView(choice,lp);}row.setPadding(0,dp(4),0,dp(6));results.addView(row);
+        for(String title:new String[]{"Aktuell","Neu","Entwickler"}){
+            Button choice=button(title,()->{
+                newDiscover=title.equals("Neu");developersOnly=title.equals("Entwickler");
+                page=1;catalog();
+            });
+            choice.setContentDescription(title.equals("Aktuell")?"Frisch aktualisierte Apps":
+                    title.equals("Neu")?"Neu entdeckte Apps":"Entwickler entdecken");
+            choice.setTextSize(12);choice.setSingleLine(true);
+            choice.setPadding(dp(7),dp(5),dp(7),dp(5));choice.setMinHeight(dp(48));
+            choice.setSelected(developersOnly?title.equals("Entwickler"):
+                    newDiscover?title.equals("Neu"):title.equals("Aktuell"));
+            choice.setBackgroundResource(R.drawable.bg_chip);
+            choice.setTextColor(activity.getColor(choice.isSelected()?R.color.lime_dark:R.color.lime));
+            LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,-2,1);
+            lp.rightMargin=dp(4);row.addView(choice,lp);
+        }
+        row.setPadding(0,dp(4),0,dp(6));results.addView(row);
     }
     private void renderCatalogDevelopers(java.util.List<JSONObject> apps){
         results.addView(label("Entwickler entdecken",20));java.util.Set<String> seen=new java.util.HashSet<>();for(JSONObject app:apps){JSONObject developer=app.optJSONObject("developer");if(developer==null)continue;String handle=developer.optString("handle");if(!seen.add(handle))continue;results.addView(textAction(developer.optString("name")+" · @"+handle+" →",()->profile(handle)));}if(seen.isEmpty())results.addView(label("Hier gibt es noch keine öffentlichen Entwicklerprofile.",13));
