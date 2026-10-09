@@ -20,5 +20,3 @@ Die UI-Runde aus Alpha 16 ist jetzt gemeinsam in einer neuen installierbaren Pre
 - Live-Backend: öffentlicher Katalog, autorisierte private Imports und Pairing-Grenzen geprüft.
 
 Installations- und Signaturregeln sowie private Importgrenzen bleiben erhalten. Für private Imports muss eine ältere GitHub-Verbindung einmal neu verbunden werden.
-
-**Noch offen:** Installation und visuelle Abnahme auf echten Geräten. Die 320dp-/Großschrift-Ansichten wurden mit Android/Robolectric gerendert; das ersetzt keinen Gerätetest. Alpha 17 (Onboarding und Katalog), Alpha 18 (Zuverlässigkeit) und das 1.0-Freigabegate bleiben eigene Arbeitspakete in #31–#33.
