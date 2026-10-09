@@ -17,6 +17,10 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+      - name: Check public release copy and cleanup script
+        run: |
+          python3 -m py_compile scripts/public-release-notes.py
+          python3 scripts/public-release-notes.py
       - name: Update only previously published release descriptions
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
