@@ -1,0 +1,106 @@
+name: Publish original-signed Alpha 15 preview
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/publish-alpha15.yml'
+      - 'release/alpha15-signed.patch.zst.b64'
+      - 'release/reconstruct-alpha15.py'
+      - 'release/alpha15-notes.md'
+      - 'release/verify-alpha15-backend.py'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-alpha15.yml'
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify candidate CI provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(gh api repos/${{ github.repository }}/actions/runs/37933347390 --jq .head_sha)" = 'f99ae42b9cf5855cc4d57cdd08faa6c4a99f9942'
+          test "$(gh api repos/${{ github.repository }}/actions/runs/37933347390 --jq .conclusion)" = 'success'
+      - name: Download exact tested unsigned Alpha 15 candidate
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 37933347390
+          name: apkdrop-companion-unsigned-preview
+          path: unsigned
+          github-token: ${{ github.token }}
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: ''
+      - name: Install official Android build tools
+        run: sdkmanager 'build-tools;35.0.0'
+      - name: Reconstruct and verify exact original-signed Alpha 15
+        run: |
+          set -euo pipefail
+          command -v zstd
+          mkdir -p dist
+          test -f unsigned/app-preview-unsigned.apk
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -p -f 4 unsigned/app-preview-unsigned.apk /tmp/alpha15-aligned.apk
+          echo '8e25d3c5815781e1bad5e44d95ae35cd364de26ed5ebb10f506077f611203596  /tmp/alpha15-aligned.apk' | sha256sum -c -
+          python3 release/reconstruct-alpha15.py /tmp/alpha15-aligned.apk release/alpha15-signed.patch.zst.b64 dist/APKDrop-Companion-v0.1.0-alpha.15-preview.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs dist/APKDrop-Companion-v0.1.0-alpha.15-preview.apk > /tmp/alpha15-signature.txt
+          grep -q '^Verified using v2 scheme (APK Signature Scheme v2): true' /tmp/alpha15-signature.txt
+          grep -q '^Verified using v3 scheme (APK Signature Scheme v3): true' /tmp/alpha15-signature.txt
+          grep -q '^Number of signers: 1' /tmp/alpha15-signature.txt
+          grep -q '^Signer #1 certificate SHA-256 digest: 6cf70241a63498e5e9fce78bac9abec760364cf320928347114bf109abd81e2e' /tmp/alpha15-signature.txt
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging dist/APKDrop-Companion-v0.1.0-alpha.15-preview.apk > /tmp/alpha15-manifest.txt
+          grep -q "package: name='de.rawinstinctai.apkdrop.debug' versionCode='18' versionName='0.1.0-alpha.15-preview'" /tmp/alpha15-manifest.txt
+          grep -q "^sdkVersion:'26'" /tmp/alpha15-manifest.txt
+          grep -q "^targetSdkVersion:'36'" /tmp/alpha15-manifest.txt
+          grep -q "^uses-permission: name='android.permission.ACCESS_NETWORK_STATE'" /tmp/alpha15-manifest.txt
+          ! grep -q '^application-debuggable' /tmp/alpha15-manifest.txt
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c 4 dist/APKDrop-Companion-v0.1.0-alpha.15-preview.apk
+          echo 'a0bb5148b0fb79bddcbf4592f5d5e27caf19d619a4f011a8968446433eb54286  dist/APKDrop-Companion-v0.1.0-alpha.15-preview.apk' | sha256sum -c -
+          test "$(wc -c < dist/APKDrop-Companion-v0.1.0-alpha.15-preview.apk)" -eq 325071
+          python3 scripts/release-preflight.py dist/APKDrop-Companion-v0.1.0-alpha.15-preview.apk --profile alpha15-preview --sdk "$ANDROID_HOME"
+          echo 'ORIGINAL-SIGNED ALPHA15 VERIFIED'
+      - name: Verify deployed Alpha 15 backend boundaries
+        run: python3 release/verify-alpha15-backend.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: original-signed-alpha15-reviewed
+          path: dist/APKDrop-Companion-v0.1.0-alpha.15-preview.apk
+          retention-days: 7
+
+  publish:
+    needs: verify
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+      actions: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: original-signed-alpha15-reviewed
+          path: dist
+      - name: Publish prerelease and independently verify GitHub download
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG='v0.1.0-alpha.15'
+          APK=$(find dist -type f -name 'APKDrop-Companion-v0.1.0-alpha.15-preview.apk' -print -quit)
+          test -n "$APK" && test -f "$APK"
+          ! gh release view "$TAG" >/dev/null 2>&1
+          echo "a0bb5148b0fb79bddcbf4592f5d5e27caf19d619a4f011a8968446433eb54286  $APK" | sha256sum -c -
+          gh release create "$TAG" "$APK" --target df50a0876b1577d7f9852cd4eaba967b66dddab3 --title 'APKDrop Companion Alpha 15 Preview — App Assistant & Native GitHub Imports' --notes-file release/alpha15-notes.md --prerelease
+          mkdir -p /tmp/alpha15-download-proof
+          gh release download "$TAG" --pattern 'APKDrop-Companion-v0.1.0-alpha.15-preview.apk' --dir /tmp/alpha15-download-proof
+          echo 'a0bb5148b0fb79bddcbf4592f5d5e27caf19d619a4f011a8968446433eb54286  /tmp/alpha15-download-proof/APKDrop-Companion-v0.1.0-alpha.15-preview.apk' | sha256sum -c -
+          echo 'PUBLIC SIGNED ALPHA15 GITHUB RELEASE VERIFIED'
