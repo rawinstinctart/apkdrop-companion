@@ -1,6 +1,8 @@
 """The public GitHub publisher must accept only non-debuggable Alpha previews."""
 from pathlib import Path
 import subprocess
+import re
+import os
 import unittest
 
 PUBLISHER = Path(__file__).parents[1] / "publish-github-prerelease.sh"
@@ -28,6 +30,15 @@ class PublisherProfileTest(unittest.TestCase):
         debug=self.run_publisher("alpha15-debug")
         self.assertEqual(debug.returncode,2)
         self.assertIn("Unknown release profile",debug.stderr)
+
+    def test_all_supported_previews_run_preview_checks(self):
+        source=PUBLISHER.read_text()
+        selector=re.search(r"BUILD_VARIANT=Debug.*?\nfi", source, re.S).group(0)
+        for profile in ("alpha6.1-preview", "alpha13-preview", "alpha14-preview", "alpha15-preview",
+                        "alpha15.1-preview", "alpha15.2-preview", "alpha16-preview", "alpha16.1-preview"):
+            result=subprocess.run(["bash", "-c", selector+'\nprintf "%s %s" "$BUILD_VARIANT" "$LINT_VARIANT"'],
+                env={**os.environ, "PROFILE":profile},capture_output=True,text=True,check=True)
+            self.assertEqual(result.stdout,"Preview preview",profile)
 
     def test_debug_profile_is_rejected_and_preview_profile_is_supported(self):
         debug = self.run_publisher("alpha7-debug")
