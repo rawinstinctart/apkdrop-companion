@@ -2,6 +2,18 @@
 
 Native Android companion for verified APKDrop installs and updates.
 
+## Alpha 16.1 — Professional Experience
+
+An original-signed, non-debuggable Android preview with a clear first-use Home, consistent saved-app cards, actionable empty/search/update states, uncluttered Discover collections and accessible navigation that accommodates large system text. Long app names and launch actions have separate space. Installation and verification remain explicit.
+
+- Preview package: `de.rawinstinctai.apkdrop.debug` (preserved for existing alpha upgrades).
+- Version: `0.1.0-alpha.16.1-preview`, versionCode **22**, Android 8.0+.
+- Original alpha certificate: `6cf70241a63498e5e9fce78bac9abec760364cf320928347114bf109abd81e2e`.
+- Android CI checks debug and preview tests, lint and builds. The release workflow independently verifies the exact signed artifact and its public download; signing keys never enter GitHub.
+- Physical-device visual and upgrade acceptance remains open. Roadmap: #30 (experience), #31 (onboarding/discovery), #32 (reliability), #33 (1.0 release gate). This preview does not claim production readiness.
+
+See [experience changes and acceptance](docs/alpha16-1-experience.md). Historical release notes below describe their respective versions.
+
 ## Alpha 7: useful everyday shortcuts (source candidate)
 
 Home now opens the three most relevant saved apps directly, starts the existing guided update overview when updates are known, cancels metadata checks, and offers link import and developer shortcuts. Discover keeps search/category/page/feed choice across rotation, adds reset, manual refresh and name sorting within the current page. Four bounded catalog responses remain readable for up to seven days offline with timestamp and explicit fresh-check requirement. Public display metadata never authorizes an APK download; withdrawn (404/410), malformed or security-invalid live responses clear the cached display.

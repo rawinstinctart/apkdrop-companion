@@ -11,3 +11,5 @@ Continues #30 after PRs #34–#36. Ships all three earlier UI phases and this fi
 Validation uses Robolectric fixtures (including large-font native renders), release-gate unit tests, Android lint, unsigned preview build, original certificate verification and byte-for-byte signed-artifact reconstruction. Fixture screenshots are not physical device evidence.
 
 Physical acceptance remains open: upgrade Alpha 16 in place, check first-use/saved/current/update/blocked states, long app names, larger system text, Android installer return/cancel and offline/cold-start. Alpha 17 onboarding/discovery and Alpha 18 reliability are separate roadmap stages. This is not a 1.0 production-readiness claim.
+
+Validated source: `d303e5959631a312cc3189190f7cc786f1d01820`, passing Android CI `37957655229`; 164 tests per variant, 38 release tests, lint 0 errors / 107 warnings. Navigation images were checked again after disabling baseline alignment. Original-signed artifact and its exact-byte reconstruction passed locally. The hosted publisher adds independent verification and public-download hash confirmation.
