@@ -18,7 +18,7 @@ public class DiscoverControlsTest {
     @After public void close(){if(controller!=null)controller.destroy();RuntimeEnvironment.setFontScale(1f);}
     private StoreController store(MainActivity a)throws Exception {var f=MainActivity.class.getDeclaredField("store");f.setAccessible(true);return (StoreController)f.get(a);}
     private Spinner choice(View view,String name){if(view instanceof Spinner s&&name.contentEquals(s.getContentDescription()))return s;if(view instanceof ViewGroup g)for(int i=0;i<g.getChildCount();i++){Spinner found=choice(g.getChildAt(i),name);if(found!=null)return found;}return null;}
-    @Test public void cancelPreservesFiltersAndApplyRestoresAfterRotation()throws Exception {
+    @Test(timeout=20000) public void cancelPreservesFiltersAndApplyRestoresAfterRotation()throws Exception {
         controller=Robolectric.buildActivity(MainActivity.class).create();MainActivity a=controller.get();StoreController s=store(a);
         a.findViewById(R.id.discoverFilter).performClick();AlertDialog dialog=ShadowAlertDialog.getLatestAlertDialog();
         choice(dialog.getWindow().getDecorView(),"Kategorie").setSelection(4);
@@ -38,7 +38,7 @@ public class DiscoverControlsTest {
         dialog.getButton(AlertDialog.BUTTON_NEUTRAL).performClick();Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();Bundle reset=new Bundle();store(a).saveState(reset);
         assertEquals("",reset.getString("discoverCategory"));assertFalse(reset.getBoolean("newDiscover"));assertFalse(reset.getBoolean("discoverSortByName"));
     }
-    @Test @GraphicsMode(GraphicsMode.Mode.NATIVE) @Config(sdk=35,qualifiers="w320dp-h640dp-xhdpi")
+    @Test(timeout=30000) @GraphicsMode(GraphicsMode.Mode.NATIVE) @Config(sdk=35,qualifiers="w320dp-h640dp-xhdpi")
     public void compactDiscoverAndLargeFontFilterPreview()throws Exception {
         RuntimeEnvironment.setFontScale(1.5f);controller=Robolectric.buildActivity(MainActivity.class).create();MainActivity a=controller.get();
         a.findViewById(R.id.navDiscover).performClick();
