@@ -743,16 +743,14 @@ public final class MainActivity extends Activity {
         findViewById(R.id.queueCancel).setEnabled(!detailBusy);
     }
     private void updateNotes() {
-        boolean present=currentRelease!=null&&!currentRelease.notes.trim().isEmpty();
+        // Show the same developer-facing summary as the public APKDrop website.
+        // Raw GitHub notes may contain internal QA details and are never displayed.
+        String summary=currentRelease==null?"":currentRelease.notesSummary.trim();
+        boolean present=!summary.isEmpty();
         findViewById(R.id.notesPanel).setVisibility(present?View.VISIBLE:View.GONE);
         notes.setVisibility(present?View.VISIBLE:View.GONE);
-        if(!present)return;
-        android.text.SpannableStringBuilder full=ReleaseNotes.render(currentRelease.notes);
-        CharSequence preview=currentRelease.notesSummary.isBlank()?ReleaseNotes.preview(full):currentRelease.notesSummary;
-        notes.setText(notesExpanded?full:preview);
-        Button more=findViewById(R.id.notesButton);
-        more.setVisibility(!preview.toString().equals(full.toString())?View.VISIBLE:View.GONE);
-        more.setText(notesExpanded?R.string.alpha12_notes_less:R.string.alpha12_notes_more);
+        findViewById(R.id.notesButton).setVisibility(View.GONE);
+        if(present) notes.setText(summary);
     }
     private void updateDropPilotStatus() {
         ((TextView)findViewById(R.id.dropPilotStatus)).setText(DropPilot.dashboard(this));
