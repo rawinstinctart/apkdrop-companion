@@ -382,6 +382,7 @@ public final class MainActivity extends Activity {
         if(fetched)verificationIssue="";
         currentRelease=release; currentInstalled=installed; currentDecision=decision; verifiedApk=null;
         findViewById(R.id.radarButton).setEnabled(true);
+        ((TextView)findViewById(R.id.dropTrustStatus)).setText(DropTrust.describe(release,installed,library.previous(release),keepVerified));
         title.setText(release.appName);findViewById(R.id.historyButton).setVisibility(View.VISIBLE);findViewById(R.id.trustButton).setEnabled(true);findViewById(R.id.receiptButton).setEnabled(true);
         TextView history=findViewById(R.id.historyText);history.setText(ReleaseNotes.render(library.observedHistory(release)));
         if(fetched){history.setVisibility(View.GONE);((Button)findViewById(R.id.historyButton)).setText("Beobachtete Versionen ansehen +");}
@@ -616,6 +617,7 @@ public final class MainActivity extends Activity {
     }
 
     private void updateTrust(boolean verified) {
+        ((TextView)findViewById(R.id.dropTrustStatus)).setText(DropTrust.describe(currentRelease,currentInstalled,currentRelease==null?null:library.previous(currentRelease),verified));
         ((TextView)findViewById(R.id.trustSummary)).setText(TrustSummary.describe(currentRelease,currentDecision,verified)+(verificationIssue.isEmpty()?"":"\n\n"+verificationIssue));
         if(currentRelease!=null) proof.setText((verified?"Nachweise der lokal verifizierten APK":"Nachweise im Release-Vertrag (vor Download noch nicht lokal verifiziert)")
                 +"\n\nPaket: "+currentRelease.packageName+"\nSHA-256  "+currentRelease.sha256+"\nSIGNER   "+String.join("\n",currentRelease.signers)

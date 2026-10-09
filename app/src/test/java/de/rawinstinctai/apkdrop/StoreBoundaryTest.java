@@ -4,6 +4,20 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 
 public final class StoreBoundaryTest {
+    @Test public void discoverCollectionsAndInstalledMatchingPassTheNetworkBoundary() {
+        for(String path:new String[]{"/api/discover","/api/discover?page=1","/api/discover?page=50",
+                "/api/discover?q=&category=&page=1&sort=new",
+                "/api/discover?q=some%20app%26tool&category=tools&page=2&sort=updated",
+                "/api/discover?q=&category=&page=1"}) {
+            assertEquals(path,StoreClient.apiUri(path).getRawPath()+
+                    (StoreClient.apiUri(path).getRawQuery()==null?"":"?"+StoreClient.apiUri(path).getRawQuery()));
+        }
+        for(String path:new String[]{"/api/discover?page=1&private=true",
+                "/api/discover?q=&category=&page=1&sort=unknown",
+                "/api/discover?q=&category=&page=1#private", "/api/companion/apps",
+                "https://evil.test/api/discover", "/api/discover?q=&extra=1&category=&page=1&sort=new"})
+            assertThrows(path,SecurityException.class,()->StoreClient.apiUri(path));
+    }
     @Test public void imagesCannotEscapeApkdropOrFetchArbitraryResources() {
         assertEquals("apkdrop.rawinstinctai.de",StoreClient.imageUri("/sample-app/icon?release=r1").getHost());
         assertEquals("/api/sample-app/screenshot/0",StoreClient.imageUri("/api/sample-app/screenshot/0").getPath());
