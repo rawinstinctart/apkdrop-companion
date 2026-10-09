@@ -277,8 +277,23 @@ final class StoreController {
         if(query.isEmpty()&&category.isEmpty()){renderCollections();}
         java.util.List<JSONObject> entries=new java.util.ArrayList<>();for(int i=0;i<apps.length();i++)entries.add(apps.optJSONObject(i));
         if(sortByName)entries.sort(java.util.Comparator.comparing(app->app.optString("name",app.optString("slug")),String.CASE_INSENSITIVE_ORDER));
-        if(developersOnly){renderCatalogDevelopers(entries);}else{results.addView(label(newDiscover?"Neu entdeckt":"Frisch aktualisiert",20));results.addView(label(sortByName?"Alphabetisch nach App-Namen sortiert"+(pages>1?" (diese Seite)":""):newDiscover?"Nach öffentlichem App-Launch sortiert":"Nach dem Datum des neuesten Releases sortiert",12));for(JSONObject app:entries)appCard(app,results);}
-        if(apps.length()==0) results.addView(label("Hier ist noch kein Treffer. Versuche einen anderen Begriff oder setze Suche & Filter zurück.",16));
+        if(developersOnly){renderCatalogDevelopers(entries);}else{
+            // Selection chips already communicate the current collection; the content title should not echo a chip.
+            results.addView(label(!query.isEmpty()?"Suchergebnisse":"Apps für dich",20));
+            results.addView(label(sortByName?"Alphabetisch nach Namen"+(pages>1?" · aktuelle Seite":"")
+                    :newDiscover?"Neu veröffentlichte Apps":"Aktuelle Releases zuerst",12));
+            for(JSONObject app:entries)appCard(app,results);
+        }
+        if(apps.length()==0) {
+            results.addView(label(query.isEmpty()&&category.isEmpty()
+                    ?"Noch keine öffentlichen Apps in dieser Auswahl. Entdecke stattdessen Entwickler oder schau später wieder vorbei."
+                    :"Keine passende App gefunden. Probiere einen anderen Suchbegriff oder die Kategorie Alle.",14));
+            if(!query.isEmpty()||!category.isEmpty())results.addView(button("Suche und Filter löschen",()->{
+                query="";category="";page=1;sortByName=false;
+                ((EditText)activity.findViewById(R.id.discoverInput)).setText("");
+                renderCategories();catalog();
+            }));
+        }
         int current=data.optInt("page",1);
         if(current>1)results.addView(button("← Vorherige Seite",()->{page=current-1;catalog();scroll.scrollTo(0,0);}));
         if(current<pages)results.addView(button("Weitere Apps →",()->{page=current+1;catalog();scroll.scrollTo(0,0);}));
@@ -287,21 +302,44 @@ final class StoreController {
         if(app==null)return;
         try {
             String slug=StoreClient.slug(app.getString("slug")),name=bounded(app.optString("name",slug),160);
-            LinearLayout card=card();card.setTag(slug);LinearLayout heading=new LinearLayout(activity);heading.setGravity(Gravity.CENTER_VERTICAL);
-            ImageView icon=icon(52);icon.setImageDrawable(new AppPlaceholder(name));heading.addView(icon);TextView title=label(name,20);title.setPadding(dp(12),0,0,0);heading.addView(title,new LinearLayout.LayoutParams(0,-2,1));card.addView(heading);
+            LinearLayout card=card();card.setTag(slug);
+            LinearLayout heading=new LinearLayout(activity);heading.setGravity(Gravity.CENTER_VERTICAL);
+            ImageView icon=icon(56);icon.setImageDrawable(new AppPlaceholder(name));heading.addView(icon);
+            TextView title=label(name,18);title.setTextColor(activity.getColor(R.color.text));
+            title.setPadding(dp(12),0,0,0);title.setMaxLines(2);title.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            heading.addView(title,new LinearLayout.LayoutParams(0,-2,1));card.addView(heading);
             loadImage(app.optString("iconUrl",""),icon);
             AppLibrary.Entry saved=library.find(slug);if(saved!=null)icon.setImageDrawable(library.appIcon(saved));
             boolean unseen=readState.unseen(app);ReleaseRadar.State state=radarState(app);
-            TextView signal=label(ReleaseRadar.label(state,unseen),12);signal.setTextColor(activity.getColor(state==ReleaseRadar.State.DIFFERENT_SIGNER?R.color.danger:R.color.lime));card.addView(signal);
-            String description=bounded(app.optString("description"),400);if(!description.isEmpty()){TextView summary=label(description,13);summary.setMaxLines(3);summary.setEllipsize(android.text.TextUtils.TruncateAt.END);card.addView(summary);}
+            TextView signal=label(ReleaseRadar.label(state,unseen),12);
+            signal.setTextColor(activity.getColor(state==ReleaseRadar.State.DIFFERENT_SIGNER?R.color.danger:R.color.lime));
+            signal.setPadding(0,dp(8),0,0);card.addView(signal);
+            String description=bounded(app.optString("description"),400);
+            if(!description.isEmpty()){
+                TextView summary=label(description,13);summary.setMaxLines(2);
+                summary.setEllipsize(android.text.TextUtils.TruncateAt.END);
+                summary.setLineSpacing(dp(2),1.0f);card.addView(summary);
+            }
             JSONObject latest=app.optJSONObject("latest");String version=latest!=null?latest.optString("version"):app.optString("version");
-            if(!version.isEmpty())card.addView(label(DisplayText.version(bounded(version,120))+" · "+app.optString("channel","App-Standard"),12));
-            card.addView(label(categoryName(app.optString("category"))+" · "+DisplayText.date(app.optString("publishedAt")),11));
-            TextView trust=label(DropTrust.catalog(app,state),11);trust.setTextColor(activity.getColor(state==ReleaseRadar.State.DIFFERENT_SIGNER?R.color.danger:R.color.muted));card.addView(trust);
+            String metadata=(version.isEmpty()?"":DisplayText.version(bounded(version,120))+" · ")
+                    +categoryName(app.optString("category"))+" · "+DisplayText.date(app.optString("publishedAt"));
+            TextView facts=label(metadata,12);facts.setMaxLines(2);card.addView(facts);
+            TextView trust=label(DropTrust.catalog(app,state),11);
+            trust.setTextColor(activity.getColor(state==ReleaseRadar.State.DIFFERENT_SIGNER?R.color.danger:R.color.muted));
+            trust.setMaxLines(2);card.addView(trust);
             JSONObject developer=app.optJSONObject("developer");
-            if(developer!=null){String handle=StoreClient.handle(developer.getString("handle"));card.addView(textAction("@"+handle+" · DropID ↗",()->profile(handle)));}
-            card.addView(button(state==ReleaseRadar.State.INSTALLED?"App ansehen →":state==ReleaseRadar.State.UPDATE?"Update ansehen & prüfen →":"App ansehen & prüfen →",()->{try{readState.mark(new JSONArray().put(app));}catch(Exception e){error(e);}select.accept(slug);}));parent.addView(card);
-        } catch(Exception ignored) {parent.addView(label("Ein App-Eintrag konnte nicht angezeigt werden.",13));}
+            if(developer!=null){
+                String handle=StoreClient.handle(developer.getString("handle"));
+                card.addView(textAction("@"+handle+" · DropID ↗",()->profile(handle)));
+            }
+            String action=state==ReleaseRadar.State.INSTALLED?"App ansehen →":
+                    state==ReleaseRadar.State.UPDATE?"Update ansehen →":"Details & Download →";
+            card.addView(button(action,()->{
+                try{readState.mark(new JSONArray().put(app));}catch(Exception e){error(e);}
+                select.accept(slug);
+            }));
+            parent.addView(card);
+        }catch(Exception ignored){parent.addView(label("Ein App-Eintrag konnte nicht angezeigt werden.",13));}
     }
     void profile(String handle) {
         try {StoreClient.handle(handle);}catch(Exception e){error(e);return;}
@@ -493,7 +531,7 @@ final class StoreController {
     private void manageFollows(){try{JSONObject saved=follows.read();java.util.List<String> ids=new java.util.ArrayList<>(),labels=new java.util.ArrayList<>();java.util.Iterator<String> it=saved.keys();while(it.hasNext()){String id=it.next();ids.add(id);labels.add(saved.getJSONObject(id).optString("name")+" · nicht mehr folgen");}new AlertDialog.Builder(activity).setTitle("Gefolgte Entwickler").setItems(labels.toArray(new String[0]),(d,w)->new AlertDialog.Builder(activity).setTitle("Nicht mehr folgen?").setNegativeButton("Abbrechen",null).setPositiveButton("Entfernen",(dialog,which)->{try{follows.remove(ids.get(w));homeFeedAt=0;feed();}catch(Exception e){error(e);}}).show()).setPositiveButton("Schließen",null).show();}catch(Exception e){error(e);}}
     private void renderCollections(){
         LinearLayout row=new LinearLayout(activity);row.setOrientation(LinearLayout.HORIZONTAL);
-        for(String title:new String[]{"Frisch aktualisiert","Neu entdeckt","Entwickler"}){Button choice=button(title,()->{newDiscover=title.equals("Neu entdeckt");developersOnly=title.equals("Entwickler");page=1;catalog();});choice.setTextSize(11);choice.setPadding(dp(4),0,dp(4),0);choice.setSelected(developersOnly?title.equals("Entwickler"):newDiscover?title.equals("Neu entdeckt"):title.equals("Frisch aktualisiert"));choice.setBackgroundResource(R.drawable.bg_chip);choice.setTextColor(activity.getColor(choice.isSelected()?R.color.lime_dark:R.color.lime));LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,-2,1);lp.rightMargin=dp(4);row.addView(choice,lp);}results.addView(row);
+        for(String title:new String[]{"Frisch aktualisiert","Neu entdeckt","Entwickler"}){Button choice=button(title,()->{newDiscover=title.equals("Neu entdeckt");developersOnly=title.equals("Entwickler");page=1;catalog();});choice.setTextSize(12);choice.setPadding(dp(7),dp(5),dp(7),dp(5));choice.setMinHeight(dp(48));choice.setSelected(developersOnly?title.equals("Entwickler"):newDiscover?title.equals("Neu entdeckt"):title.equals("Frisch aktualisiert"));choice.setBackgroundResource(R.drawable.bg_chip);choice.setTextColor(activity.getColor(choice.isSelected()?R.color.lime_dark:R.color.lime));LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,-2,1);lp.rightMargin=dp(4);row.addView(choice,lp);}row.setPadding(0,dp(4),0,dp(6));results.addView(row);
     }
     private void renderCatalogDevelopers(java.util.List<JSONObject> apps){
         results.addView(label("Entwickler entdecken",20));java.util.Set<String> seen=new java.util.HashSet<>();for(JSONObject app:apps){JSONObject developer=app.optJSONObject("developer");if(developer==null)continue;String handle=developer.optString("handle");if(!seen.add(handle))continue;results.addView(textAction(developer.optString("name")+" · @"+handle+" →",()->profile(handle)));}if(seen.isEmpty())results.addView(label("Hier gibt es noch keine öffentlichen Entwicklerprofile.",13));
@@ -518,7 +556,7 @@ final class StoreController {
         Button b=button(value,action);b.setBackgroundResource(android.R.color.transparent);b.setGravity(Gravity.START|Gravity.CENTER_VERTICAL);b.setPadding(0,0,0,0);return b;
     }
     private LinearLayout homeCard(AppLibrary.Entry entry) {
-        LinearLayout c=card();c.setOrientation(LinearLayout.HORIZONTAL);c.setGravity(Gravity.CENTER_VERTICAL);c.setPadding(dp(14),dp(14),dp(14),dp(14));
+        LinearLayout c=card();c.setOrientation(LinearLayout.HORIZONTAL);c.setGravity(Gravity.CENTER_VERTICAL);c.setPadding(dp(16),dp(14),dp(16),dp(14));
         ImageView icon=icon(42);icon.setImageDrawable(library.appIcon(entry));c.addView(icon);
         LinearLayout lines=new LinearLayout(activity);lines.setOrientation(LinearLayout.VERTICAL);lines.setPadding(dp(12),0,0,0);
         TextView name=label(library.displayName(entry),16);name.setTypeface(null,android.graphics.Typeface.BOLD);name.setTextColor(activity.getColor(R.color.text));name.setPadding(0,0,0,dp(4));lines.addView(name);
