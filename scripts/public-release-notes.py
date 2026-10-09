@@ -59,7 +59,7 @@ BLOCKED = (
     (re.compile(r"(?i)\b(?:geräteabnahme|gerätetest|android.gerätetest)\b"), "interne Geräteabnahme"),
     (re.compile(r"(?i)\bphysical device acceptance\b"), "interne Geräteabnahme"),
     (re.compile(r"(?i)\bfixture.tests ersetzen\b"), "interne Testnotiz"),
-    (re.compile(r"(?i)\b(?:1\.0.gate|freigabegate|arbeitspakete)\b"), "interne Planung"),
+    (re.compile(r"(?i)\b(?:1\.0.gate|freigabegate|arbeitspaket(?:e)?)\b"), "interne Planung"),
     (re.compile(r"(?i)\breal(?:em|en)\s+github.konto\b"), "interne Kontenabnahme"),
 )
 
