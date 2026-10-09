@@ -167,7 +167,7 @@ final class StoreController {
         activity.findViewById(R.id.discoverPanel).setVisibility(!detail&&tab==1?View.VISIBLE:View.GONE);
         activity.findViewById(R.id.discoverControls).setVisibility(!githubRadar&&!following?View.VISIBLE:View.GONE);
         activity.findViewById(R.id.discoverList).setVisibility(!githubRadar?View.VISIBLE:View.GONE);
-        activity.findViewById(R.id.discoverStatus).setVisibility(!githubRadar?View.VISIBLE:View.GONE);
+        activity.findViewById(R.id.discoverStatus).setVisibility(!githubRadar&&resultStatus.length()>0?View.VISIBLE:View.GONE);
         activity.findViewById(R.id.githubRadarPanel).setVisibility(githubRadar?View.VISIBLE:View.GONE);
         activity.findViewById(R.id.radarApps).setSelected(!githubRadar&&!following);
         activity.findViewById(R.id.radarReleases).setSelected(!githubRadar&&following);
