@@ -279,7 +279,7 @@ final class StoreController {
         if(sortByName)entries.sort(java.util.Comparator.comparing(app->app.optString("name",app.optString("slug")),String.CASE_INSENSITIVE_ORDER));
         if(developersOnly){renderCatalogDevelopers(entries);}else{results.addView(label(newDiscover?"Neu entdeckt":"Frisch aktualisiert",20));results.addView(label(sortByName?"Alphabetisch nach App-Namen sortiert"+(pages>1?" (diese Seite)":""):newDiscover?"Nach öffentlichem App-Launch sortiert":"Nach dem Datum des neuesten Releases sortiert",12));for(JSONObject app:entries)appCard(app,results);}
         if(apps.length()==0) results.addView(label("Hier ist noch kein Treffer. Versuche einen anderen Begriff oder setze Suche & Filter zurück.",16));
-        int current=data.optInt("page",1),pages=data.optInt("pages",1);
+        int current=data.optInt("page",1);
         if(current>1)results.addView(button("← Vorherige Seite",()->{page=current-1;catalog();scroll.scrollTo(0,0);}));
         if(current<pages)results.addView(button("Weitere Apps →",()->{page=current+1;catalog();scroll.scrollTo(0,0);}));
     }
