@@ -10,8 +10,10 @@ import java.util.LinkedHashSet;
 final class CloudWatchlist {
     private final SharedPreferences prefs;
     private static final int MAX=50;
-    CloudWatchlist(Context context){
-        prefs=context.getSharedPreferences("apkdrop-cloud-bookmarks-v1",Context.MODE_PRIVATE);
+    CloudWatchlist(Context context,String githubLogin){
+        if(githubLogin==null||!githubLogin.matches("[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?"))
+            throw new SecurityException("Cloud-Merkliste benötigt eine gültige GitHub-Verbindung.");
+        prefs=context.getSharedPreferences("apkdrop-cloud-bookmarks-v1-"+githubLogin.toLowerCase(java.util.Locale.ROOT),Context.MODE_PRIVATE);
     }
     static JSONArray merge(JSONArray... lists) throws Exception {
         LinkedHashSet<String> slugs=new LinkedHashSet<>();
