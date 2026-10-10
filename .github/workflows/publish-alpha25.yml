@@ -77,7 +77,7 @@ jobs:
           "$SDK/zipalign" -c 4 "dist/$NAME"
           python3 scripts/release-preflight.py "dist/$NAME" --profile alpha25-preview --sdk "$ANDROID_HOME"
           python3 scripts/public-release-notes.py release/alpha25-notes.md
-          echo 'ALPHA 23 ORIGINAL-SIGNED APK VERIFIED'
+          echo 'ALPHA 25 ORIGINAL-SIGNED APK VERIFIED'
       - name: Confirm live APKDrop backend
         run: python3 release/verify-alpha15-backend.py
       - uses: actions/upload-artifact@v4
@@ -116,4 +116,4 @@ jobs:
           mkdir -p /tmp/apkdrop-alpha25-public-download
           gh release download "$TAG" --pattern 'APKDrop-Companion-v0.1.0-alpha.25-preview.apk' --dir /tmp/apkdrop-alpha25-public-download
           echo '3b4ecda68badb04a4538740ba1aa4f5960086048611b4a8f39f8617e2e8a8809  /tmp/apkdrop-alpha25-public-download/APKDrop-Companion-v0.1.0-alpha.25-preview.apk' | sha256sum -c -
-          echo 'ALPHA 23 PUBLIC SIGNED APK VERIFIED'
+          echo 'ALPHA 25 PUBLIC SIGNED APK VERIFIED'
