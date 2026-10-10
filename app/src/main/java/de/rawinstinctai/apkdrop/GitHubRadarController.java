@@ -121,7 +121,7 @@ final class GitHubRadarController {
     private void chooseFollowSync(){
         if(busy||!connected())return;
         new AlertDialog.Builder(activity).setTitle("DropID · Follows synchronisieren")
-                .setMessage("Freiwillig: Deine gefolgten Entwickler über dein verbundenes GitHub-Konto abgleichen. Es werden keine GitHub-Zugangsdaten oder installierten Apps übertragen. Cloud-Follows können im Web gelöscht werden.")
+                .setMessage("Freiwillig: Entwickler-Follows und App-Merkliste zwischen Geräten abgleichen. App-Links sind nur Lesezeichen, niemals Installationsfreigaben. Es werden keine GitHub-Zugangsdaten, APKs, Paketnamen oder Signierschlüssel übertragen. Cloud-Daten kannst du auf der Webseite löschen.")
                 .setPositiveButton("Cloud übernehmen",(d,w)->syncFollows(false))
                 .setNeutralButton("Dieses Gerät sichern",(d,w)->syncFollows(true))
                 .setNegativeButton("Abbrechen",null).show();
@@ -133,15 +133,24 @@ final class GitHubRadarController {
         io.execute(()->{try{
             JSONObject cloud=RadarClient.request("/api/sync",null,token);
             if(upload){
-                JSONArray appFollows=cloud.optJSONArray("slugs");if(appFollows==null)appFollows=new JSONArray();
+                JSONArray appFollows=cloud.optJSONArray("slugs");
+                JSONArray localBookmarks=new CloudWatchlist(activity).read();
+                JSONArray savedApps=new JSONArray();
+                for(AppLibrary.Entry entry:new AppLibraryStore(activity).read().entries())
+                    savedApps.put(StoreClient.slug(entry.slug));
+                // Keep remote and local bookmarks; only slugs are uploaded after the user's tap.
+                JSONArray merged=CloudWatchlist.merge(appFollows,localBookmarks,savedApps);
                 JSONArray developers=new DeveloperFollows(activity).ids();
                 JSONObject data=new JSONObject().put("confirm",true)
                         .put("expectedRevision",cloud.optInt("revision",0))
-                        .put("slugs",appFollows).put("developerIds",developers);
+                        .put("slugs",merged).put("developerIds",developers);
                 RadarClient.request("/api/sync",data,token);
-                post(ticket,()->{busy=false;message="Entwickler-Follows in der Cloud gesichert ✓";render();});
+                post(ticket,()->{busy=false;message="Follows und App-Merkliste in der Cloud gesichert ✓";render();});
             }else{
                 if(!cloud.optBoolean("enabled"))throw new IllegalStateException("Noch keine Cloud-Kopie vorhanden. Wähle zuerst „Dieses Gerät sichern“.");
+                JSONArray cloudSlugs=cloud.getJSONArray("slugs");
+                CloudWatchlist watchlist=new CloudWatchlist(activity);
+                watchlist.replace(CloudWatchlist.merge(watchlist.read(),cloudSlugs));
                 JSONArray ids=cloud.getJSONArray("developerIds");
                 if(ids.length()>20)throw new SecurityException("Zu viele Cloud-Follows.");
                 JSONObject publicData=StoreClient.following(ids);
@@ -158,7 +167,7 @@ final class GitHubRadarController {
                 }
                 follows.replace(local);
                 final int count=added;
-                post(ticket,()->{busy=false;message=count>0?count+" Entwickler-Follows übernommen ✓":"Keine neuen öffentlichen Entwickler-Follows.";render();});
+                post(ticket,()->{busy=false;message=count>0?count+" Entwickler-Follows und Merkliste übernommen ✓":"Merkliste synchronisiert · keine neuen Entwickler.";render();});
             }
         }catch(Exception e){post(ticket,()->failure(e));}});
     }
@@ -181,7 +190,21 @@ final class GitHubRadarController {
             panel.addView(label("Einmal im Browser anmelden und dieses Gerät bestätigen. Deine GitHub-Zugangsdaten bleiben dort.",12));
         }else{
             panel.addView(label("Verbunden mit @"+connection.optString("login"),14));
-            panel.addView(button("DropID-Follows abgleichen →",this::chooseFollowSync));
+            panel.addView(button("Follows & Merkliste abgleichen →",this::chooseFollowSync));
+            try{
+                JSONArray bookmarks=new CloudWatchlist(activity).read();
+                if(bookmarks.length()>0){
+                    panel.addView(label("Deine Cloud-Merkliste · nur App-Links",16));
+                    for(int i=0;i<Math.min(bookmarks.length(),8);i++){
+                        final String slug=bookmarks.getString(i);
+                        TextView item=label("↗ "+slug,14);
+                        item.setMinHeight(dp(48));item.setContentDescription("App "+slug+" ansehen, nicht installieren");
+                        item.setOnClickListener(v->{try{select.accept(StoreClient.slug(slug));}catch(Exception e){failure(e);}});
+                        panel.addView(item);
+                    }
+                    if(bookmarks.length()>8)panel.addView(label("Weitere "+(bookmarks.length()-8)+" Apps bleiben in der Cloud-Merkliste gespeichert.",12));
+                }
+            }catch(Exception invalid){panel.addView(label("Merkliste nicht lesbar. Bitte Synchronisierung erneut prüfen.",12));}
             panel.addView(label(connection.optBoolean("privateImport")?"Private Imports erlaubt · Jeden Import einzeln bestätigen.":"Nur Vorschläge lesen · Private Imports nicht freigegeben.",12));
             panel.addView(button("Repositories jetzt prüfen ↻",()->refresh(0)));
             if(!connection.optBoolean("privateImport"))panel.addView(button("Private Imports freigeben →",this::start));
