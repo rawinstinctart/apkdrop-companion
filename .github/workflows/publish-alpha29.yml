@@ -1,0 +1,119 @@
+name: Publish original-signed APKDrop Alpha 29
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/publish-alpha29.yml'
+      - 'release/alpha29-signature.zlib.b64'
+      - 'release/reconstruct-signed.py'
+      - 'release/alpha29-notes.md'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-alpha29.yml'
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pin passing Alpha 29 source and tested artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          REPO="${{ github.repository }}"
+          RUN=38061554407
+          SOURCE=949d80a38f17d1f05f880559e50178d604511053
+          test "$(gh api repos/$REPO/actions/runs/$RUN --jq .head_sha)" = "$SOURCE"
+          test "$(gh api repos/$REPO/actions/runs/$RUN --jq .conclusion)" = 'success'
+          current="$(gh api repos/$REPO/git/trees/$GITHUB_SHA --jq '.tree[] | select(.path == "app") | .sha')"
+          tested="$(gh api repos/$REPO/git/trees/$SOURCE --jq '.tree[] | select(.path == "app") | .sha')"
+          test -n "$current" && test "$current" = "$tested"
+      - name: Download exact successful CI unsigned preview
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 38061554407
+          name: apkdrop-companion-unsigned-preview
+          path: unsigned
+          github-token: ${{ github.token }}
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: ''
+      - name: Install pinned Android build tools
+        run: sdkmanager 'build-tools;35.0.0'
+      - name: Reconstruct and independently verify Alpha 29 original signature
+        run: |
+          set -euo pipefail
+          SDK="$ANDROID_HOME/build-tools/35.0.0"
+          NAME='APKDrop-Companion-v0.1.0-alpha.29-preview.apk'
+          test -f unsigned/app-preview-unsigned.apk
+          echo '81d4747d16f569b9bf776b03c5a29a6f7fd6b1f244ab0bd962e7660af904f2bb  unsigned/app-preview-unsigned.apk' | sha256sum -c -
+          mkdir -p dist
+          python3 - <<'PY'
+          import base64, zlib
+          from pathlib import Path
+          src = Path('release/alpha29-signature.zlib.b64').read_text().strip()
+          Path('/tmp/alpha29-signature.json').write_bytes(zlib.decompress(base64.b64decode(src,validate=True)))
+          PY
+          python3 release/reconstruct-signed.py unsigned/app-preview-unsigned.apk /tmp/alpha29-signature.json "dist/$NAME"
+          echo "49bc187f3ce03baf925a2886c9ac0fc1716712e714642b9d10e79da9a9c958e8  dist/$NAME" | sha256sum -c -
+          test "$(wc -c < "dist/$NAME")" -eq 334596
+          "$SDK/apksigner" verify --min-sdk-version 26 --verbose --print-certs "dist/$NAME" > /tmp/apkdrop-alpha29-signature-verification.txt
+          grep -q '^Verified using v2 scheme (APK Signature Scheme v2): true' /tmp/apkdrop-alpha29-signature-verification.txt
+          grep -q '^Verified using v3 scheme (APK Signature Scheme v3): true' /tmp/apkdrop-alpha29-signature-verification.txt
+          grep -q '^Number of signers: 1' /tmp/apkdrop-alpha29-signature-verification.txt
+          grep -q '^Signer #1 certificate SHA-256 digest: 6cf70241a63498e5e9fce78bac9abec760364cf320928347114bf109abd81e2e' /tmp/apkdrop-alpha29-signature-verification.txt
+          "$SDK/aapt" dump badging "dist/$NAME" > /tmp/apkdrop-alpha29-manifest.txt
+          grep -q "package: name='de.rawinstinctai.apkdrop.debug' versionCode='31' versionName='0.1.0-alpha.29-preview'" /tmp/apkdrop-alpha29-manifest.txt
+          grep -q "^sdkVersion:'26'" /tmp/apkdrop-alpha29-manifest.txt
+          grep -q "^targetSdkVersion:'36'" /tmp/apkdrop-alpha29-manifest.txt
+          ! grep -q '^application-debuggable' /tmp/apkdrop-alpha29-manifest.txt
+          "$SDK/zipalign" -c 4 "dist/$NAME"
+          python3 scripts/release-preflight.py "dist/$NAME" --profile alpha29-preview --sdk "$ANDROID_HOME"
+          python3 scripts/public-release-notes.py release/alpha29-notes.md
+          echo 'ALPHA 29 ORIGINAL-SIGNED APK VERIFIED'
+      - name: Confirm live APKDrop backend
+        run: python3 release/verify-alpha15-backend.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apkdrop-alpha29-original-signed-verified
+          path: dist/APKDrop-Companion-v0.1.0-alpha.29-preview.apk
+          retention-days: 7
+          if-no-files-found: error
+
+  publish:
+    needs: verify
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      actions: read
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: apkdrop-alpha29-original-signed-verified
+          path: dist
+      - name: Publish reviewed prerelease and verify public bytes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG='v0.1.0-alpha.29'
+          APK='dist/APKDrop-Companion-v0.1.0-alpha.29-preview.apk'
+          test -f "$APK"
+          python3 scripts/public-release-notes.py release/alpha29-notes.md
+          ! gh release view "$TAG" >/dev/null 2>&1
+          echo "49bc187f3ce03baf925a2886c9ac0fc1716712e714642b9d10e79da9a9c958e8  $APK" | sha256sum -c -
+          gh release create "$TAG" "$APK" --target "$GITHUB_SHA" --title 'APKDrop Companion Alpha 29 — DropTrust – Updates sicher im Blick' --notes-file release/alpha29-notes.md --prerelease
+          mkdir -p /tmp/apkdrop-alpha29-public-download
+          gh release download "$TAG" --pattern 'APKDrop-Companion-v0.1.0-alpha.29-preview.apk' --dir /tmp/apkdrop-alpha29-public-download
+          echo '49bc187f3ce03baf925a2886c9ac0fc1716712e714642b9d10e79da9a9c958e8  /tmp/apkdrop-alpha29-public-download/APKDrop-Companion-v0.1.0-alpha.29-preview.apk' | sha256sum -c -
+          echo 'ALPHA 29 PUBLIC SIGNED APK VERIFIED'
