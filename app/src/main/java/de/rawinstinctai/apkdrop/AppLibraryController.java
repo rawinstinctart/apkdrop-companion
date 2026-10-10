@@ -52,7 +52,7 @@ final class AppLibraryController {
         State state=states.get(entry.slug);
         String status=state==null||state.decision==null?"Noch prüfen":state.decision.mode==InstallPolicy.Mode.UPDATE?"Update verfügbar":
                 state.decision.mode==InstallPolicy.Mode.CURRENT?"Bei letzter Prüfung aktuell":state.decision.mode==InstallPolicy.Mode.BLOCKED?"Blockiert":"Nicht installiert";
-        if(state!=null&&state.error!=null)status="Prüfung fehlgeschlagen";
+        if(state!=null&&state.error!=null)status=state.blocked?"Sicherheitsprüfung gesperrt":"Prüfung unterbrochen · erneut versuchen";
         return entry.name+" · "+status+(state!=null&&state.cached&&(state.decision==null||state.decision.mode!=InstallPolicy.Mode.CURRENT)?" (letzter Stand)":"");
     }
     String displayName(AppLibrary.Entry entry) {
@@ -101,7 +101,7 @@ final class AppLibraryController {
             if(state!=null && state.cached) cached=true;
             if(state!=null && state.decision!=null && state.decision.mode==InstallPolicy.Mode.INSTALL)notInstalled++;
         }
-        if(blocked>0) return blocked+(blocked==1?" App":" Apps")+" mit Prüfproblemen. Details unter Meine Apps ansehen.";
+        if(blocked>0) return blocked+(blocked==1?" App":" Apps")+" mit Prüfproblemen. Keine Installation gestartet · Meine Apps öffnen, Ursache ansehen und erneut prüfen.";
         if(unknown>0) return unknown+(unknown==1?" App":" Apps")+" noch nicht aktuell geprüft. Letzte Ergebnisse sind gekennzeichnet.";
         int updates=updateCount();
         if(updates>0) return updates+(updates==1?" neue Version ":" neue Versionen ")+(cached
