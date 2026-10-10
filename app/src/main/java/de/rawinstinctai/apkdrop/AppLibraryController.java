@@ -42,6 +42,11 @@ final class AppLibraryController {
     boolean updatesOnly() {return updatesOnly;}
     int updateCount() {int count=0;for(State s:states.values())if(s.error==null&&s.decision!=null&&s.decision.mode==InstallPolicy.Mode.UPDATE)count++;return count;}
     int count() {return library.entries().size();}
+    java.util.List<String> savedSlugs() {
+        java.util.List<String> result=new java.util.ArrayList<>();
+        for(AppLibrary.Entry item:library.entries())result.add(item.slug);
+        return result;
+    }
     List<AppLibrary.Entry> homeEntries() {List<AppLibrary.Entry> entries=sortedEntries();return entries.subList(0,Math.min(3,entries.size()));}
     String homeEntryLabel(AppLibrary.Entry entry) {
         State state=states.get(entry.slug);

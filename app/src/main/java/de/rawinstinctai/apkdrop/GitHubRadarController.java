@@ -42,8 +42,10 @@ final class GitHubRadarController {
     boolean hasChecked(){return checkedAt>0;}
     void homeActions(LinearLayout home){
         if(!connected()){home.addView(button("GitHub verbinden · eigene APKs entdecken →",this::start));return;}
-        int shown=0;for(JSONObject item:proposals.values()){if(shown++==3)break;home.addView(button(item.optString("name")+" · APK gefunden →",()->preview(item)));}
-        home.addView(button("GitHub Radar · "+(checkedAt>0?DisplayText.proposals(proposals.size()):"Prüfung ausstehend")+" →",()->{activity.findViewById(R.id.homeGitHubRadar).performClick();}));
+        if(proposals.isEmpty())return;
+        // Home offers one clear action. The full list stays in GitHub Radar.
+        home.addView(button(DisplayText.proposals(proposals.size())+" auf GitHub gefunden →",
+                ()->activity.findViewById(R.id.homeGitHubRadar).performClick()));
     }
     String summary(){return !connected()?"GitHub Radar · Eigene APKs entdecken →":busy?"GitHub Radar · Prüft deine Repositories …":proposals.isEmpty()?"GitHub Radar · @"+connection.optString("login")+" →":"GitHub Radar · "+DisplayText.proposals(proposals.size())+" →";}
     void resume(){

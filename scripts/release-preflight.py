@@ -115,6 +115,12 @@ def policy(profile, expected_cert=None, version_code=None, version_name=None):
         return {"package": DEBUG_PACKAGE, "certificateSha256": DEBUG_CERT,
                 "versionCode": 10, "versionName": "0.1.0-alpha.8-" + ("debug" if is_debug else "preview"),
                 "debuggable": is_debug}
+    if profile in ("alpha20-debug", "alpha20-preview"):
+        if any(value is not None for value in (expected_cert, version_code, version_name)):
+            raise ValueError("Alpha 20 identity is fixed; overrides are not accepted.")
+        is_debug = profile == "alpha20-debug"
+        return {"package": DEBUG_PACKAGE, "certificateSha256": DEBUG_CERT,
+                "versionCode": 27, "versionName": "0.1.0-alpha.20-" + ("debug" if is_debug else "preview"), "debuggable": is_debug}
     if profile in ("alpha19.1-debug", "alpha19.1-preview"):
         if any(value is not None for value in (expected_cert, version_code, version_name)):
             raise ValueError("Alpha 19.1 identity is fixed; overrides are not accepted.")
