@@ -659,17 +659,39 @@ final class StoreController {
         }catch(Exception e){panel.removeAllViews();panel.addView(label("Deine App-Auswahl konnte nicht gelesen werden.",12));}
     }
     private void renderActionCenter(){
-        if(radar==null)return;LinearLayout panel=activity.findViewById(R.id.actionCenter);panel.removeAllViews();int releases=0;
-        for(int i=0;i<homeReleases.length();i++){JSONObject item=homeReleases.optJSONObject(i);if(item!=null&&readState.unseen(item)&&radarState(item)!=ReleaseRadar.State.INSTALLED)releases++;}
+        if(radar==null)return;
+        LinearLayout panel=activity.findViewById(R.id.actionCenter);
+        panel.removeAllViews();
+        int releases=0;JSONObject first=null;
+        for(int i=0;i<homeReleases.length();i++){
+            JSONObject item=homeReleases.optJSONObject(i);
+            if(item==null||!readState.unseen(item)||radarState(item)==ReleaseRadar.State.INSTALLED)continue;
+            if(first==null)first=item;
+            releases++;
+        }
         String overview=library.count()==0&&!radar.hasChecked()
                 ?"Füge deine erste App hinzu. Neue Versionen werden hier sichtbar."
                 :library.updateCount()+" Updates"
                     +(radar.hasChecked()?" · "+DisplayText.proposals(radar.proposalCount()):"")
                     +(homeFeedKnown?" · "+releases+" neue Releases":"");
         ((TextView)activity.findViewById(R.id.actionSummary)).setText(overview);
-        radar.homeActions(panel);
-        int shown=0;for(int i=0;i<homeReleases.length()&&shown<2;i++){JSONObject item=homeReleases.optJSONObject(i);if(item==null||!readState.unseen(item)||radarState(item)==ReleaseRadar.State.INSTALLED)continue;shown++;panel.addView(textAction(item.optString("name")+" · "+DisplayText.version(item.optString("version"))+" · Release →",()->{try{readState.mark(new JSONArray().put(item));homeFeedAt=0;renderActionCenter();select.accept(StoreClient.slug(item.getString("slug")));}catch(Exception e){error(e);}}));}
-        if(homeReleases.length()>0)panel.addView(textAction("Alle Releases ansehen →",()->{githubRadar=false;following=true;activeProfile=null;navigate(1);}));
+        // Only actionable GitHub drafts and the newest release get a home shortcut.
+        // Detailed release history and connection settings stay in their own tabs.
+        if(radar.proposalCount()>0)radar.homeActions(panel);
+        if(first!=null){
+            JSONObject newest=first;
+            String teaser=ReleaseTeaser.summary(newest.optString("teaser",
+                    newest.optString("notesSummary")));
+            String title=bounded(newest.optString("name"),90)+" · "+DisplayText.version(newest.optString("version"));
+            panel.addView(textAction((releases>1?releases+" neue Releases · ":"Neu · ")+title+
+                    "\n"+teaser+" →",()->{
+                try{
+                    readState.mark(new JSONArray().put(newest));
+                    homeFeedAt=0;renderActionCenter();
+                    select.accept(StoreClient.slug(newest.getString("slug")));
+                }catch(Exception e){error(e);}
+            }));
+        }
     }
     private void manageFollows(){try{JSONObject saved=follows.read();java.util.List<String> ids=new java.util.ArrayList<>(),labels=new java.util.ArrayList<>();java.util.Iterator<String> it=saved.keys();while(it.hasNext()){String id=it.next();ids.add(id);labels.add(saved.getJSONObject(id).optString("name")+" · nicht mehr folgen");}new AlertDialog.Builder(activity).setTitle("Gefolgte Entwickler").setItems(labels.toArray(new String[0]),(d,w)->new AlertDialog.Builder(activity).setTitle("Nicht mehr folgen?").setNegativeButton("Abbrechen",null).setPositiveButton("Entfernen",(dialog,which)->{try{follows.remove(ids.get(w));homeFeedAt=0;feed();}catch(Exception e){error(e);}}).show()).setPositiveButton("Schließen",null).show();}catch(Exception e){error(e);}}
     private void renderCatalogEmpty() {
