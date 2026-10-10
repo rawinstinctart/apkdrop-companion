@@ -9,6 +9,10 @@ final class DropTrust {
         JSONObject evidence=release.optJSONObject("trust");
         if(evidence!=null&&"apkdrop.trust.v1".equals(evidence.optString("schema"))){
             if(!"documented".equals(evidence.optString("status")))return "DropTrust · Sicherheitsnachweise unvollständig";
+            if(evidence.optBoolean("reviewRecommended")){
+                if("changed".equals(evidence.optString("continuity")))return "DropTrust · Signatur seit dem letzten Release geändert";
+                return "DropTrust · Neue sensible Berechtigungen prüfen";
+            }
             if(state!=ReleaseRadar.State.INSTALLED&&state!=ReleaseRadar.State.UPDATE)
                 return "DropTrust · Release geprüft · Geräteprüfung vor Installation";
         }

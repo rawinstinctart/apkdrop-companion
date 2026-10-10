@@ -53,7 +53,7 @@ final class StoreClient {
             if(!DeveloperFollows.validId(developerIds.getString(i)))
                 throw new SecurityException("Ungültiger Entwickler.");
         for(int i=0;i<savedSlugs.length();i++) slug(savedSlugs.getString(i));
-        JSONObject data=new JSONObject().put("slugs",new org.json.JSONArray()).put("developerIds",developerIds).put("savedSlugs",savedSlugs);
+        JSONObject data=new JSONObject().put("slugs",savedSlugs).put("developerIds",developerIds).put("savedSlugs",savedSlugs);
         JSONObject response=json("/api/home",data);
         if(!"apkdrop.home.v1".equals(response.optString("schema"))
                 || !(response.opt("feed") instanceof org.json.JSONArray)
