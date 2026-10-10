@@ -1,0 +1,119 @@
+name: Publish original-signed APKDrop Alpha 25
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/publish-alpha25.yml'
+      - 'release/alpha25-signature.zlib.b64'
+      - 'release/reconstruct-signed.py'
+      - 'release/alpha25-notes.md'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-alpha25.yml'
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pin passing Alpha 25 source and tested artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          REPO="${{ github.repository }}"
+          RUN=38054280994
+          SOURCE=93601b480e6f472c40657be2687c7221e9b89fee
+          test "$(gh api repos/$REPO/actions/runs/$RUN --jq .head_sha)" = "$SOURCE"
+          test "$(gh api repos/$REPO/actions/runs/$RUN --jq .conclusion)" = 'success'
+          current="$(gh api repos/$REPO/git/trees/$GITHUB_SHA --jq '.tree[] | select(.path == "app") | .sha')"
+          tested="$(gh api repos/$REPO/git/trees/$SOURCE --jq '.tree[] | select(.path == "app") | .sha')"
+          test -n "$current" && test "$current" = "$tested"
+      - name: Download exact successful CI unsigned preview
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 38054280994
+          name: apkdrop-companion-unsigned-preview
+          path: unsigned
+          github-token: ${{ github.token }}
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: ''
+      - name: Install pinned Android build tools
+        run: sdkmanager 'build-tools;35.0.0'
+      - name: Reconstruct and independently verify Alpha 25 original signature
+        run: |
+          set -euo pipefail
+          SDK="$ANDROID_HOME/build-tools/35.0.0"
+          NAME='APKDrop-Companion-v0.1.0-alpha.25-preview.apk'
+          test -f unsigned/app-preview-unsigned.apk
+          echo '33dce886aeb32127b0970256d3d41fd7c85053b080c83ea7b8a79baf34a40c25  unsigned/app-preview-unsigned.apk' | sha256sum -c -
+          mkdir -p dist
+          python3 - <<'PY'
+          import base64, zlib
+          from pathlib import Path
+          src = Path('release/alpha25-signature.zlib.b64').read_text().strip()
+          Path('/tmp/alpha25-signature.json').write_bytes(zlib.decompress(base64.b64decode(src,validate=True)))
+          PY
+          python3 release/reconstruct-signed.py unsigned/app-preview-unsigned.apk /tmp/alpha25-signature.json "dist/$NAME"
+          echo "3b4ecda68badb04a4538740ba1aa4f5960086048611b4a8f39f8617e2e8a8809  dist/$NAME" | sha256sum -c -
+          test "$(wc -c < "dist/$NAME")" -eq 333956
+          "$SDK/apksigner" verify --min-sdk-version 26 --verbose --print-certs "dist/$NAME" > /tmp/apkdrop-alpha25-signature-verification.txt
+          grep -q '^Verified using v2 scheme (APK Signature Scheme v2): true' /tmp/apkdrop-alpha25-signature-verification.txt
+          grep -q '^Verified using v3 scheme (APK Signature Scheme v3): true' /tmp/apkdrop-alpha25-signature-verification.txt
+          grep -q '^Number of signers: 1' /tmp/apkdrop-alpha25-signature-verification.txt
+          grep -q '^Signer #1 certificate SHA-256 digest: 6cf70241a63498e5e9fce78bac9abec760364cf320928347114bf109abd81e2e' /tmp/apkdrop-alpha25-signature-verification.txt
+          "$SDK/aapt" dump badging "dist/$NAME" > /tmp/apkdrop-alpha25-manifest.txt
+          grep -q "package: name='de.rawinstinctai.apkdrop.debug' versionCode='29' versionName='0.1.0-alpha.25-preview'" /tmp/apkdrop-alpha25-manifest.txt
+          grep -q "^sdkVersion:'26'" /tmp/apkdrop-alpha25-manifest.txt
+          grep -q "^targetSdkVersion:'36'" /tmp/apkdrop-alpha25-manifest.txt
+          ! grep -q '^application-debuggable' /tmp/apkdrop-alpha25-manifest.txt
+          "$SDK/zipalign" -c 4 "dist/$NAME"
+          python3 scripts/release-preflight.py "dist/$NAME" --profile alpha25-preview --sdk "$ANDROID_HOME"
+          python3 scripts/public-release-notes.py release/alpha25-notes.md
+          echo 'ALPHA 23 ORIGINAL-SIGNED APK VERIFIED'
+      - name: Confirm live APKDrop backend
+        run: python3 release/verify-alpha15-backend.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apkdrop-alpha25-original-signed-verified
+          path: dist/APKDrop-Companion-v0.1.0-alpha.25-preview.apk
+          retention-days: 7
+          if-no-files-found: error
+
+  publish:
+    needs: verify
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      actions: read
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: apkdrop-alpha25-original-signed-verified
+          path: dist
+      - name: Publish reviewed prerelease and verify public bytes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG='v0.1.0-alpha.25'
+          APK='dist/APKDrop-Companion-v0.1.0-alpha.25-preview.apk'
+          test -f "$APK"
+          python3 scripts/public-release-notes.py release/alpha25-notes.md
+          ! gh release view "$TAG" >/dev/null 2>&1
+          echo "3b4ecda68badb04a4538740ba1aa4f5960086048611b4a8f39f8617e2e8a8809  $APK" | sha256sum -c -
+          gh release create "$TAG" "$APK" --target "$GITHUB_SHA" --title 'APKDrop Companion Alpha 25 — LiveSync und klarer Start' --notes-file release/alpha25-notes.md --prerelease
+          mkdir -p /tmp/apkdrop-alpha25-public-download
+          gh release download "$TAG" --pattern 'APKDrop-Companion-v0.1.0-alpha.25-preview.apk' --dir /tmp/apkdrop-alpha25-public-download
+          echo '3b4ecda68badb04a4538740ba1aa4f5960086048611b4a8f39f8617e2e8a8809  /tmp/apkdrop-alpha25-public-download/APKDrop-Companion-v0.1.0-alpha.25-preview.apk' | sha256sum -c -
+          echo 'ALPHA 23 PUBLIC SIGNED APK VERIFIED'
