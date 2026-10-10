@@ -663,9 +663,15 @@ public final class MainActivity extends Activity {
         if(store!=null) store.changed();
         if(library==null || addButton==null) return;
         boolean saved=currentRelease!=null && library.find(currentRelease.slug)!=null;
-        addButton.setVisibility(currentRelease==null?View.GONE:View.VISIBLE);
         boolean monitored=saved&&UpdateScheduler.enabled(this)&&UpdateScheduler.scheduled(this);
-        addButton.setText(saved?(monitored?"App übernommen ✓":"Update-Überwachung aktivieren ↻"):"Übernehmen & Updates überwachen +");
+        // A shared APKDrop link has one clear next action: save the app for updates.
+        // Keep manual Android installation available, but secondary until saved.
+        addButton.setVisibility(currentRelease==null||monitored?View.GONE:View.VISIBLE);
+        addButton.setBackgroundResource(monitored?R.drawable.bg_input:R.drawable.bg_primary);
+        addButton.setTextColor(getColor(monitored?R.color.text:R.color.lime_dark));
+        actionButton.setBackgroundResource(monitored?R.drawable.bg_primary:R.drawable.bg_input);
+        actionButton.setTextColor(getColor(monitored?R.color.lime_dark:R.color.text));
+        addButton.setText(saved?"Update-Überwachung aktivieren ↻":"Übernehmen & Updates überwachen →");
         addButton.setEnabled(currentRelease!=null&&!monitored&&!detailBusy&&!library.checking()&&library.writable());
         TextView tracking=findViewById(R.id.monitoringStatus);
         tracking.setVisibility(currentRelease==null?View.GONE:View.VISIBLE);
