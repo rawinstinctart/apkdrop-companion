@@ -665,7 +665,7 @@ final class StoreController {
         ((TextView)activity.findViewById(R.id.actionSummary)).setText(overview);
         radar.homeActions(panel);
         int shown=0;for(int i=0;i<homeReleases.length()&&shown<2;i++){JSONObject item=homeReleases.optJSONObject(i);if(item==null||!readState.unseen(item)||radarState(item)==ReleaseRadar.State.INSTALLED)continue;shown++;panel.addView(textAction(item.optString("name")+" · "+DisplayText.version(item.optString("version"))+" · Release →",()->{try{readState.mark(new JSONArray().put(item));homeFeedAt=0;renderActionCenter();select.accept(StoreClient.slug(item.getString("slug")));}catch(Exception e){error(e);}}));}
-        panel.addView(textAction("Release Radar öffnen →",()->{githubRadar=false;following=true;activeProfile=null;navigate(1);}));
+        if(homeReleases.length()>0)panel.addView(textAction("Alle Releases ansehen →",()->{githubRadar=false;following=true;activeProfile=null;navigate(1);}));
     }
     private void manageFollows(){try{JSONObject saved=follows.read();java.util.List<String> ids=new java.util.ArrayList<>(),labels=new java.util.ArrayList<>();java.util.Iterator<String> it=saved.keys();while(it.hasNext()){String id=it.next();ids.add(id);labels.add(saved.getJSONObject(id).optString("name")+" · nicht mehr folgen");}new AlertDialog.Builder(activity).setTitle("Gefolgte Entwickler").setItems(labels.toArray(new String[0]),(d,w)->new AlertDialog.Builder(activity).setTitle("Nicht mehr folgen?").setNegativeButton("Abbrechen",null).setPositiveButton("Entfernen",(dialog,which)->{try{follows.remove(ids.get(w));homeFeedAt=0;feed();}catch(Exception e){error(e);}}).show()).setPositiveButton("Schließen",null).show();}catch(Exception e){error(e);}}
     private void renderCatalogEmpty() {
