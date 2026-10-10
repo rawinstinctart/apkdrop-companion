@@ -6,6 +6,12 @@ import org.json.JSONObject;
 final class DropTrust {
     static String catalog(JSONObject release,ReleaseRadar.State state){
         if(state==ReleaseRadar.State.DIFFERENT_SIGNER)return "DropTrust · Abweichende Signatur – Details prüfen";
+        JSONObject evidence=release.optJSONObject("trust");
+        if(evidence!=null&&"apkdrop.trust.v1".equals(evidence.optString("schema"))){
+            if(!"documented".equals(evidence.optString("status")))return "DropTrust · Sicherheitsnachweise unvollständig";
+            if(state!=ReleaseRadar.State.INSTALLED&&state!=ReleaseRadar.State.UPDATE)
+                return "DropTrust · Release geprüft · Geräteprüfung vor Installation";
+        }
         if(!release.optBoolean("signatureVerified"))return "DropTrust · Signaturstatus noch offen";
         if(state==ReleaseRadar.State.INSTALLED||state==ReleaseRadar.State.UPDATE)return "DropTrust · Signatur passt zur installierten App";
         return "DropTrust · APK-Signatur beim Import geprüft";
