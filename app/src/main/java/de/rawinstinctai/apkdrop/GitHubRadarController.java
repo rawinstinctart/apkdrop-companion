@@ -38,6 +38,11 @@ final class GitHubRadarController {
     String sharedRelease(){return sharedUrl;}
     private void previewShared(){if(sharedUrl==null)return;try{String repo=LinkImport.repository(sharedUrl);preview(new JSONObject().put("fullName",repo).put("prerelease",sharedUrl.contains("/releases/" )).put("sharedUrl",sharedUrl));}catch(Exception e){failure(e);}}
     boolean connected(){return connection.optBoolean("connected")&&connection.optLong("expires")>System.currentTimeMillis()/1000;}
+    JSONArray savedBookmarks(){
+        if(!connected())return new JSONArray();
+        try{return new CloudWatchlist(activity,connection.optString("login")).read();}
+        catch(Exception unavailable){return new JSONArray();}
+    }
     int proposalCount(){return proposals.size();}
     boolean hasChecked(){return checkedAt>0;}
     void homeActions(LinearLayout home){
