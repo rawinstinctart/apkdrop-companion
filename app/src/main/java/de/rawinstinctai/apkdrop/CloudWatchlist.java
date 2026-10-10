@@ -30,6 +30,22 @@ final class CloudWatchlist {
         for(String slug:slugs)result.put(slug);
         return result;
     }
+    static JSONArray mergeDevelopers(JSONArray... lists) throws Exception {
+        LinkedHashSet<String> ids=new LinkedHashSet<>();
+        for(JSONArray list:lists){
+            if(list==null)continue;
+            if(list.length()>20)throw new SecurityException("Zu viele Entwickler-Follows.");
+            for(int i=0;i<list.length();i++){
+                String id=list.getString(i);
+                if(!DeveloperFollows.validId(id))throw new SecurityException("Ungültige Entwickler-ID.");
+                ids.add(id);
+                if(ids.size()>20)throw new SecurityException("Maximal 20 Entwickler-Follows möglich.");
+            }
+        }
+        JSONArray result=new JSONArray();
+        for(String id:ids)result.put(id);
+        return result;
+    }
     JSONArray read() throws Exception {
         String raw=prefs.getString("slugs","[]");
         if(raw.length()>2500)throw new SecurityException("Merkliste ist beschädigt.");
