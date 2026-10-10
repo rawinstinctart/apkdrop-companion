@@ -697,7 +697,7 @@ final class StoreController {
                     select.accept(StoreClient.slug(newest.getString("slug")));
                 }catch(Exception e){error(e);}
             }));
-        }else if(radar.proposalCount()==0&&homeFocus!=null
+        }else if(library.count()>0&&radar.proposalCount()==0&&homeFocus!=null
                 &&"discover".equals(homeFocus.optString("kind"))){
             try{
                 final String slug=StoreClient.slug(homeFocus.getString("slug"));
