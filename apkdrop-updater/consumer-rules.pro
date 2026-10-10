@@ -1,0 +1,3 @@
+-keep public class dev.apkdrop.DropUpdate { public *; }
+-keep public class dev.apkdrop.DropUpdate$* { public *; }
+-keep public class dev.apkdrop.UpdateFileProvider { public <init>(); }

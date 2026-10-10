@@ -19,6 +19,9 @@ import java.util.Arrays;
 import java.util.concurrent.*;
 
 public final class MainActivity extends Activity {
+    // APKDROP_AUTOMATIC_UPDATE_V1
+    private dev.apkdrop.DropUpdate.Task apkdropUpdateTask;
+
     private static final int BACKUP_EXPORT=71, BACKUP_IMPORT=72;
     private char[] pendingBackupPassword;
     private boolean notesExpanded;
@@ -66,7 +69,9 @@ public final class MainActivity extends Activity {
     private File verifiedApk;
 
     @Override protected void onCreate(Bundle state) {
-        super.onCreate(state); setContentView(R.layout.activity_main);
+        super.onCreate(state);
+        apkdropUpdateTask = dev.apkdrop.DropUpdate.check(this, "https://apkdrop.rawinstinctai.de/api/apkdrop-companion/update.json", false);
+ setContentView(R.layout.activity_main);
         deferredLink=state==null?null:state.getString("deferredLink");
         applySystemInsets();
         adaptActions();
@@ -244,6 +249,8 @@ public final class MainActivity extends Activity {
     }
 
     @Override protected void onDestroy() {
+        if (apkdropUpdateTask != null) apkdropUpdateTask.cancel();
+
         if(pilotPreferences!=null)pilotPreferences.unregisterOnSharedPreferenceChangeListener(pilotListener);
         generation++;
         if(downloadCancellation!=null) downloadCancellation.pause();

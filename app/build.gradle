@@ -49,3 +49,5 @@ dependencies {
     testImplementation "org.robolectric:robolectric:4.17"
 }
 
+// APKDrop: automatische Updates
+dependencies { implementation project(':apkdrop-updater') }

@@ -7,3 +7,6 @@ dependencyResolutionManagement {
 }
 rootProject.name = "apkdrop-companion"
 include(":app")
+
+// APKDrop: automatische Updates
+include ':apkdrop-updater'
