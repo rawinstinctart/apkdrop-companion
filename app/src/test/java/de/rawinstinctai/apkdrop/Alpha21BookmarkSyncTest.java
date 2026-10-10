@@ -13,6 +13,14 @@ public final class Alpha21BookmarkSyncTest {
         assertEquals("another-app",merged.getString(1));
         assertEquals(0,new AppLibrary().entries().size());
     }
+    @Test public void cloudDeveloperFollowsAreMergedInsteadOfOverwritten() throws Exception {
+        JSONArray result=CloudWatchlist.mergeDevelopers(new JSONArray().put("42"),new JSONArray().put("43").put("42"));
+        assertEquals(2,result.length());
+        assertEquals("42",result.getString(0));
+        assertEquals("43",result.getString(1));
+        try{CloudWatchlist.mergeDevelopers(new JSONArray().put("@imposter"));fail("untrusted ID");}
+        catch(SecurityException expected){}
+    }
     @Test public void invalidOrOversizedCloudDataIsRejected() throws Exception {
         for(String bad:new String[]{"../private","ABC","api/x","invalid\nslug"}){
             try{CloudWatchlist.merge(new JSONArray().put(bad));fail("accepted "+bad);}
