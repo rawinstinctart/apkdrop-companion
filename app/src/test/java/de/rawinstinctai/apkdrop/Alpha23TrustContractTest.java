@@ -14,5 +14,9 @@ public final class Alpha23TrustContractTest {
         release.getJSONObject("trust").put("status","incomplete");
         assertTrue(DropTrust.catalog(release,ReleaseRadar.State.NOT_INSTALLED).contains("unvollständig"));
         assertTrue(DropTrust.catalog(release,ReleaseRadar.State.DIFFERENT_SIGNER).contains("Abweichende Signatur"));
+        release.getJSONObject("trust").put("status","documented").put("continuity","changed").put("reviewRecommended",true);
+        assertTrue(DropTrust.catalog(release,ReleaseRadar.State.NOT_INSTALLED).contains("Signatur seit"));
+        release.getJSONObject("trust").put("continuity","same");
+        assertTrue(DropTrust.catalog(release,ReleaseRadar.State.NOT_INSTALLED).contains("sensible Berechtigungen"));
     }
 }
