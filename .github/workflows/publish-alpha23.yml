@@ -1,0 +1,113 @@
+name: Publish original-signed APKDrop Alpha 23
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/publish-alpha23.yml'
+      - 'release/alpha23-signature.json'
+      - 'release/reconstruct-signed.py'
+      - 'release/alpha23-notes.md'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-alpha23.yml'
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pin passing Alpha 23 source and tested artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          REPO="${{ github.repository }}"
+          RUN=38048696744
+          SOURCE=41c20dcdef5d34f057fa928e5f470c7a1bb996e4
+          test "$(gh api repos/$REPO/actions/runs/$RUN --jq .head_sha)" = "$SOURCE"
+          test "$(gh api repos/$REPO/actions/runs/$RUN --jq .conclusion)" = 'success'
+          current="$(gh api repos/$REPO/git/trees/$GITHUB_SHA --jq '.tree[] | select(.path == "app") | .sha')"
+          tested="$(gh api repos/$REPO/git/trees/$SOURCE --jq '.tree[] | select(.path == "app") | .sha')"
+          test -n "$current" && test "$current" = "$tested"
+      - name: Download exact successful CI unsigned preview
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 38048696744
+          name: apkdrop-companion-unsigned-preview
+          path: unsigned
+          github-token: ${{ github.token }}
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: ''
+      - name: Install pinned Android build tools
+        run: sdkmanager 'build-tools;35.0.0'
+      - name: Reconstruct and independently verify Alpha 23 original signature
+        run: |
+          set -euo pipefail
+          SDK="$ANDROID_HOME/build-tools/35.0.0"
+          NAME='APKDrop-Companion-v0.1.0-alpha.23-preview.apk'
+          test -f unsigned/app-preview-unsigned.apk
+          echo 'aeb1b2fd688f5876894985b2d2f1f49dc6f5e54be3963a1b586fc4cda492c501  unsigned/app-preview-unsigned.apk' | sha256sum -c -
+          mkdir -p dist
+          python3 release/reconstruct-signed.py unsigned/app-preview-unsigned.apk release/alpha23-signature.json "dist/$NAME"
+          echo "255d8c6abd14ffcdf3b5abab496d757a9809e1197592c12e3814461587993a6c  dist/$NAME" | sha256sum -c -
+          test "$(wc -c < "dist/$NAME")" -eq 333560
+          "$SDK/apksigner" verify --min-sdk-version 26 --verbose --print-certs "dist/$NAME" > /tmp/apkdrop-alpha23-signature-verification.txt
+          grep -q '^Verified using v2 scheme (APK Signature Scheme v2): true' /tmp/apkdrop-alpha23-signature-verification.txt
+          grep -q '^Verified using v3 scheme (APK Signature Scheme v3): true' /tmp/apkdrop-alpha23-signature-verification.txt
+          grep -q '^Number of signers: 1' /tmp/apkdrop-alpha23-signature-verification.txt
+          grep -q '^Signer #1 certificate SHA-256 digest: 6cf70241a63498e5e9fce78bac9abec760364cf320928347114bf109abd81e2e' /tmp/apkdrop-alpha23-signature-verification.txt
+          "$SDK/aapt" dump badging "dist/$NAME" > /tmp/apkdrop-alpha23-manifest.txt
+          grep -q "package: name='de.rawinstinctai.apkdrop.debug' versionCode='28' versionName='0.1.0-alpha.23-preview'" /tmp/apkdrop-alpha23-manifest.txt
+          grep -q "^sdkVersion:'26'" /tmp/apkdrop-alpha23-manifest.txt
+          grep -q "^targetSdkVersion:'36'" /tmp/apkdrop-alpha23-manifest.txt
+          ! grep -q '^application-debuggable' /tmp/apkdrop-alpha23-manifest.txt
+          "$SDK/zipalign" -c 4 "dist/$NAME"
+          python3 scripts/release-preflight.py "dist/$NAME" --profile alpha23-preview --sdk "$ANDROID_HOME"
+          python3 scripts/public-release-notes.py release/alpha23-notes.md
+          echo 'ALPHA 23 ORIGINAL-SIGNED APK VERIFIED'
+      - name: Confirm live APKDrop backend
+        run: python3 release/verify-alpha15-backend.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apkdrop-alpha23-original-signed-verified
+          path: dist/APKDrop-Companion-v0.1.0-alpha.23-preview.apk
+          retention-days: 7
+          if-no-files-found: error
+
+  publish:
+    needs: verify
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      actions: read
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: apkdrop-alpha23-original-signed-verified
+          path: dist
+      - name: Publish reviewed prerelease and verify public bytes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG='v0.1.0-alpha.23'
+          APK='dist/APKDrop-Companion-v0.1.0-alpha.23-preview.apk'
+          test -f "$APK"
+          python3 scripts/public-release-notes.py release/alpha23-notes.md
+          ! gh release view "$TAG" >/dev/null 2>&1
+          echo "255d8c6abd14ffcdf3b5abab496d757a9809e1197592c12e3814461587993a6c  $APK" | sha256sum -c -
+          gh release create "$TAG" "$APK" --target "$GITHUB_SHA" --title 'APKDrop Companion Alpha 23 — DropID Sync und klarere Sicherheit' --notes-file release/alpha23-notes.md --prerelease
+          mkdir -p /tmp/apkdrop-alpha23-public-download
+          gh release download "$TAG" --pattern 'APKDrop-Companion-v0.1.0-alpha.23-preview.apk' --dir /tmp/apkdrop-alpha23-public-download
+          echo '255d8c6abd14ffcdf3b5abab496d757a9809e1197592c12e3814461587993a6c  /tmp/apkdrop-alpha23-public-download/APKDrop-Companion-v0.1.0-alpha.23-preview.apk' | sha256sum -c -
+          echo 'ALPHA 23 PUBLIC SIGNED APK VERIFIED'
