@@ -140,7 +140,7 @@ final class GitHubRadarController {
                     savedApps.put(StoreClient.slug(entry.slug));
                 // Keep remote and local bookmarks; only slugs are uploaded after the user's tap.
                 JSONArray merged=CloudWatchlist.merge(appFollows,localBookmarks,savedApps);
-                JSONArray developers=new DeveloperFollows(activity).ids();
+                JSONArray developers=CloudWatchlist.mergeDevelopers(cloud.optJSONArray("developerIds"),new DeveloperFollows(activity).ids());
                 JSONObject data=new JSONObject().put("confirm",true)
                         .put("expectedRevision",cloud.optInt("revision",0))
                         .put("slugs",merged).put("developerIds",developers);
