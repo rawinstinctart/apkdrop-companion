@@ -147,7 +147,13 @@ final class GitHubRadarController {
                 LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.topMargin=dp(12);panel.addView(row,lp);
                 row.addView(label(item.optString("name"),20));row.addView(label(item.optString("fullName")+(item.optBoolean("private")?" · Privat":""),12));
                 row.addView(label(item.optString("description"),14));row.addView(label(DisplayText.version(item.optString("version"))+" · "+(item.optBoolean("prerelease")?"Beta":"Stable")+"\n"+item.optString("filename"),12));
-                row.addView(button("App hinzufügen →",()->preview(item)));
+                JSONArray highlights=item.optJSONArray("highlights");
+                if(highlights!=null)for(int h=0;h<Math.min(highlights.length(),3);h++){
+                    String highlight=highlights.optString(h,"");
+                    if(!highlight.isEmpty()&&highlight.length()<=135)row.addView(label("• "+highlight,13));
+                }
+                row.addView(label("Noch kein Import · Erst Entwurf und APK-Auswahl prüfen.",12));
+                row.addView(button("Entwurf prüfen →",()->preview(item)));
             }
             if(nextOffset>=0&&proposals.size()<120)panel.addView(button("Weitere Repositories prüfen →",()->refresh(nextOffset)));
             renderOwnApps();
