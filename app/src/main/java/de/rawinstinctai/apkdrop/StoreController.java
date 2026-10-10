@@ -584,30 +584,75 @@ final class StoreController {
     private void homeFeed() {
         LinearLayout panel=activity.findViewById(R.id.homeFeed);
         try {
-            JSONArray ids=follows.ids();
-            String identity=ids.toString();if(!identity.equals(homeFeedIds)){homeRequest++;homeFeedAt=0;homeFeedIds=identity;homeReleases=new JSONArray();homeFeedKnown=false;renderActionCenter();}
-            if(ids.length()==0){homeRequest++;homeFeedAt=0;homeReleases=new JSONArray();homeFeedKnown=true;panel.removeAllViews();panel.addView(textAction("Entwickler entdecken & folgen →",()->{developersOnly=true;githubRadar=false;following=false;activeProfile=null;started=false;navigate(1);}));renderActionCenter();return;}
+            JSONArray ids=follows.ids(),saved=new JSONArray();
+            for(String slug:library.savedSlugs())saved.put(StoreClient.slug(slug));
+            String identity=ids.toString()+":"+saved.toString();
+            if(!identity.equals(homeFeedIds)) {
+                homeRequest++;homeFeedAt=0;homeFeedIds=identity;
+                homeReleases=new JSONArray();homeFeedKnown=false;renderActionCenter();
+            }
             if(System.currentTimeMillis()-homeFeedAt<5*60*1000)return;
             homeFeedAt=System.currentTimeMillis();final int ticket=++homeRequest;
-            panel.removeAllViews();panel.addView(label("Releases werden geladen …",12));
+            panel.removeAllViews();panel.addView(label("Dein App-Radar wird aktualisiert …",12));
             network.execute(()->{
                 try {
-                    JSONArray feed=StoreClient.following(ids).getJSONArray("feed");if(feed.length()>60)throw new SecurityException("Release-Liste zu groß.");
-                    prepareRadar(feed);activity.runOnUiThread(()->{if(closed||ticket!=homeRequest)return;homeReleases=feed;homeFeedKnown=true;renderActionCenter();panel.removeAllViews();
-                        int shown=0;for(int i=0;i<feed.length()&&shown<2;i++){
-                            JSONObject item=feed.optJSONObject(i);if(item==null)continue;
-                            try {String slug=StoreClient.slug(item.getString("slug"));if(!readState.unseen(item)||radarState(item)==ReleaseRadar.State.INSTALLED)continue;shown++;
+                    JSONObject home=StoreClient.home(ids,saved);
+                    JSONArray releases=home.getJSONArray("feed"),suggestions=home.getJSONArray("recommendations");
+                    if(releases.length()>12||suggestions.length()>3)
+                        throw new SecurityException("Home-Antwort zu groß.");
+                    prepareRadar(releases);
+                    activity.runOnUiThread(()->{
+                        if(closed||ticket!=homeRequest)return;
+                        homeReleases=releases;homeFeedKnown=true;renderActionCenter();panel.removeAllViews();
+                        int shown=0;
+                        for(int i=0;i<releases.length()&&shown<2;i++){
+                            JSONObject item=releases.optJSONObject(i);if(item==null)continue;
+                            try {
+                                String slug=StoreClient.slug(item.getString("slug"));
+                                if(!readState.unseen(item)||radarState(item)==ReleaseRadar.State.INSTALLED)continue;
+                                shown++;
                                 panel.addView(textAction(bounded(item.optString("name"),160)+" · "+bounded(item.optString("version"),120)
-                                        +(readState.unseen(item)?" · Neu →":" →")+"\n"+ReleaseTeaser.summary(item.optString("notesSummary")),()->{
-                                    try{readState.mark(new JSONArray().put(item));homeFeedAt=0;}catch(Exception e){error(e);}select.accept(slug);
+                                        +" · Neu →\n"+ReleaseTeaser.summary(item.optString("notesSummary")),()->{
+                                    try {readState.mark(new JSONArray().put(item));homeFeedAt=0;}
+                                    catch(Exception invalid){error(invalid);}
+                                    select.accept(slug);
                                 }));
                             }catch(Exception invalid){}
                         }
-                        if(shown==0){panel.addView(label("Keine ungesehenen Releases bei dieser Prüfung.",12));panel.addView(textAction("Alle Releases ansehen →",()->{githubRadar=false;activeProfile=null;following=true;newOnly=false;navigate(1);}));}
+                        if(shown==0&&ids.length()>0)
+                            panel.addView(label("Keine neuen Releases deiner gefolgten Entwickler.",12));
+                        if(suggestions.length()>0) {
+                            panel.addView(label("Aus dem öffentlichen Discover-Katalog",14));
+                            for(int i=0;i<suggestions.length()&&i<2;i++) {
+                                JSONObject app=suggestions.optJSONObject(i);if(app==null)continue;
+                                try {
+                                    String slug=StoreClient.slug(app.getString("slug"));
+                                    if(library.find(slug)!=null)continue;
+                                    String name=bounded(app.optString("name",slug),160);
+                                    String reason=bounded(app.optString("reason","App entdecken"),100);
+                                    panel.addView(textAction(name+" · "+reason+" →",()->select.accept(slug)));
+                                }catch(Exception invalid){}
+                            }
+                            panel.addView(label("Empfehlungen sind keine APK-Prüfung. Vor dem Installieren wird frisch geprüft.",12));
+                        }else if(ids.length()==0) {
+                            panel.addView(textAction("Apps und Entwickler entdecken →",()->{
+                                developersOnly=false;githubRadar=false;following=false;activeProfile=null;started=false;navigate(1);
+                            }));
+                        }else if(shown==0){
+                            panel.addView(textAction("Alle Releases ansehen →",()->{
+                                githubRadar=false;activeProfile=null;following=true;newOnly=false;navigate(1);
+                            }));
+                        }
                     });
-                }catch(Exception e){activity.runOnUiThread(()->{if(closed||ticket!=homeRequest)return;homeFeedAt=0;panel.removeAllViews();panel.addView(textAction("Releases nicht erreichbar · Erneut versuchen ↻",this::homeFeed));});}
+                }catch(Exception error){
+                    activity.runOnUiThread(()->{
+                        if(closed||ticket!=homeRequest)return;
+                        homeFeedAt=0;panel.removeAllViews();
+                        panel.addView(textAction("App-Radar nicht erreichbar · Erneut versuchen ↻",this::homeFeed));
+                    });
+                }
             });
-        }catch(Exception e){panel.removeAllViews();panel.addView(label("Gefolgte Entwickler konnten nicht gelesen werden.",12));}
+        }catch(Exception e){panel.removeAllViews();panel.addView(label("Deine App-Auswahl konnte nicht gelesen werden.",12));}
     }
     private void renderActionCenter(){
         if(radar==null)return;LinearLayout panel=activity.findViewById(R.id.actionCenter);panel.removeAllViews();int releases=0;
