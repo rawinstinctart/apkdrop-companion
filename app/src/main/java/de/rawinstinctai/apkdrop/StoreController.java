@@ -589,7 +589,8 @@ final class StoreController {
             // Bookmarks remain display-only; the locally verified AppLibrary stays untouched.
             if(radar!=null)try{saved=CloudWatchlist.merge(saved,radar.savedBookmarks());}
             catch(Exception tooMany){/* Keep verified local entries when the combined list exceeds 50. */}
-            String identity=ids.toString()+":"+saved.toString();
+            final JSONArray selectedSlugs=saved;
+            String identity=ids.toString()+":"+selectedSlugs.toString();
             if(!identity.equals(homeFeedIds)) {
                 homeRequest++;homeFeedAt=0;homeFeedIds=identity;
                 homeReleases=new JSONArray();homeFeedKnown=false;renderActionCenter();
@@ -599,7 +600,7 @@ final class StoreController {
             panel.removeAllViews();panel.addView(label("Dein App-Radar wird aktualisiert …",12));
             network.execute(()->{
                 try {
-                    JSONObject home=StoreClient.home(ids,saved);
+                    JSONObject home=StoreClient.home(ids,selectedSlugs);
                     JSONArray releases=home.getJSONArray("feed"),suggestions=home.getJSONArray("recommendations");
                     if(releases.length()>12||suggestions.length()>3)
                         throw new SecurityException("Home-Antwort zu groß.");
