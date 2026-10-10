@@ -118,6 +118,50 @@ final class GitHubRadarController {
                 if(data.optInt("unavailable")>0)message+=" Einige Repositories waren nicht erreichbar.";if(data.optBoolean("repositoriesTruncated"))message+=" Es konnten nicht alle Repositories geprüft werden.";render();loadApps();});
         }catch(Exception e){post(ticket,()->{if(e instanceof RadarClient.Unauthorized){storage.clear();connection=new JSONObject();result=null;proposals.clear();}failure(e);});}});
     }
+    private void chooseFollowSync(){
+        if(busy||!connected())return;
+        new AlertDialog.Builder(activity).setTitle("DropID · Follows synchronisieren")
+                .setMessage("Freiwillig: Deine gefolgten Entwickler über dein verbundenes GitHub-Konto abgleichen. Es werden keine GitHub-Zugangsdaten oder installierten Apps übertragen. Cloud-Follows können im Web gelöscht werden.")
+                .setPositiveButton("Cloud übernehmen",(d,w)->syncFollows(false))
+                .setNeutralButton("Dieses Gerät sichern",(d,w)->syncFollows(true))
+                .setNegativeButton("Abbrechen",null).show();
+    }
+    private void syncFollows(boolean upload){
+        if(busy||!connected())return;
+        final int ticket=++request;busy=true;message="Follows werden abgeglichen …";render();
+        final String token=connection.optString("deviceSecret");
+        io.execute(()->{try{
+            JSONObject cloud=RadarClient.request("/api/sync",null,token);
+            if(upload){
+                JSONArray appFollows=cloud.optJSONArray("slugs");if(appFollows==null)appFollows=new JSONArray();
+                JSONArray developers=new DeveloperFollows(activity).ids();
+                JSONObject data=new JSONObject().put("confirm",true)
+                        .put("expectedRevision",cloud.optInt("revision",0))
+                        .put("slugs",appFollows).put("developerIds",developers);
+                RadarClient.request("/api/sync",data,token);
+                post(ticket,()->{busy=false;message="Entwickler-Follows in der Cloud gesichert ✓";render();});
+            }else{
+                if(!cloud.optBoolean("enabled"))throw new IllegalStateException("Noch keine Cloud-Kopie vorhanden. Wähle zuerst „Dieses Gerät sichern“.");
+                JSONArray ids=cloud.getJSONArray("developerIds");
+                if(ids.length()>20)throw new SecurityException("Zu viele Cloud-Follows.");
+                JSONObject publicData=StoreClient.following(ids);
+                JSONArray profiles=publicData.optJSONArray("developers");
+                DeveloperFollows follows=new DeveloperFollows(activity);
+                JSONObject local=follows.read();
+                int added=0;
+                if(profiles!=null)for(int i=0;i<profiles.length();i++){
+                    JSONObject p=profiles.optJSONObject(i);if(p==null)continue;
+                    String id=p.optString("id"),handle=p.optString("handle"),name=p.optString("name");
+                    if(!DeveloperFollows.validId(id)||local.has(id)||local.length()>=20)continue;
+                    try{StoreClient.handle(handle);if(name.length()>160)continue;}catch(SecurityException invalid){continue;}
+                    local.put(id,new JSONObject().put("handle",handle).put("name",name));added++;
+                }
+                follows.replace(local);
+                final int count=added;
+                post(ticket,()->{busy=false;message=count>0?count+" Entwickler-Follows übernommen ✓":"Keine neuen öffentlichen Entwickler-Follows.";render();});
+            }
+        }catch(Exception e){post(ticket,()->failure(e));}});
+    }
     private void disconnect(){
         new AlertDialog.Builder(activity).setTitle("GitHub Radar trennen?").setMessage("Der Zugriff dieses Geräts auf deine privaten APK-Vorschläge wird widerrufen.")
                 .setNegativeButton("Abbrechen",null).setPositiveButton("Trennen",(d,w)->{
@@ -137,6 +181,7 @@ final class GitHubRadarController {
             panel.addView(label("Einmal im Browser anmelden und dieses Gerät bestätigen. Deine GitHub-Zugangsdaten bleiben dort.",12));
         }else{
             panel.addView(label("Verbunden mit @"+connection.optString("login"),14));
+            panel.addView(button("DropID-Follows abgleichen →",this::chooseFollowSync));
             panel.addView(label(connection.optBoolean("privateImport")?"Private Imports erlaubt · Jeden Import einzeln bestätigen.":"Nur Vorschläge lesen · Private Imports nicht freigegeben.",12));
             panel.addView(button("Repositories jetzt prüfen ↻",()->refresh(0)));
             if(!connection.optBoolean("privateImport"))panel.addView(button("Private Imports freigeben →",this::start));
