@@ -45,8 +45,24 @@ final class StoreClient {
     static JSONObject following(org.json.JSONArray ids) throws Exception {
         return json("/api/following",new JSONObject().put("slugs",new org.json.JSONArray()).put("developerIds",ids));
     }
+    /** Display-only Home; sends bounded local choices without creating a cloud account. */
+    static JSONObject home(org.json.JSONArray developerIds,org.json.JSONArray savedSlugs) throws Exception {
+        if(developerIds==null||developerIds.length()>20||savedSlugs==null||savedSlugs.length()>50)
+            throw new SecurityException("Zu viele gespeicherte Einträge.");
+        for(int i=0;i<developerIds.length();i++)
+            if(!DeveloperFollows.validId(developerIds.getString(i)))
+                throw new SecurityException("Ungültiger Entwickler.");
+        for(int i=0;i<savedSlugs.length();i++) slug(savedSlugs.getString(i));
+        JSONObject data=new JSONObject().put("slugs",new org.json.JSONArray()).put("developerIds",developerIds).put("savedSlugs",savedSlugs);
+        JSONObject response=json("/api/home",data);
+        if(!"apkdrop.home.v1".equals(response.optString("schema"))
+                || !(response.opt("feed") instanceof org.json.JSONArray)
+                || !(response.opt("recommendations") instanceof org.json.JSONArray))
+            throw new SecurityException("Unerwartete Home-Antwort.");
+        return response;
+    }
     static URI apiUri(String path) {
-        if(path==null || !path.matches("/api/(?:discover(?:\\?(?:page=[0-9]+|q=[^#&]*&category=[a-z]*&page=[0-9]+(?:&sort=(?:new|updated))?))?|dropid/[a-z0-9-]+\\.json|[a-z0-9-]{3,40}/store\\.json|following)"))
+        if(path==null || !path.matches("/api/(?:discover(?:\\?(?:page=[0-9]+|q=[^#&]*&category=[a-z]*&page=[0-9]+(?:&sort=(?:new|updated))?))?|dropid/[a-z0-9-]+\\.json|[a-z0-9-]{3,40}/store\\.json|following|home)"))
             throw new SecurityException("Unzulässiger API-Pfad.");
         return URI.create(ORIGIN+path);
     }
