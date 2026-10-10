@@ -134,7 +134,7 @@ final class GitHubRadarController {
             JSONObject cloud=RadarClient.request("/api/sync",null,token);
             if(upload){
                 JSONArray appFollows=cloud.optJSONArray("slugs");
-                JSONArray localBookmarks=new CloudWatchlist(activity).read();
+                JSONArray localBookmarks=new CloudWatchlist(activity,connection.optString("login")).read();
                 JSONArray savedApps=new JSONArray();
                 for(AppLibrary.Entry entry:new AppLibraryStore(activity).read().entries())
                     savedApps.put(StoreClient.slug(entry.slug));
@@ -149,7 +149,7 @@ final class GitHubRadarController {
             }else{
                 if(!cloud.optBoolean("enabled"))throw new IllegalStateException("Noch keine Cloud-Kopie vorhanden. Wähle zuerst „Dieses Gerät sichern“.");
                 JSONArray cloudSlugs=cloud.getJSONArray("slugs");
-                CloudWatchlist watchlist=new CloudWatchlist(activity);
+                CloudWatchlist watchlist=new CloudWatchlist(activity,connection.optString("login"));
                 watchlist.replace(CloudWatchlist.merge(watchlist.read(),cloudSlugs));
                 JSONArray ids=cloud.getJSONArray("developerIds");
                 if(ids.length()>20)throw new SecurityException("Zu viele Cloud-Follows.");
@@ -192,7 +192,7 @@ final class GitHubRadarController {
             panel.addView(label("Verbunden mit @"+connection.optString("login"),14));
             panel.addView(button("Follows & Merkliste abgleichen →",this::chooseFollowSync));
             try{
-                JSONArray bookmarks=new CloudWatchlist(activity).read();
+                JSONArray bookmarks=new CloudWatchlist(activity,connection.optString("login")).read();
                 if(bookmarks.length()>0){
                     panel.addView(label("Deine Cloud-Merkliste · nur App-Links",16));
                     for(int i=0;i<Math.min(bookmarks.length(),8);i++){
