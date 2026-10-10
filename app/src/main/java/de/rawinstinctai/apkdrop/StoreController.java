@@ -586,6 +586,9 @@ final class StoreController {
         try {
             JSONArray ids=follows.ids(),saved=new JSONArray();
             for(String slug:library.savedSlugs())saved.put(StoreClient.slug(slug));
+            // Bookmarks remain display-only; the locally verified AppLibrary stays untouched.
+            if(radar!=null)try{saved=CloudWatchlist.merge(saved,radar.savedBookmarks());}
+            catch(Exception tooMany){/* Keep verified local entries when the combined list exceeds 50. */}
             String identity=ids.toString()+":"+saved.toString();
             if(!identity.equals(homeFeedIds)) {
                 homeRequest++;homeFeedAt=0;homeFeedIds=identity;
