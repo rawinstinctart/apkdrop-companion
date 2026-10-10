@@ -400,7 +400,7 @@ public final class MainActivity extends Activity {
         if(fetched)verificationIssue="";
         currentRelease=release; currentInstalled=installed; currentDecision=decision; verifiedApk=null;
         findViewById(R.id.radarButton).setEnabled(true);
-        ((TextView)findViewById(R.id.dropTrustStatus)).setText(DropTrust.describe(release,installed,library.previous(release),keepVerified));
+        ((TextView)findViewById(R.id.dropTrustStatus)).setText(DropTrust.describe(release,installed,library.previous(release),keepVerified)+"\n"+DropTrustGuidance.nextStep(decision,!fetched));
         title.setText(release.appName);findViewById(R.id.historyButton).setVisibility(View.VISIBLE);findViewById(R.id.trustButton).setEnabled(true);findViewById(R.id.receiptButton).setEnabled(true);
         TextView history=findViewById(R.id.historyText);history.setText(ReleaseNotes.render(library.observedHistory(release)));
         if(fetched){history.setVisibility(View.GONE);((Button)findViewById(R.id.historyButton)).setText("Beobachtete Versionen ansehen +");}
@@ -656,7 +656,7 @@ public final class MainActivity extends Activity {
     private void showError(String text) {
         pendingLink=null;
         resetCandidate(); setBusy(false,""); card.setVisibility(View.VISIBLE); badge.setText(getString(R.string.message_mainactivity_11));
-        radar.setText(getString(R.string.message_mainactivity_12)); title.setText(getString(R.string.message_mainactivity_13)); meta.setText(getString(R.string.message_mainactivity_12)); proof.setText(getString(R.string.message_mainactivity_12)); permissions.setText(getString(R.string.message_mainactivity_12)); notes.setVisibility(View.GONE);findViewById(R.id.historyText).setVisibility(View.GONE); status.setText(text);
+        radar.setText(getString(R.string.message_mainactivity_12)); title.setText(getString(R.string.message_mainactivity_13)); meta.setText(getString(R.string.message_mainactivity_12)); proof.setText(getString(R.string.message_mainactivity_12)); permissions.setText(getString(R.string.message_mainactivity_12)); notes.setVisibility(View.GONE);findViewById(R.id.historyText).setVisibility(View.GONE); status.setText(text+"\nBestehende Apps und gespeicherte Prüfstände bleiben unverändert. Erneut prüfen, sobald die Ursache behoben ist.");
     }
 
     private void updateSaveButton() {
