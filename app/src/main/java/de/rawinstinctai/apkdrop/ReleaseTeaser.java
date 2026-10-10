@@ -1,10 +1,17 @@
 package de.rawinstinctai.apkdrop;
 final class ReleaseTeaser {
+    private static final int MAX_LENGTH=135;
+    /** One scannable update note; source comes from the shared, filtered backend API. */
     static String summary(String source) {
         if(source==null || source.isBlank())return "Neue Version verfügbar.";
-        String[] lines=source.split("\\r?\\n");StringBuilder out=new StringBuilder();
-        for(String line:lines){if(line.isBlank())continue;if(out.length()>0)out.append(" · ");out.append(line.trim());if(out.length()>=240 || out.indexOf(" · ")>=0)break;}
-        if(out.length()>240){int end=239;if(Character.isHighSurrogate(out.charAt(end-1)))end--;return out.substring(0,end)+"…";}
-        return out.toString();
+        for(String raw:source.split("\\r?\\n")) {
+            String line=raw.trim();
+            if(line.isEmpty())continue;
+            if(line.length()<=MAX_LENGTH)return line;
+            int end=MAX_LENGTH-1;
+            if(Character.isHighSurrogate(line.charAt(end-1)))end--;
+            return line.substring(0,end).replaceFirst("\\s+\\S*$","").stripTrailing()+"…";
+        }
+        return "Neue Version verfügbar.";
     }
 }
