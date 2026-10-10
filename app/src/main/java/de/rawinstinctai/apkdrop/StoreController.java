@@ -31,6 +31,7 @@ final class StoreController {
     private boolean catalogCached,sortByName,newDiscover,developersOnly;
     private final InstalledAppsController installedApps;
     private JSONArray homeReleases=new JSONArray();
+    private JSONObject homeFocus;
     private boolean homeFeedKnown;
     private long catalogAt;
     private String activeProfile;
@@ -593,7 +594,7 @@ final class StoreController {
             String identity=ids.toString()+":"+selectedSlugs.toString();
             if(!identity.equals(homeFeedIds)) {
                 homeRequest++;homeFeedAt=0;homeFeedIds=identity;
-                homeReleases=new JSONArray();homeFeedKnown=false;renderActionCenter();
+                homeReleases=new JSONArray();homeFocus=null;homeFeedKnown=false;renderActionCenter();
             }
             if(System.currentTimeMillis()-homeFeedAt<5*60*1000)return;
             homeFeedAt=System.currentTimeMillis();final int ticket=++homeRequest;
@@ -607,7 +608,7 @@ final class StoreController {
                     prepareRadar(releases);
                     activity.runOnUiThread(()->{
                         if(closed||ticket!=homeRequest)return;
-                        homeReleases=releases;homeFeedKnown=true;renderActionCenter();panel.removeAllViews();
+                        homeReleases=releases;homeFocus=home.optJSONObject("focus");homeFeedKnown=true;renderActionCenter();panel.removeAllViews();
                         int shown=0;
                         for(int i=0;i<releases.length()&&shown<2;i++){
                             JSONObject item=releases.optJSONObject(i);if(item==null)continue;
@@ -682,6 +683,11 @@ final class StoreController {
             JSONObject newest=first;
             String teaser=ReleaseTeaser.summary(newest.optString("teaser",
                     newest.optString("notesSummary")));
+            // Use the same compact description as the website if the release identity matches.
+            if(homeFocus!=null&&"release".equals(homeFocus.optString("kind"))
+                    &&newest.optString("slug").equals(homeFocus.optString("slug"))
+                    &&newest.optString("releaseId").equals(homeFocus.optString("releaseId")))
+                teaser=ReleaseTeaser.summary(homeFocus.optString("summary",teaser));
             String title=bounded(newest.optString("name"),90)+" · "+DisplayText.version(newest.optString("version"));
             panel.addView(textAction((releases>1?releases+" neue Releases · ":"Neu · ")+title+
                     "\n"+teaser+" →",()->{
@@ -691,6 +697,13 @@ final class StoreController {
                     select.accept(StoreClient.slug(newest.getString("slug")));
                 }catch(Exception e){error(e);}
             }));
+        }else if(radar.proposalCount()==0&&homeFocus!=null
+                &&"discover".equals(homeFocus.optString("kind"))){
+            try{
+                final String slug=StoreClient.slug(homeFocus.getString("slug"));
+                final String title=bounded(homeFocus.optString("title","App entdecken"),90);
+                panel.addView(textAction(title+" · Entdecken →",()->select.accept(slug)));
+            }catch(Exception invalid){/* Ignore malformed optional server recommendations. */}
         }
     }
     private void manageFollows(){try{JSONObject saved=follows.read();java.util.List<String> ids=new java.util.ArrayList<>(),labels=new java.util.ArrayList<>();java.util.Iterator<String> it=saved.keys();while(it.hasNext()){String id=it.next();ids.add(id);labels.add(saved.getJSONObject(id).optString("name")+" · nicht mehr folgen");}new AlertDialog.Builder(activity).setTitle("Gefolgte Entwickler").setItems(labels.toArray(new String[0]),(d,w)->new AlertDialog.Builder(activity).setTitle("Nicht mehr folgen?").setNegativeButton("Abbrechen",null).setPositiveButton("Entfernen",(dialog,which)->{try{follows.remove(ids.get(w));homeFeedAt=0;feed();}catch(Exception e){error(e);}}).show()).setPositiveButton("Schließen",null).show();}catch(Exception e){error(e);}}
