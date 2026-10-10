@@ -66,7 +66,7 @@ jobs:
               raise SystemExit('Exactly one preview candidate is required.')
           aapt = pathlib.Path(os.environ['ANDROID_HOME']) / 'build-tools/35.0.0/aapt'
           actual = p.manifest_facts(subprocess.check_output([str(aapt), 'dump', 'badging', str(apks[0])], text=True))
-          expected = p.policy('alpha25-preview')
+          expected = p.policy('alpha28-preview')
           expected.pop('certificateSha256')  # CI never signs or certifies the APK.
           expected.update(minSdk=26, targetSdk=36, permissions=sorted(p.COMPANION_PERMISSIONS))
           if any(actual.get(key) != value for key, value in expected.items()):
