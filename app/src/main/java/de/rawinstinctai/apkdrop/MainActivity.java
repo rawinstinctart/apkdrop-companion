@@ -667,10 +667,10 @@ public final class MainActivity extends Activity {
         // A shared APKDrop link has one clear next action: save the app for updates.
         // Keep manual Android installation available, but secondary until saved.
         addButton.setVisibility(currentRelease==null||monitored?View.GONE:View.VISIBLE);
-        addButton.setBackgroundResource(saved?R.drawable.bg_input:R.drawable.bg_primary);
-        addButton.setTextColor(getColor(saved?R.color.text:R.color.lime_dark));
-        actionButton.setBackgroundResource(saved?R.drawable.bg_primary:R.drawable.bg_input);
-        actionButton.setTextColor(getColor(saved?R.color.lime_dark:R.color.text));
+        addButton.setBackgroundResource(monitored?R.drawable.bg_input:R.drawable.bg_primary);
+        addButton.setTextColor(getColor(monitored?R.color.text:R.color.lime_dark));
+        actionButton.setBackgroundResource(monitored?R.drawable.bg_primary:R.drawable.bg_input);
+        actionButton.setTextColor(getColor(monitored?R.color.lime_dark:R.color.text));
         addButton.setText(saved?"Update-Überwachung aktivieren ↻":"Übernehmen & Updates überwachen →");
         addButton.setEnabled(currentRelease!=null&&!monitored&&!detailBusy&&!library.checking()&&library.writable());
         TextView tracking=findViewById(R.id.monitoringStatus);
