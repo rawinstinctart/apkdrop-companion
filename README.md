@@ -1,5 +1,11 @@
 # APKDrop Companion
 
+## Alpha 31/32 · Simple Experience + One Ecosystem (source candidate)
+
+Home prioritizes a single update action, hides duplicate import shortcuts after apps are saved and does not show empty discovery headings. APKDrop website Discover now offers a direct handoff to the existing verified Companion install contract; consent and device-side APK identity/hash/signature verification are unchanged. The same opt-in follow/bookmark sync and release-summary contract remain authoritative; local installed-app identities are never synchronized as security evidence.
+
+Source version **0.1.0-alpha.32**, versionCode **32**, preserves the existing Alpha package suffix and original signer requirement. CI can build an unsigned candidate; **do not distribute a preview or call it upgrade-safe until original-key signing, preflight, and on-device upgrade checks pass**. Gate #33 remains open. The last published signed APK may still be Alpha 29 until this handoff is completed. This note is internal source documentation, not public release notes.
+
 Native Android companion for verified APKDrop installs and updates.
 
 ## Alpha 17 — GitHub onboarding and discovery
