@@ -1,0 +1,16 @@
+{
+  "schema": "apkdrop.signed-release-evidence.v1",
+  "release": "v0.1.0-alpha.32",
+  "appId": "de.rawinstinctai.apkdrop.debug",
+  "versionCode": 32,
+  "versionName": "0.1.0-alpha.32-preview",
+  "sourceCommit": "401c275e14ab8fc2cf62e263ce10e24cc1b54297",
+  "successfulCiRun": 38150327338,
+  "unsignedPreviewSha256": "0ee36b34f7c6b8c59baf9cedbc0374cbb50e4254dbcdd2da93fca90ed380a9fd",
+  "signedApkSha256": "209c94fd7f444cb67573f51c4e7327e2e2117075cf57f026de860e65f835a0f4",
+  "signedApkBytes": 334628,
+  "signerCertSha256": "6cf70241a63498e5e9fce78bac9abec760364cf320928347114bf109abd81e2e",
+  "verifiedSigningScheme": "APK Signature Scheme v2",
+  "checks": "Signature over signed data and content digest, certificate continuity, ZIP CRC. Release hosting is separate.",
+  "signedArtifactName": "APKDrop-Companion-v0.1.0-alpha.32-preview.apk"
+}
