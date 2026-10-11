@@ -163,6 +163,9 @@ final class StoreController {
         checks.setVisibility(count>0?View.VISIBLE:View.GONE);
         // The primary button already opens Discover in the first-use state.
         activity.findViewById(R.id.homeDiscover).setVisibility(count>0?View.VISIBLE:View.GONE);
+        // The link-import shortcut lives in Meine Apps once the user has saved apps.
+        // Keep the first-run alternative, not two competing shortcuts on every Home visit.
+        activity.findViewById(R.id.homeAddLink).setVisibility(count==0?View.VISIBLE:View.GONE);
         try {((Button)activity.findViewById(R.id.homeFollowing)).setText("Entwickler & Releases · "+follows.ids().length()+" gefolgt →");}catch(Exception unavailable){}
         activity.findViewById(R.id.homeUpdates).setEnabled(activity.findViewById(R.id.progress).getVisibility()!=View.VISIBLE);
     }
@@ -705,6 +708,9 @@ final class StoreController {
                 panel.addView(textAction(title+" · Entdecken →",()->select.accept(slug)));
             }catch(Exception invalid){/* Ignore malformed optional server recommendations. */}
         }
+        TextView heading=activity.findViewById(R.id.homeActionTitle);
+        heading.setText("Das ist neu");
+        heading.setVisibility(panel.getChildCount()>0?View.VISIBLE:View.GONE);
     }
     private void manageFollows(){try{JSONObject saved=follows.read();java.util.List<String> ids=new java.util.ArrayList<>(),labels=new java.util.ArrayList<>();java.util.Iterator<String> it=saved.keys();while(it.hasNext()){String id=it.next();ids.add(id);labels.add(saved.getJSONObject(id).optString("name")+" · nicht mehr folgen");}new AlertDialog.Builder(activity).setTitle("Gefolgte Entwickler").setItems(labels.toArray(new String[0]),(d,w)->new AlertDialog.Builder(activity).setTitle("Nicht mehr folgen?").setNegativeButton("Abbrechen",null).setPositiveButton("Entfernen",(dialog,which)->{try{follows.remove(ids.get(w));homeFeedAt=0;feed();}catch(Exception e){error(e);}}).show()).setPositiveButton("Schließen",null).show();}catch(Exception e){error(e);}}
     private void renderCatalogEmpty() {
