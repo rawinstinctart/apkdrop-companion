@@ -19,9 +19,9 @@ import java.util.Arrays;
 import java.util.concurrent.*;
 
 public final class MainActivity extends Activity {
-    private static final int BACKUP_EXPORT=71, BACKUP_IMPORT=72;
+    private static final int BACKUP_EXPORT=71, BACKUP_IMPORT=72, APK_INSPECT=73;
     private char[] pendingBackupPassword;
-    private boolean notesExpanded;
+    private boolean notesExpanded,manualInspectionRunning;
     private android.content.SharedPreferences pilotPreferences;
     private final android.content.SharedPreferences.OnSharedPreferenceChangeListener pilotListener=(prefs,key)->this.main.post(()->{if(!isDestroyed())updateDropPilotStatus();});
     private final ExecutorService io=Executors.newSingleThreadExecutor();
@@ -116,6 +116,7 @@ public final class MainActivity extends Activity {
         findViewById(R.id.selfUpdate).setOnClickListener(v->{if(!detailBusy && !library.checking()) selectSingle("apkdrop-companion");});
         findViewById(R.id.backupExport).setOnClickListener(v->chooseBackup(true));
         findViewById(R.id.backupImport).setOnClickListener(v->chooseBackup(false));
+        findViewById(R.id.verifyLocalApk).setOnClickListener(v->chooseLocalApk());
         findViewById(R.id.historyButton).setOnClickListener(v->{
             TextView history=findViewById(R.id.historyText);boolean open=history.getVisibility()!=View.VISIBLE;
             history.setVisibility(open?View.VISIBLE:View.GONE);((Button)v).setText(open?"Beobachtete Versionen schließen −":"Beobachtete Versionen ansehen +");
@@ -257,6 +258,45 @@ public final class MainActivity extends Activity {
         if(pendingBackupPassword!=null)Arrays.fill(pendingBackupPassword,(char)0);
         pendingBackupPassword=null;
     }
+    /** Manual APK file check; no APK installation or network request is started. */
+    private void chooseLocalApk() {
+        if(detailBusy || manualInspectionRunning) {toast("Bitte die laufende Prüfung abschließen.");return;}
+        Intent intent=new Intent(Intent.ACTION_OPEN_DOCUMENT)
+                .addCategory(Intent.CATEGORY_OPENABLE)
+                .setType("*/*")
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        try {startActivityForResult(intent,APK_INSPECT);}
+        catch(Exception unavailable) {toast("Dateiauswahl ist nicht verfügbar.");}
+    }
+
+    private void inspectSelectedApk(android.net.Uri uri) {
+        if(manualInspectionRunning) return;
+        manualInspectionRunning=true;
+        toast("APK wird lokal geprüft. Nichts wird installiert oder hochgeladen.");
+        io.execute(()->{
+            String text;boolean success;
+            try {
+                text=LocalApkInspector.inspect(this,uri).text;
+                success=true;
+            } catch(Exception failed) {
+                text=(failed instanceof SecurityException || failed instanceof java.io.IOException)
+                        ?failed.getMessage():"Die Datei konnte nicht zuverlässig geprüft werden.";
+                success=false;
+            }
+            final String report=text;
+            final boolean verified=success;
+            runOnUiThread(()->{
+                manualInspectionRunning=false;
+                if(isDestroyed() || isFinishing())return;
+                new AlertDialog.Builder(this)
+                        .setTitle(verified?"APK-Datei geprüft":"APK-Prüfung fehlgeschlagen")
+                        .setMessage(report)
+                        .setPositiveButton("Schließen",null)
+                        .show();
+            });
+        });
+    }
+
     private void chooseBackup(boolean export) {
         if(detailBusy || library.checking()) {toast("Bitte erst die laufende Prüfung abschließen.");return;}
         EditText input=new EditText(this);
@@ -282,6 +322,11 @@ public final class MainActivity extends Activity {
     @Override @SuppressWarnings("deprecation")
     protected void onActivityResult(int request,int result,Intent data) {
         super.onActivityResult(request,result,data);
+        if(request==APK_INSPECT) {
+            if(result==RESULT_OK && data!=null && data.getData()!=null)
+                inspectSelectedApk(data.getData());
+            return;
+        }
         if(request!=BACKUP_EXPORT&&request!=BACKUP_IMPORT)return;
         char[] password=pendingBackupPassword;
         pendingBackupPassword=null;
