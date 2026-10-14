@@ -144,7 +144,8 @@ public final class MainActivity extends Activity {
             }
             catch(Exception e) { toast(message(e)); }
         });
-        if(state==null && !awaitingInstaller
+        if(state==null && isApkFileShare(getIntent())) handleSharedApk(getIntent());
+        else if(state==null && !awaitingInstaller
                 && isInstallIntent(getIntent())) handleIntent(getIntent());
         else {
             if(state==null&&awaitingInstaller&&isInstallIntent(getIntent()))handleIntent(getIntent());
@@ -196,7 +197,9 @@ public final class MainActivity extends Activity {
     }
 
     @Override protected void onNewIntent(Intent intent) {
-        super.onNewIntent(intent); setIntent(intent); handleIntent(intent);
+        super.onNewIntent(intent); setIntent(intent);
+        if(isApkFileShare(intent)) handleSharedApk(intent);
+        else handleIntent(intent);
     }
 
     @Override protected void onResume() {
@@ -371,6 +374,19 @@ public final class MainActivity extends Activity {
             finally {Arrays.fill(password,(char)0);}
         });
     }
+    private static boolean isApkFileShare(Intent intent) {
+        return intent!=null && Intent.ACTION_SEND.equals(intent.getAction())
+                && "application/vnd.android.package-archive".equals(intent.getType())
+                && intent.hasExtra(Intent.EXTRA_STREAM);
+    }
+
+    @SuppressWarnings("deprecation")
+    private void handleSharedApk(Intent intent) {
+        android.net.Uri uri=intent.getParcelableExtra(Intent.EXTRA_STREAM);
+        if(uri==null) {toast("Keine APK-Datei geteilt.");return;}
+        inspectSelectedApk(uri);
+    }
+
     private static boolean isInstallIntent(Intent intent) {
         return intent!=null && (intent.getData()!=null || (Intent.ACTION_SEND.equals(intent.getAction())
                 && "text/plain".equals(intent.getType()) && intent.hasExtra(Intent.EXTRA_TEXT)));
