@@ -18,6 +18,20 @@ MANIFEST += "".join("uses-permission: name='" + name + "'\n" for name in sorted(
 
 
 class ReleasePolicyTest(unittest.TestCase):
+    def test_alpha34_keeps_original_signer_and_is_a_new_upgrade(self):
+        previous = p.policy("alpha33-preview")
+        preview = p.policy("alpha34-preview")
+        self.assertEqual(preview["package"], previous["package"])
+        self.assertEqual(preview["certificateSha256"], previous["certificateSha256"])
+        self.assertEqual(preview["versionCode"], 34)
+        self.assertGreater(preview["versionCode"], previous["versionCode"])
+        self.assertEqual(preview["versionName"], "0.1.0-alpha.34-preview")
+        self.assertFalse(preview["debuggable"])
+        self.assertTrue(p.policy("alpha34-debug")["debuggable"])
+        for override in ({"version_code":33}, {"version_name":"other"}, {"expected_cert":"f"*64}):
+            with self.assertRaises(ValueError):
+                p.policy("alpha34-preview", **override)
+
     def test_alpha33_pins_original_signer_and_is_a_new_upgrade(self):
         previous = p.policy("alpha32-preview")
         preview = p.policy("alpha33-preview")
