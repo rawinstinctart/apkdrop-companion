@@ -1,0 +1,6 @@
+<resources>
+    <item type="id" name="localApkPackage"/>
+    <item type="id" name="localApkDetails"/>
+    <item type="id" name="localApkDetailsToggle"/>
+    <item type="id" name="localApkWarning"/>
+</resources>
