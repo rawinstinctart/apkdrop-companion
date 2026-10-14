@@ -16,6 +16,8 @@
   <string name="ui_activity_main_13">Release prüfen →</string>
   <string name="ui_activity_main_14">GitHub-Links brauchen eine aktuell bestätigte öffentliche DropID-Zuordnung. Geöffnet wird der aktuelle APKDrop-Release.</string>
   <string name="ui_activity_main_15">Dein Gerät. Deine Entscheidung.</string>
+  <string name="verify_local_apk">APK-Datei überprüfen →</string>
+  <string name="verify_local_apk_explain">Datei auswählen, Hash und APK-Signatur auf diesem Gerät prüfen. Keine Installation, kein Upload.</string>
   <string name="ui_activity_main_16">Automatisch auf Updates prüfen</string>
   <string name="ui_activity_main_17">Update-Benachrichtigungen</string>
   <string name="ui_activity_main_18">Deine App-Liste und gefolgten Entwickler bleiben auf deinem Gerät. Kein Konto und keine versteckten Tracker.</string>
