@@ -22,6 +22,8 @@ public final class MainActivity extends Activity {
     private static final int BACKUP_EXPORT=71, BACKUP_IMPORT=72, APK_INSPECT=73;
     private char[] pendingBackupPassword;
     private boolean notesExpanded,manualInspectionRunning;
+    private AlertDialog manualApkProgress;
+    private Runnable pendingApkProgress;
     private android.content.SharedPreferences pilotPreferences;
     private final android.content.SharedPreferences.OnSharedPreferenceChangeListener pilotListener=(prefs,key)->this.main.post(()->{if(!isDestroyed())updateDropPilotStatus();});
     private final ExecutorService io=Executors.newSingleThreadExecutor();
@@ -254,6 +256,8 @@ public final class MainActivity extends Activity {
         downloadCancellation=null;
         if(activeDownload!=null) activeDownload.cancel(true);
         eraseBackupPassword();
+        if(pendingApkProgress!=null)main.removeCallbacks(pendingApkProgress);
+        if(manualApkProgress!=null)manualApkProgress.dismiss();
         store.close(); library.close(); io.shutdownNow(); super.onDestroy();
     }
 
@@ -273,27 +277,43 @@ public final class MainActivity extends Activity {
     }
 
     private void inspectSelectedApk(android.net.Uri uri) {
-        if(manualInspectionRunning) return;
+        if(manualInspectionRunning)return;
         manualInspectionRunning=true;
-        toast("APK wird lokal geprüft. Nichts wird installiert oder hochgeladen.");
+        // Only show progress for slow files: never leave a Toast underneath the result.
+        pendingApkProgress=()->{
+            if(!manualInspectionRunning || isDestroyed() || isFinishing())return;
+            manualApkProgress=new AlertDialog.Builder(this)
+                    .setTitle("APK wird lokal geprüft")
+                    .setMessage("Nichts wird installiert oder hochgeladen.")
+                    .setView(new ProgressBar(this))
+                    .setCancelable(false)
+                    .create();
+            manualApkProgress.show();
+        };
+        main.postDelayed(pendingApkProgress,450);
         io.execute(()->{
-            String text;boolean success;
-            try {
-                text=LocalApkInspector.inspect(this,uri).text;
-                success=true;
-            } catch(Exception failed) {
-                text=(failed instanceof SecurityException || failed instanceof java.io.IOException)
+            LocalApkInspector.Report outcome=null;
+            String error=null;
+            try {outcome=LocalApkInspector.inspect(this,uri);}
+            catch(Exception failed) {
+                error=(failed instanceof SecurityException || failed instanceof java.io.IOException)
                         ?failed.getMessage():"Die Datei konnte nicht zuverlässig geprüft werden.";
-                success=false;
             }
-            final String report=text;
-            final boolean verified=success;
+            final LocalApkInspector.Report report=outcome;
+            final String failure=error;
             runOnUiThread(()->{
                 manualInspectionRunning=false;
+                if(pendingApkProgress!=null)main.removeCallbacks(pendingApkProgress);
+                pendingApkProgress=null;
+                if(manualApkProgress!=null) {
+                    manualApkProgress.dismiss();
+                    manualApkProgress=null;
+                }
                 if(isDestroyed() || isFinishing())return;
-                new AlertDialog.Builder(this)
-                        .setTitle(verified?"APK-Datei geprüft":"APK-Prüfung fehlgeschlagen")
-                        .setMessage(report)
+                if(report!=null)LocalApkReportDialog.create(this,report).show();
+                else new AlertDialog.Builder(this)
+                        .setTitle("APK-Prüfung fehlgeschlagen")
+                        .setMessage(failure)
                         .setPositiveButton("Schließen",null)
                         .show();
             });
