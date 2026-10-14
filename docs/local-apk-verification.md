@@ -32,7 +32,7 @@ New JVM fixture-based tests in `ApkSignatureChecksTest` cover signed, unsigned, 
 
 Before marking ready, run the full Gradle unit-test/lint/build suite on a supported Android SDK environment; verify signed APK fixture and UI tests. On a real phone, check Files picker, shares from file managers, 250-MiB cap, long file names, cancellation, invalid APK, valid signed APK, installed same-signer, installed different-signer, and no unintended installer. Test rotation and process-death cleanup.
 
-The existing Companion Alpha 32 original signer and on-device upgrade gate remain mandatory; no new APK can be published until completed.
+Alpha 33 is the next upgrade candidate: package `de.rawinstinctai.apkdrop.debug`, versionCode `33`, versionName `0.1.0-alpha.33-preview`; the original alpha certificate remains pinned. Sign outside GitHub and verify with `alpha33-preview`. The physical-device upgrade gate remains mandatory. Do not publish or install a newly signed candidate on an owner's device automatically.
 
 ## Future DropPass integration
 
