@@ -16,9 +16,18 @@ final class LocalApkInspector {
     private static final long MAX_BYTES=250L*1024*1024;
     private LocalApkInspector() {}
 
+    enum SignerComparison { MATCH, MISMATCH, NOT_INSTALLED }
+
     static final class Report {
-        final String text;
-        Report(String text) {this.text=text;}
+        final String text,packageName,versionName;
+        final SignerComparison signerComparison;
+        final int declaredPermissions,addedPermissions;
+        Report(String text,String packageName,String versionName,SignerComparison signerComparison,
+                int declaredPermissions,int addedPermissions) {
+            this.text=text;this.packageName=packageName;this.versionName=versionName;
+            this.signerComparison=signerComparison;this.declaredPermissions=declaredPermissions;
+            this.addedPermissions=addedPermissions;
+        }
     }
 
     static Report inspect(Context context,Uri uri) throws Exception {
@@ -39,19 +48,23 @@ final class LocalApkInspector {
                 throw new SecurityException("Android kann die Paketdaten dieser APK nicht lesen.");
 
             InstalledState installed=InstalledState.read(context,archive.packageName);
-            String signerStatus=installed==null
+            SignerComparison comparison=installed==null?SignerComparison.NOT_INSTALLED
+                    :installed.signers.equals(checked.signers)?SignerComparison.MATCH:SignerComparison.MISMATCH;
+            String signerStatus=comparison==SignerComparison.NOT_INSTALLED
                     ?"Noch kein Vergleich mit einer installierten Version möglich."
-                    :installed.signers.equals(checked.signers)
+                    :comparison==SignerComparison.MATCH
                         ?"✓ Signatur stimmt mit der installierten App überein."
                         :"⚠ Signatur weicht von der installierten App ab. Nicht als normales Update verwenden.";
 
             Set<String> declared=new LinkedHashSet<>();
             if(archive.requestedPermissions!=null) Collections.addAll(declared,archive.requestedPermissions);
+            int addedPermissions=-1;
             String permissionInfo=declared.size()+" angeforderte Berechtigung(en)";
             if(installed!=null) {
                 Set<String> added=new LinkedHashSet<>(declared);
                 added.removeAll(installed.permissions);
-                permissionInfo+="; "+added.size()+" neu gegenüber installiert.";
+                addedPermissions=added.size();
+                permissionInfo+="; "+addedPermissions+" neu gegenüber installiert.";
             }
 
             StringBuilder result=new StringBuilder("✓ APK-Signatur kryptografisch gültig für dieses Android-Gerät.");
@@ -68,7 +81,8 @@ final class LocalApkInspector {
                     .append(String.join("\n",checked.signers));
             result.append("\n\nHerkunft/DropPass: nicht geprüft. Ein gültiges Zertifikat beweist nicht, wer die Datei bereitgestellt hat.");
             result.append("\nDies ist kein Malware-Scan und keine Installationsfreigabe. Es wurde nichts installiert oder hochgeladen.");
-            return new Report(result.toString());
+            return new Report(result.toString(),archive.packageName,archive.versionName,
+                    comparison,declared.size(),addedPermissions);
         } finally {
             if(temp.exists() && !temp.delete())
                 throw new IOException("Temporäre APK-Datei konnte nicht gelöscht werden.");
