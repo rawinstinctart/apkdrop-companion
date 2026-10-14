@@ -70,7 +70,8 @@ final class LocalApkInspector {
             result.append("\nDies ist kein Malware-Scan und keine Installationsfreigabe. Es wurde nichts installiert oder hochgeladen.");
             return new Report(result.toString());
         } finally {
-            if(!temp.delete()) temp.deleteOnExit();
+            if(temp.exists() && !temp.delete())
+                throw new IOException("Temporäre APK-Datei konnte nicht gelöscht werden.");
         }
     }
 
