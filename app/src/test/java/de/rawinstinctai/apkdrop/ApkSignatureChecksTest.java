@@ -89,6 +89,23 @@ public final class ApkSignatureChecksTest {
             assertEquals(signers,ApkSignatureChecks.verify(signed,signed.length(),originalHash,signers,sdk));
     }
 
+    @Test public void manualInspectUsesRealSignatureAndFileDigest() throws Exception {
+        ApkSignatureChecks.Inspection report=ApkSignatureChecks.inspect(signed,26);
+        assertEquals(originalHash,report.sha256);
+        assertEquals(signers,report.signers);
+    }
+
+    @Test public void manualInspectRejectsUnsignedAndTamperedFiles() throws Exception {
+        for(File candidate:new File[]{unsigned,tampered,truncated}) {
+            try { ApkSignatureChecks.inspect(candidate,26); }
+            catch(SecurityException expected) {
+                assertTrue(expected.getMessage().contains("kryptografisch gültig"));
+                continue;
+            }
+            fail("Unsigned/tampered APK must not have a successful local report.");
+        }
+    }
+
     @Test public void incorrectSizeIsBlocked() throws Exception {
         blocked(signed,signed.length()+1,originalHash,signers,"APK-Größe stimmt nicht.");
     }
