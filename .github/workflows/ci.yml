@@ -74,26 +74,6 @@ jobs:
           print('Unsigned preview metadata passed; original-key signing and device acceptance remain open.')
           PY
 
-      # Temporary: export the Apache-2.0 signing *library*, never private signing material.
-      # Only this Alpha 33 PR needs it; remove after secure offline signing.
-      - name: Prepare pinned open-source apksig library for offline signer
-        if: ${{ github.event_name == 'pull_request' && github.event.pull_request.number == 60 }}
-        run: |
-          set -euo pipefail
-          jar="$(find "$HOME/.gradle" -type f -name 'apksig-8.13.2.jar' -print -quit)"
-          test -n "$jar"
-          printf '%s  %s\n' 'c070ed1394629d74641aa0906f60b2ffa1ee77e6366a1f93437f59717b1aeb89' "$jar" | sha256sum -c -
-          mkdir -p "$RUNNER_TEMP/apksig-tool"
-          cp "$jar" "$RUNNER_TEMP/apksig-tool/apksig-8.13.2.jar"
-
-      - uses: actions/upload-artifact@v4
-        if: ${{ github.event_name == 'pull_request' && github.event.pull_request.number == 60 }}
-        with:
-          name: apksig-local-signing-library
-          path: ${{ runner.temp }}/apksig-tool/apksig-8.13.2.jar
-          if-no-files-found: error
-          retention-days: 1
-
       - uses: actions/upload-artifact@v4
         with:
           name: apkdrop-companion-unsigned-preview
