@@ -37,3 +37,20 @@ Alpha 33 is the next upgrade candidate: package `de.rawinstinctai.apkdrop.debug`
 ## Future DropPass integration
 
 A later separate reviewed change can verify a signed `apkdrop.droppass.v1` proof against an independently trusted issuer key and the **same downloaded file SHA-256**. Until such integration ships, do not display a DropPass-verified result in this manual tool. FREY stays the private beta pilot; no private repository data is disclosed.
+
+## Alpha 33 signed handoff (2026-10-14)
+
+The PR's final app-source revision was tested with GitHub Actions run `38645017479` (tests, lint, unsigned debug/preview builds, and pinned unsigned manifest check PASS). This workflow has **no original signing key** and does **not** publish a release.
+
+- Version: `0.1.0-alpha.33-preview`, versionCode **33** (Alpha 32: 32)
+- Historical package: `de.rawinstinctai.apkdrop.debug` (unchanged)
+- Certificate SHA-256: `6cf70241a63498e5e9fce78bac9abec760364cf320928347114bf109abd81e2e` (original Alpha signer)
+- The **exact** unsigned preview artifact from this successful CI run was signed offline with the owner-provided original keystore. No private material or passwords were sent to GitHub or published.
+- Signing and subsequent verification used the pinned Apache-2.0 Android `apksig 8.13.2` implementation. Full cryptographic verification for API 26–36: PASS; v2 and v3: PASS; one original signer: PASS.
+- Verified the signed APK contains precisely the same **21 ZIP file entries and bytes** as the tested unsigned candidate; the APK Signing Block was added without changing app content.
+- Final **signed APK SHA-256**: `adfc39d756a23527161bcca05b53530648209257af4d0bb576eee0b1fd35084b`.
+- Final signed size: **341,256 bytes**.
+- An altered copy of the signed APK was rejected by `apksig` as invalid.
+- The original keystore remained local; a temporary Apache-licensed signing library export was removed from CI afterwards.
+
+**Physical device gate remains OPEN:** install over the already installed Alpha 32 without uninstalling, verify local app state retained, browse **Mehr → APK-Datei überprüfen** with a valid APK, test a malformed APK, confirm a file-manager share opens inspection rather than installation, and validate a same-signer/different-signer comparison. No public release or production rollout is authorized by this note.
