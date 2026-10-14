@@ -17,8 +17,11 @@ final class LocalApkInspector {
     private LocalApkInspector() {}
 
     static final class Report {
-        final String text;
-        Report(String text) {this.text=text;}
+        final String summary,details;
+        Report(String summary,String details) {
+            this.summary=summary;
+            this.details=details;
+        }
     }
 
     static Report inspect(Context context,Uri uri) throws Exception {
@@ -68,11 +71,28 @@ final class LocalApkInspector {
                     .append(String.join("\n",checked.signers));
             result.append("\n\nHerkunft/DropPass: nicht geprüft. Ein gültiges Zertifikat beweist nicht, wer die Datei bereitgestellt hat.");
             result.append("\nDies ist kein Malware-Scan und keine Installationsfreigabe. Es wurde nichts installiert oder hochgeladen.");
-            return new Report(result.toString());
+            String identity=installed==null?"○ Kein installierter Vergleich verfügbar"
+                    :installed.signers.equals(checked.signers)
+                        ?"✓ Signatur stimmt mit installierter App überein"
+                        :"⚠ Signatur weicht von installierter App ab";
+            String addedInfo=installed==null?"Noch nicht vergleichbar":
+                    String.valueOf(newPermissions(declared,installed.permissions).size());
+            String summary="✓ APK-Signatur kryptografisch gültig\n"
+                    +identity+"\n"
+                    +"Neue Berechtigungen: "+addedInfo+"\n"
+                    +"DropPass-Herkunft: noch nicht geprüft\n\n"
+                    +"Dies bestätigt keine Malware-Freiheit und erteilt keine Installationsfreigabe.";
+            return new Report(summary,result.toString());
         } finally {
             if(temp.exists() && !temp.delete())
                 throw new IOException("Temporäre APK-Datei konnte nicht gelöscht werden.");
         }
+    }
+
+    static Set<String> newPermissions(Set<String> declared,Set<String> installed) {
+        Set<String> result=new LinkedHashSet<>(declared);
+        result.removeAll(installed);
+        return result;
     }
 
     private static long copyBounded(Context context,Uri uri,File target) throws IOException {

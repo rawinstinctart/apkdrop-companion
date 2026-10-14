@@ -275,27 +275,33 @@ public final class MainActivity extends Activity {
     private void inspectSelectedApk(android.net.Uri uri) {
         if(manualInspectionRunning) return;
         manualInspectionRunning=true;
-        toast("APK wird lokal geprüft. Nichts wird installiert oder hochgeladen.");
+        // Avoid transient Toast overlays on top of the final result dialog.
         io.execute(()->{
-            String text;boolean success;
+            LocalApkInspector.Report report=null;
+            String error=null;
             try {
-                text=LocalApkInspector.inspect(this,uri).text;
-                success=true;
+                report=LocalApkInspector.inspect(this,uri);
             } catch(Exception failed) {
-                text=(failed instanceof SecurityException || failed instanceof java.io.IOException)
+                error=(failed instanceof SecurityException || failed instanceof java.io.IOException)
                         ?failed.getMessage():"Die Datei konnte nicht zuverlässig geprüft werden.";
-                success=false;
             }
-            final String report=text;
-            final boolean verified=success;
+            final LocalApkInspector.Report checked=report;
+            final String failure=error;
             runOnUiThread(()->{
                 manualInspectionRunning=false;
                 if(isDestroyed() || isFinishing())return;
-                new AlertDialog.Builder(this)
-                        .setTitle(verified?"APK-Datei geprüft":"APK-Prüfung fehlgeschlagen")
-                        .setMessage(report)
-                        .setPositiveButton("Schließen",null)
-                        .show();
+                AlertDialog.Builder dialog=new AlertDialog.Builder(this)
+                        .setTitle(checked!=null?"APK-Datei geprüft":"APK-Prüfung fehlgeschlagen")
+                        .setMessage(checked!=null?checked.summary:failure)
+                        .setPositiveButton("Schließen",null);
+                if(checked!=null) dialog.setNeutralButton("Technische Details",(d,w)->{
+                    new AlertDialog.Builder(this)
+                            .setTitle("Technische APK-Nachweise")
+                            .setMessage(checked.details)
+                            .setPositiveButton("Schließen",null)
+                            .show();
+                });
+                dialog.show();
             });
         });
     }

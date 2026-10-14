@@ -54,3 +54,18 @@ The PR's final app-source revision was tested with GitHub Actions run `386450174
 - The original keystore remained local; a temporary Apache-licensed signing library export was removed from CI afterwards.
 
 **Physical device gate remains OPEN:** install over the already installed Alpha 32 without uninstalling, verify local app state retained, browse **Mehr → APK-Datei überprüfen** with a valid APK, test a malformed APK, confirm a file-manager share opens inspection rather than installation, and validate a same-signer/different-signer comparison. No public release or production rollout is authorized by this note.
+
+
+## Alpha 33 owner phone acceptance (2026-10-15)
+
+The owner confirms updating the existing Companion app in place and **retaining saved apps**. A screenshot from the actual installed Companion shows a successful local check of the signed Alpha 33 preview: versionCode `33`, matching the expected signed APK SHA-256 `adfc39d756a23527161bcca05b53530648209257af4d0bb576eee0b1fd35084b`, original signer fingerprint `6cf70241a63498e5e9fce78bac9abec760364cf320928347114bf109abd81e2e`, agreement with the installed app's signer and zero newly requested permissions.
+
+This is **positive evidence** for the update/data-retention flow and a valid signed-file check, not complete device acceptance. Malformed APK handling, file-manager share, different signer and edge-case behavior still require device testing. No malware safety or publisher-origin assurance was tested.
+
+## Alpha 34 source candidate (awaiting CI & original signing)
+
+- Scope: concise verdict first; separate technical APK details on request; remove the stale start-of-inspection Toast.
+- Identity: `de.rawinstinctai.apkdrop.debug`, versionCode `34`, preview versionName `0.1.0-alpha.34-preview`.
+- Original signer pin and existing device/local integrity checks remain intact. No additional Android permissions or network-based verification are introduced.
+- Requires full Debug/Preview CI and manifest gate, a new locally original-signed preview with verified APK SHA and signing certificate, and on-device update check **before** distribution.
+- PR #62 is stacked against the unmerged Alpha 33 PR #60. Keep PR #60's already issued signed APK and evidence immutable. Do not merge/ship Alpha 34 or claim a DropPass-issued credential prematurely.
