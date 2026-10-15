@@ -144,8 +144,14 @@ public final class DropPassVerifierTest {
 
     @Test public void bundledRegistryMatchesBackendAndContainsOnlyPublicMaterial() throws Exception {
         Path asset=Path.of("src/main/assets/droppass-issuer-keys.json");
-        String json=new String(Files.readAllBytes(asset),StandardCharsets.UTF_8);
-        assertArrayEquals(Files.readAllBytes(Path.of("../backend-config/droppass-issuer-keys.json")),Files.readAllBytes(asset));
+        byte[] bundled=Files.readAllBytes(asset);
+        // Verified backend snapshot: config/droppass-issuer-keys.json in the private backend repo.
+        // Keep this pin in sync with reviewed backend registry updates, including in CI without backend-config.
+        assertEquals("Bundled registry differs from the documented backend snapshot",
+                "47b4a56e8b20af58d2e4020f3773ffb71d63e021e5e3b1af0360580bfa5be59d",DropPassVerifier.sha(bundled));
+        Path backend=Path.of("../backend-config/droppass-issuer-keys.json");
+        if(Files.exists(backend))assertArrayEquals("Bundled registry differs from the live backend registry",Files.readAllBytes(backend),bundled);
+        String json=new String(bundled,StandardCharsets.UTF_8);
         Map<String,Object> registry=DropPassJson.object(DropPassJson.parse(json));
         assertEquals(DropPassVerifier.REGISTRY_SCHEMA,registry.get("schema"));
         assertTrue(((List<?>)registry.get("keys")).stream().anyMatch(k->"active".equals(DropPassJson.object(k).get("status"))));
