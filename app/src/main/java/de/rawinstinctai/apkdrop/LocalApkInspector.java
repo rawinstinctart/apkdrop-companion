@@ -10,7 +10,7 @@ import java.util.*;
 
 /**
  * User-selected APK check. The selected bytes never leave this device.
- * This is inspection-only: no download, upload, install, trust-store write or APKDrop Pass claim.
+ * This is inspection-only: no download, upload, install or trust-store write.
  */
 final class LocalApkInspector {
     private static final long MAX_BYTES=250L*1024*1024;
@@ -18,13 +18,22 @@ final class LocalApkInspector {
 
     static final class Report {
         final String summary,details;
+        final DropPassVerifier.Result dropPass;
         Report(String summary,String details) {
+            this(summary,details,DropPassVerifier.verify(null,null,null,null,0,null,false));
+        }
+        Report(String summary,String details,DropPassVerifier.Result dropPass) {
+            this.dropPass=dropPass;
             this.summary=summary;
             this.details=details;
         }
     }
 
     static Report inspect(Context context,Uri uri) throws Exception {
+        return inspect(context,uri,null);
+    }
+
+    static Report inspect(Context context,Uri uri,Uri passUri) throws Exception {
         if(uri==null || !"content".equals(uri.getScheme()))
             throw new SecurityException("Bitte eine APK über die Dateiauswahl öffnen.");
         File dir=new File(context.getCacheDir(),"manual-apk-inspection");
@@ -69,12 +78,10 @@ final class LocalApkInspector {
             result.append("\n\nSHA-256 der APK:\n").append(checked.sha256);
             result.append("\n\nSignaturzertifikat(e) SHA-256:\n")
                     .append(String.join("\n",checked.signers));
-            result.append("\n\nHerkunft/DropPass: nicht geprüft. Ein gültiges Zertifikat beweist nicht, wer die Datei bereitgestellt hat.");
+            result.append("\n\nEin gültiges Android-Zertifikat allein beweist nicht, wer die Datei bereitgestellt hat.");
             result.append("\nDies ist kein Malware-Scan und keine Installationsfreigabe. Es wurde nichts installiert oder hochgeladen.");
-            String identity=installed==null?"○ Kein installierter Vergleich verfügbar"
-                    :installed.signers.equals(checked.signers)
-                        ?"✓ Signatur stimmt mit installierter App überein"
-                        :"⚠ Signatur weicht von installierter App ab";
+            String identity=signerIdentity(installed!=null,
+                    installed!=null && installed.signers.equals(checked.signers));
             String addedInfo=installed==null?"Noch nicht vergleichbar":
                     String.valueOf(newPermissions(declared,installed.permissions).size());
             String summary="✓ APK-Signatur kryptografisch gültig\n"
@@ -82,10 +89,48 @@ final class LocalApkInspector {
                     +"Neue Berechtigungen: "+addedInfo+"\n"
                     +"DropPass-Herkunft: noch nicht geprüft\n\n"
                     +"Dies bestätigt keine Malware-Freiheit und erteilt keine Installationsfreigabe.";
-            return new Report(summary,result.toString());
+            DropPassVerifier.Result pass;
+            if(passUri==null)pass=DropPassVerifier.verify(null,temp,archive.packageName,null,0,null,false);
+            else {
+                try {
+                    String json=readJson(context.getContentResolver().openInputStream(passUri));
+                    String registry=readJson(context.getAssets().open("droppass-issuer-keys.json"));
+                    pass=DropPassVerifier.verify(json,temp,archive.packageName,registry,System.currentTimeMillis(),new DropPassStatusClient(),false);
+                } catch(IOException | SecurityException unavailable) {
+                    pass=new DropPassVerifier.Result(DropPassVerifier.State.UNVERIFIABLE_NOW,
+                            "Nachweis oder Registry kann nicht gelesen werden.\n\n"+DropPassVerifier.FOOTNOTE);
+                } catch(Exception malformed) {
+                    pass=new DropPassVerifier.Result(DropPassVerifier.State.INVALID,
+                            "Nachweis ist ungültig.\n\n"+DropPassVerifier.FOOTNOTE);
+                }
+            }
+            return new Report(summary.replace("DropPass-Herkunft: noch nicht geprüft",pass.badge()),result.toString(),pass);
         } finally {
             if(temp.exists() && !temp.delete())
                 throw new IOException("Temporäre APK-Datei konnte nicht gelöscht werden.");
+        }
+    }
+
+    static String signerIdentity(boolean hasInstalled,boolean signersEqual) {
+        return !hasInstalled?"○ Kein installierter Vergleich verfügbar"
+                :signersEqual
+                    ?"✓ Signatur stimmt mit installierter App überein"
+                    :"⚠ Signatur weicht von installierter App ab. Nicht als normales Update verwenden";
+    }
+
+    private static String readJson(InputStream stream) throws IOException {
+        if(stream==null)throw new IOException("Datei fehlt");
+        try(InputStream in=stream;ByteArrayOutputStream out=new ByteArrayOutputStream()) {
+            byte[] bytes=new byte[4096];
+            for(int n;(n=in.read(bytes))!=-1;) {
+                if(out.size()+n>262144)throw new IllegalArgumentException("JSON zu groß");
+                out.write(bytes,0,n);
+            }
+            try {
+                return java.nio.charset.StandardCharsets.UTF_8.newDecoder()
+                        .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
+                        .decode(java.nio.ByteBuffer.wrap(out.toByteArray())).toString();
+            } catch(java.nio.charset.CharacterCodingException invalid){throw new IllegalArgumentException("UTF-8",invalid);}
         }
     }
 

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item name="localApkSummary" type="id" />
+    <item name="localApkDetails" type="id" />
+    <item name="localApkDetailsToggle" type="id" />
+</resources>

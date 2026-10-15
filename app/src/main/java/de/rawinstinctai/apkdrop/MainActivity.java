@@ -19,7 +19,7 @@ import java.util.Arrays;
 import java.util.concurrent.*;
 
 public final class MainActivity extends Activity {
-    private static final int BACKUP_EXPORT=71, BACKUP_IMPORT=72, APK_INSPECT=73;
+    private static final int BACKUP_EXPORT=71, BACKUP_IMPORT=72, APK_INSPECT=73, DROPPASS_INSPECT=74;
     private char[] pendingBackupPassword;
     private boolean notesExpanded,manualInspectionRunning;
     private android.content.SharedPreferences pilotPreferences;
@@ -272,7 +272,19 @@ public final class MainActivity extends Activity {
         catch(Exception unavailable) {toast("Dateiauswahl ist nicht verfügbar.");}
     }
 
-    private void inspectSelectedApk(android.net.Uri uri) {
+    private android.net.Uri inspectedApkUri;
+
+    private void chooseDropPass(android.net.Uri apk) {
+        inspectedApkUri=apk;
+        Intent intent=new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
+                .setType("*/*").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        try {startActivityForResult(intent,DROPPASS_INSPECT);}
+        catch(Exception unavailable){toast("Dateiauswahl ist nicht verfügbar.");}
+    }
+
+    private void inspectSelectedApk(android.net.Uri uri) { inspectSelectedApk(uri,null); }
+
+    private void inspectSelectedApk(android.net.Uri uri,android.net.Uri passUri) {
         if(manualInspectionRunning) return;
         manualInspectionRunning=true;
         // Avoid transient Toast overlays on top of the final result dialog.
@@ -280,7 +292,7 @@ public final class MainActivity extends Activity {
             LocalApkInspector.Report report=null;
             String error=null;
             try {
-                report=LocalApkInspector.inspect(this,uri);
+                report=LocalApkInspector.inspect(this,uri,passUri);
             } catch(Exception failed) {
                 error=(failed instanceof SecurityException || failed instanceof java.io.IOException)
                         ?failed.getMessage():"Die Datei konnte nicht zuverlässig geprüft werden.";
@@ -290,20 +302,50 @@ public final class MainActivity extends Activity {
             runOnUiThread(()->{
                 manualInspectionRunning=false;
                 if(isDestroyed() || isFinishing())return;
-                AlertDialog.Builder dialog=new AlertDialog.Builder(this)
-                        .setTitle(checked!=null?"APK-Datei geprüft":"APK-Prüfung fehlgeschlagen")
-                        .setMessage(checked!=null?checked.summary:failure)
-                        .setPositiveButton("Schließen",null);
-                if(checked!=null) dialog.setNeutralButton("Technische Details",(d,w)->{
-                    new AlertDialog.Builder(this)
-                            .setTitle("Technische APK-Nachweise")
-                            .setMessage(checked.details)
-                            .setPositiveButton("Schließen",null)
-                            .show();
-                });
-                dialog.show();
+                showLocalApkReport(uri,checked,failure);
             });
         });
+    }
+
+    AlertDialog showLocalApkReport(android.net.Uri uri,LocalApkInspector.Report checked,String failure) {
+        AlertDialog.Builder dialog=new AlertDialog.Builder(this)
+                .setTitle(checked!=null?"APK-Datei geprüft":"APK-Prüfung fehlgeschlagen")
+                .setPositiveButton("Schließen",null);
+        if(checked==null)dialog.setMessage(failure);
+        else {
+            android.widget.LinearLayout content=new android.widget.LinearLayout(this);
+            content.setOrientation(android.widget.LinearLayout.VERTICAL);
+            int padding=(int)(20*getResources().getDisplayMetrics().density);
+            content.setPadding(padding,padding,padding,padding);
+            TextView summary=new TextView(this);
+            summary.setId(R.id.localApkSummary);
+            summary.setText(checked.summary.replace(checked.dropPass.badge()+"\n",""));content.addView(summary);
+            TextView badge=new TextView(this);badge.setText(checked.dropPass.badge());
+            badge.setTypeface(null,android.graphics.Typeface.BOLD);
+            badge.setPadding(padding/2,padding/2,padding/2,padding/2);
+            boolean blocked=checked.dropPass.state==DropPassVerifier.State.INVALID || checked.dropPass.state==DropPassVerifier.State.REVOKED;
+            int color=getColor(blocked?R.color.danger:checked.dropPass.state==DropPassVerifier.State.VERIFIED?R.color.lime:R.color.muted);
+            badge.setTextColor(color);
+            android.graphics.drawable.GradientDrawable badgeBackground=new android.graphics.drawable.GradientDrawable();
+            badgeBackground.setColor(getColor(R.color.surface_alt));badgeBackground.setCornerRadius(padding/2f);
+            badgeBackground.setStroke(1,color);badge.setBackground(badgeBackground);content.addView(badge);
+            TextView details=new TextView(this);
+            details.setId(R.id.localApkDetails);
+            details.setText(checked.details+"\n\n"+checked.dropPass.details);
+            details.setTextIsSelectable(true);details.setVisibility(View.GONE);
+            Button expand=new Button(this);expand.setId(R.id.localApkDetailsToggle);
+            expand.setText("Technische Details anzeigen");
+            expand.setOnClickListener(v->{
+                boolean visible=details.getVisibility()==View.VISIBLE;
+                details.setVisibility(visible?View.GONE:View.VISIBLE);
+                expand.setText(visible?"Technische Details anzeigen":"Technische Details ausblenden");
+            });
+            content.addView(expand);content.addView(details);
+            android.widget.ScrollView scroll=new android.widget.ScrollView(this);scroll.addView(content);
+            dialog.setView(scroll);
+            dialog.setNeutralButton("DropPass-Datei wählen",(d,w)->chooseDropPass(uri));
+        }
+        return dialog.show();
     }
 
     private void chooseBackup(boolean export) {
@@ -331,6 +373,12 @@ public final class MainActivity extends Activity {
     @Override @SuppressWarnings("deprecation")
     protected void onActivityResult(int request,int result,Intent data) {
         super.onActivityResult(request,result,data);
+        if(request==DROPPASS_INSPECT) {
+            android.net.Uri apk=inspectedApkUri;inspectedApkUri=null;
+            if(result==RESULT_OK && data!=null && data.getData()!=null && apk!=null)
+                inspectSelectedApk(apk,data.getData());
+            return;
+        }
         if(request==APK_INSPECT) {
             if(result==RESULT_OK && data!=null && data.getData()!=null)
                 inspectSelectedApk(data.getData());

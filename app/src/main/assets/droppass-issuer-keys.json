@@ -1,0 +1,16 @@
+{
+  "schema": "apkdrop.droppass-issuer-keys.v1",
+  "keys": [
+    {
+      "keyId": "staging-2026-10",
+      "jwk": {
+        "kty": "OKP",
+        "crv": "Ed25519",
+        "x": "_Ss6kfKitwe1HFV5JrbM2UlabJfOppN9kntK7iXDEtE"
+      },
+      "status": "active",
+      "validFrom": "2026-10-15T00:00:00.000Z",
+      "note": "Isolated staging only - DropPass x FREY pilot issuer"
+    }
+  ]
+}
