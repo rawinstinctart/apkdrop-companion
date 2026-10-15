@@ -55,8 +55,13 @@ final class DropPassVerifier {
                 if(kid.equals(key.get("keyId"))) {require(issuer==null);issuer=key;}
             }
             require(issuer!=null && "active".equals(issuer.get("status")));
+            // Parity with src/droppass-registry.js registryEntry: issuer valid at issuance and verification.
+            // now >= validFrom follows transitively from from <= now above and from >= validFrom below.
             require(from>=date(DropPassJson.text(issuer,"validFrom")));
-            if(issuer.containsKey("retiredAt"))require(from<date(DropPassJson.text(issuer,"retiredAt")));
+            if(issuer.containsKey("retiredAt")) {
+                long retiredAt=date(DropPassJson.text(issuer,"retiredAt"));
+                require(from<retiredAt && now<retiredAt);
+            }
             Map<String,Object> jwk=DropPassJson.object(issuer.get("jwk"));
             require(!jwk.containsKey("d") && "OKP".equals(jwk.get("kty")) && "Ed25519".equals(jwk.get("crv")));
             byte[] raw=base64(DropPassJson.text(jwk,"x"),32);

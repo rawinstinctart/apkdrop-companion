@@ -75,6 +75,18 @@ public final class DropPassVerifierTest {
         for(String registry:List.of(resource("registry.json").replace("2026-01-01","2026-10-16"),resource("registry.json").replace("\"validFrom\":", "\"retiredAt\":\"2026-10-15T02:34:46.122Z\",\"validFrom\":")))
             assertEquals(DropPassVerifier.State.INVALID,check(resource("pass-valid.json"),apk(),"de.rawinstinctai.testapp",registry,now(),p->"ok",false).state);
     }
+    @Test public void issuerRetiredAfterIssuanceBeforeNowInvalid() throws Exception {
+        String registry=resource("registry.json").replace("\"validFrom\":", "\"retiredAt\":\"2026-10-15T02:45:00.000Z\",\"validFrom\":");
+        assertEquals(DropPassVerifier.State.INVALID,check(resource("pass-valid.json"),apk(),"de.rawinstinctai.testapp",registry,now(),p->{fail("Status queried for retired issuer");return "ok";},false).state);
+    }
+    @Test public void issuerRetirementBoundaryHasNoSkew() throws Exception {
+        String registry=resource("registry.json").replace("\"validFrom\":", "\"retiredAt\":\"2026-10-15T02:45:00.000Z\",\"validFrom\":");
+        long retiredAt=DropPassVerifier.date("2026-10-15T02:45:00.000Z");
+        for(boolean fallback:new boolean[]{false,true}) {
+            assertEquals(DropPassVerifier.State.VERIFIED,check(resource("pass-valid.json"),apk(),"de.rawinstinctai.testapp",registry,retiredAt-1,p->"ok",fallback).state);
+            assertEquals(DropPassVerifier.State.INVALID,check(resource("pass-valid.json"),apk(),"de.rawinstinctai.testapp",registry,retiredAt,p->{fail("Status queried at issuer retirement");return "ok";},fallback).state);
+        }
+    }
     @Test public void fieldOrderIndependent() throws Exception {
         Map<String,Object> pass=DropPassJson.object(DropPassJson.parse(resource("pass-valid.json")));
         List<String> fields=new ArrayList<>(pass.keySet());Collections.reverse(fields);
