@@ -86,7 +86,8 @@ hash input, not an installable Android APK. Test the real manual inspection on A
 apps and update/install flows behave as before. No real FREY data belongs here.
 
 The existing release-preflight CLI supports signed-artifact validation only and
-has no Alpha 35 profile or unsigned mode. Run its non-signing Python validation
+has no unsigned mode. Its `alpha35-debug`/`alpha35-preview` profiles were added with
+the alpha 35 release-gate alignment. Run its non-signing Python validation
 unit tests; do not run release/signing workflows or create original-signer artifacts.
 release-preflight signing stage skipped - original signing only via secure process.
 

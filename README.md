@@ -1,10 +1,10 @@
 # APKDrop Companion
 
-## Alpha 33 · Local APK verification + One Ecosystem (source candidate)
+## Alpha 35 · DropPass consumer + local APK verification (source candidate)
 
 Home prioritizes a single update action, hides duplicate import shortcuts after apps are saved and does not show empty discovery headings. APKDrop website Discover now offers a direct handoff to the existing verified Companion install contract; consent and device-side APK identity/hash/signature verification are unchanged. The same opt-in follow/bookmark sync and release-summary contract remain authoritative; local installed-app identities are never synchronized as security evidence.
 
-Source version **0.1.0-alpha.33**, versionCode **33**, retains the existing Alpha package and original signer. New in Alpha 33: optional local **APK-Datei überprüfen** in More and APK sharing for read-only signature/hash/manifest checks; no file upload, automatic installation or blanket malware-safety claim. GitHub CI builds unsigned candidates; original-key v2/v3 signing was performed separately on the exact CI candidate, but **device installation and local-data retention remain unverified until owner acceptance**. Existing published Alpha 32 is unchanged. Gate #33 remains open. This note is internal source documentation, not public release notes.
+Source version **0.1.0-alpha.35**, versionCode **35**, retains the existing Alpha package and original signer. New in Alpha 33: optional local **APK-Datei überprüfen** in More and APK sharing for read-only signature/hash/manifest checks; no file upload, automatic installation or blanket malware-safety claim. GitHub CI builds unsigned candidates; original-key v2/v3 signing was performed separately on the exact CI candidate, but **device installation and local-data retention remain unverified until owner acceptance**. Existing published Alpha 32 is unchanged. Gate #33 remains open. This note is internal source documentation, not public release notes.
 
 Native Android companion for verified APKDrop installs and updates.
 
