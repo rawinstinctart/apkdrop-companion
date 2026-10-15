@@ -18,6 +18,25 @@ MANIFEST += "".join("uses-permission: name='" + name + "'\n" for name in sorted(
 
 
 class ReleasePolicyTest(unittest.TestCase):
+    def test_alpha35_keeps_original_signer_and_is_a_new_upgrade(self):
+        previous = p.policy("alpha34-preview")
+        preview = p.policy("alpha35-preview")
+        self.assertEqual(preview["package"], previous["package"])
+        self.assertEqual(preview["package"], "de.rawinstinctai.apkdrop.debug")
+        self.assertEqual(preview["certificateSha256"], previous["certificateSha256"])
+        self.assertEqual(preview["certificateSha256"],
+                         "6cf70241a63498e5e9fce78bac9abec760364cf320928347114bf109abd81e2e")
+        self.assertEqual(preview["versionCode"], 35)
+        self.assertGreater(preview["versionCode"], previous["versionCode"])
+        self.assertEqual(preview["versionName"], "0.1.0-alpha.35-preview")
+        self.assertFalse(preview["debuggable"])
+        self.assertEqual(p.policy("alpha35-debug"),
+                         {**preview, "versionName": "0.1.0-alpha.35-debug", "debuggable": True})
+        for profile in ("alpha35-preview", "alpha35-debug"):
+            for override in ({"version_code":34}, {"version_name":"other"}, {"expected_cert":"f"*64}):
+                with self.subTest(profile=profile, override=override), self.assertRaises(ValueError):
+                    p.policy(profile, **override)
+
     def test_alpha34_keeps_original_signer_and_is_a_new_upgrade(self):
         previous = p.policy("alpha33-preview")
         preview = p.policy("alpha34-preview")

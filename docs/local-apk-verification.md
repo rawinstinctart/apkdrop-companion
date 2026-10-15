@@ -65,7 +65,7 @@ This is **positive evidence** for the update/data-retention flow and a valid sig
 ## Alpha 34 source candidate (awaiting CI & original signing)
 
 - Scope: concise verdict first; separate technical APK details on request; remove the stale start-of-inspection Toast.
-- Identity: `de.rawinstinctai.apkdrop.debug`, versionCode `34`, preview versionName `0.1.0-alpha.34-preview`.
+- Identity: `de.rawinstinctai.apkdrop.debug`, versionCode `35`, preview versionName `0.1.0-alpha.35-preview`.
 - Original signer pin and existing device/local integrity checks remain intact. No additional Android permissions or network-based verification are introduced.
 - Requires full Debug/Preview CI and manifest gate, a new locally original-signed preview with verified APK SHA and signing certificate, and on-device update check **before** distribution.
 - PR #62 is stacked against the unmerged Alpha 33 PR #60. Keep PR #60's already issued signed APK and evidence immutable. Do not merge/ship Alpha 34 or claim a DropPass-issued credential prematurely.
