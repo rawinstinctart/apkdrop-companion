@@ -80,10 +80,8 @@ final class LocalApkInspector {
                     .append(String.join("\n",checked.signers));
             result.append("\n\nEin gültiges Android-Zertifikat allein beweist nicht, wer die Datei bereitgestellt hat.");
             result.append("\nDies ist kein Malware-Scan und keine Installationsfreigabe. Es wurde nichts installiert oder hochgeladen.");
-            String identity=installed==null?"○ Kein installierter Vergleich verfügbar"
-                    :installed.signers.equals(checked.signers)
-                        ?"✓ Signatur stimmt mit installierter App überein"
-                        :"⚠ Signatur weicht von installierter App ab. Nicht als normales Update verwenden";
+            String identity=signerIdentity(installed!=null,
+                    installed!=null && installed.signers.equals(checked.signers));
             String addedInfo=installed==null?"Noch nicht vergleichbar":
                     String.valueOf(newPermissions(declared,installed.permissions).size());
             String summary="✓ APK-Signatur kryptografisch gültig\n"
@@ -111,6 +109,13 @@ final class LocalApkInspector {
             if(temp.exists() && !temp.delete())
                 throw new IOException("Temporäre APK-Datei konnte nicht gelöscht werden.");
         }
+    }
+
+    static String signerIdentity(boolean hasInstalled,boolean signersEqual) {
+        return !hasInstalled?"○ Kein installierter Vergleich verfügbar"
+                :signersEqual
+                    ?"✓ Signatur stimmt mit installierter App überein"
+                    :"⚠ Signatur weicht von installierter App ab. Nicht als normales Update verwenden";
     }
 
     private static String readJson(InputStream stream) throws IOException {
