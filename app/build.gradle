@@ -8,8 +8,8 @@ android {
         applicationId "de.rawinstinctai.apkdrop"
         minSdk 26
         targetSdk 36
-        versionCode 34
-        versionName "0.1.0-alpha.34"
+        versionCode 35
+        versionName "0.1.0-alpha.35"
     }
 
     compileOptions {
@@ -17,17 +17,29 @@ android {
         targetCompatibility JavaVersion.VERSION_17
     }
 
+    packaging { resources.excludes += ["META-INF/versions/9/OSGI-INF/MANIFEST.MF"] }
+
+    buildFeatures { buildConfig true }
+
     testOptions {
         unitTests.includeAndroidResources = true
-        unitTests.all { systemProperty "apkdrop.preview.dir", new File(rootProject.projectDir, "app/build/reports/ui").absolutePath }
+        unitTests.all {
+            systemProperty "apkdrop.preview.dir", new File(rootProject.projectDir, "app/build/reports/ui").absolutePath
+            // Robolectric needs a writable home; keep its downloads in the persistent workspace cache.
+            def testHome = new File(gradle.gradleUserHomeDir, "test-home")
+            testHome.mkdirs()
+            systemProperty "user.home", testHome.absolutePath
+        }
     }
 
     buildTypes {
         debug {
+            buildConfigField "String", "DROPPASS_DEBUG_ORIGIN", "\"${providers.gradleProperty('droppassDebugOrigin').getOrElse('') == 'https://apkdrop-staging-droppass.rawinstinctart.workers.dev' ? 'https://apkdrop-staging-droppass.rawinstinctart.workers.dev' : ''}\""
             applicationIdSuffix ".debug"
             versionNameSuffix "-debug"
         }
         release {
+            buildConfigField "String", "DROPPASS_DEBUG_ORIGIN", '""'
             minifyEnabled false
             // Release signing stays external. Never commit a keystore or password.
         }
@@ -44,6 +56,8 @@ android {
 
 dependencies {
     implementation "com.android.tools.build:apksig:8.13.2"
+    implementation "org.bouncycastle:bcprov-jdk18on:1.86"
+
     testImplementation "junit:junit:4.13.2"
     testImplementation "org.json:json:20240303"
     testImplementation "org.robolectric:robolectric:4.17"
