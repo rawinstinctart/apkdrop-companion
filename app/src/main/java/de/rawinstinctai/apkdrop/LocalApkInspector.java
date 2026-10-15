@@ -83,7 +83,7 @@ final class LocalApkInspector {
             String identity=installed==null?"○ Kein installierter Vergleich verfügbar"
                     :installed.signers.equals(checked.signers)
                         ?"✓ Signatur stimmt mit installierter App überein"
-                        :"⚠ Signatur weicht von installierter App ab";
+                        :"⚠ Signatur weicht von installierter App ab. Nicht als normales Update verwenden";
             String addedInfo=installed==null?"Noch nicht vergleichbar":
                     String.valueOf(newPermissions(declared,installed.permissions).size());
             String summary="✓ APK-Signatur kryptografisch gültig\n"

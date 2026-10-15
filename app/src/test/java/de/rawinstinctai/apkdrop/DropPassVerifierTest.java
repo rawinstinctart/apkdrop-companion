@@ -22,6 +22,13 @@ public final class DropPassVerifierTest {
     private DropPassVerifier.Result check(String vector,DropPassVerifier.Status status,boolean fallback) throws Exception {
         return check(resource(vector),apk(),"de.rawinstinctai.testapp",resource("registry.json"),now(),status,fallback);
     }
+    @Test public void badgesUseExactGermanStatusText() {
+        assertEquals("DropPass: bestätigt · Herkunft und Integrität belegt",new DropPassVerifier.Result(DropPassVerifier.State.VERIFIED,"").badge());
+        assertEquals("DropPass: offen · Widerrufsstatus noch offen",new DropPassVerifier.Result(DropPassVerifier.State.UNKNOWN,"").badge());
+        assertEquals("DropPass: ungültig · Nachweis wird nicht anerkannt",new DropPassVerifier.Result(DropPassVerifier.State.INVALID,"").badge());
+        assertEquals("DropPass: widerrufen · blockiert",new DropPassVerifier.Result(DropPassVerifier.State.REVOKED,"").badge());
+        assertEquals("DropPass: kein Nachweis",new DropPassVerifier.Result(DropPassVerifier.State.UNVERIFIABLE_NOW,"").badge());
+    }
     @Test public void backendGoldenMatrixPlatform() throws Exception {matrix(false);}
     @Test public void backendGoldenMatrixExplicitProvider() throws Exception {matrix(true);}
     private void matrix(boolean fallback) throws Exception {

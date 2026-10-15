@@ -307,7 +307,7 @@ public final class MainActivity extends Activity {
         });
     }
 
-    void showLocalApkReport(android.net.Uri uri,LocalApkInspector.Report checked,String failure) {
+    AlertDialog showLocalApkReport(android.net.Uri uri,LocalApkInspector.Report checked,String failure) {
         AlertDialog.Builder dialog=new AlertDialog.Builder(this)
                 .setTitle(checked!=null?"APK-Datei geprüft":"APK-Prüfung fehlgeschlagen")
                 .setPositiveButton("Schließen",null);
@@ -318,6 +318,7 @@ public final class MainActivity extends Activity {
             int padding=(int)(20*getResources().getDisplayMetrics().density);
             content.setPadding(padding,padding,padding,padding);
             TextView summary=new TextView(this);
+            summary.setId(R.id.localApkSummary);
             summary.setText(checked.summary.replace(checked.dropPass.badge()+"\n",""));content.addView(summary);
             TextView badge=new TextView(this);badge.setText(checked.dropPass.badge());
             badge.setTypeface(null,android.graphics.Typeface.BOLD);
@@ -329,9 +330,11 @@ public final class MainActivity extends Activity {
             badgeBackground.setColor(getColor(R.color.surface_alt));badgeBackground.setCornerRadius(padding/2f);
             badgeBackground.setStroke(1,color);badge.setBackground(badgeBackground);content.addView(badge);
             TextView details=new TextView(this);
+            details.setId(R.id.localApkDetails);
             details.setText(checked.details+"\n\n"+checked.dropPass.details);
             details.setTextIsSelectable(true);details.setVisibility(View.GONE);
-            Button expand=new Button(this);expand.setText("Technische Details anzeigen");
+            Button expand=new Button(this);expand.setId(R.id.localApkDetailsToggle);
+            expand.setText("Technische Details anzeigen");
             expand.setOnClickListener(v->{
                 boolean visible=details.getVisibility()==View.VISIBLE;
                 details.setVisibility(visible?View.GONE:View.VISIBLE);
@@ -340,9 +343,9 @@ public final class MainActivity extends Activity {
             content.addView(expand);content.addView(details);
             android.widget.ScrollView scroll=new android.widget.ScrollView(this);scroll.addView(content);
             dialog.setView(scroll);
-            dialog.setNeutralButton("DropPass (JSON) wählen",(d,w)->chooseDropPass(uri));
+            dialog.setNeutralButton("DropPass-Datei wählen",(d,w)->chooseDropPass(uri));
         }
-        dialog.show();
+        return dialog.show();
     }
 
     private void chooseBackup(boolean export) {

@@ -17,7 +17,7 @@ public final class LocalApkInspectionUiTest {
         var controller=Robolectric.buildActivity(MainActivity.class).create();
         try {
             MainActivity activity=controller.get();
-            var report=new LocalApkInspector.Report("DropPass: UNVERIFIABLE_NOW · kein Nachweis","APK SHA-256: synthetic");
+            var report=new LocalApkInspector.Report(DropPassVerifier.verify(null,null,null,null,0,null,false).badge(),"APK SHA-256: synthetic");
             activity.showLocalApkReport(android.net.Uri.parse("content://synthetic/apk"),report,null);
             android.app.AlertDialog dialog=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();
             assertNotNull(dialog);

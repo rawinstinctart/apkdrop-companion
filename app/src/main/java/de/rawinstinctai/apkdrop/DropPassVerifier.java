@@ -20,15 +20,13 @@ final class DropPassVerifier {
         final String details;
         Result(State state,String details){this.state=state;this.details=details;}
         String badge(){
-            String explanation;
             switch(state) {
-                case VERIFIED:explanation="Herkunft + Integrität bestätigt";break;
-                case UNKNOWN:explanation="Widerrufsstatus offen";break;
-                case INVALID:explanation="Nachweis ungültig";break;
-                case REVOKED:explanation="Nachweis widerrufen · blockiert";break;
-                default:explanation="kein Nachweis";
+                case VERIFIED:return "DropPass: bestätigt · Herkunft und Integrität belegt";
+                case UNKNOWN:return "DropPass: offen · Widerrufsstatus noch offen";
+                case INVALID:return "DropPass: ungültig · Nachweis wird nicht anerkannt";
+                case REVOKED:return "DropPass: widerrufen · blockiert";
+                default:return "DropPass: kein Nachweis";
             }
-            return "DropPass: "+state+" · "+explanation;
         }
     }
     static Result verify(String pass,File apk,String packageName,String registry,long now,Status status,boolean forceProvider) {
