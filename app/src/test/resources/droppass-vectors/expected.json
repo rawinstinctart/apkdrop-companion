@@ -1,0 +1,7 @@
+{
+  "apkSha256": "77ca5dbffe16c9fa33b932754b24d4bd130c577ec7bfe2a480db8fb4047714dd",
+  "receiptSha256": "d5fe22445858762b15ab918f6e2a9b66db3d8aa31377983014f480b593d67956",
+  "packageName": "de.rawinstinctai.testapp",
+  "keyIdActive": "vec-key-active",
+  "keyIdRevoked": "vec-key-revoked"
+}

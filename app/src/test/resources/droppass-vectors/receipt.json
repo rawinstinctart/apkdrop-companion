@@ -1,0 +1,52 @@
+{
+  "schema": "apkdrop.release-receipt.v1",
+  "receiptId": "sha256:d5fe22445858762b15ab918f6e2a9b66db3d8aa31377983014f480b593d67956",
+  "receiptSha256": "d5fe22445858762b15ab918f6e2a9b66db3d8aa31377983014f480b593d67956",
+  "payload": {
+    "app": {
+      "slug": "testapp",
+      "name": "Test App"
+    },
+    "release": {
+      "id": "vec-release-0001",
+      "version": "1.0.0",
+      "versionCode": 1000001,
+      "prerelease": false,
+      "publishedAt": "2026-10-01T10:00:00.000Z",
+      "mirroredAt": "2026-10-01T10:00:00.000Z"
+    },
+    "source": {
+      "url": "https://github.com/rawinstinctart/testapp/releases/tag/v1.0.0",
+      "githubReleaseId": 111,
+      "githubAssetId": 222
+    },
+    "apk": {
+      "filename": "testapp-1.0.0.apk",
+      "size": 70,
+      "sha256": "77ca5dbffe16c9fa33b932754b24d4bd130c577ec7bfe2a480db8fb4047714dd"
+    },
+    "android": {
+      "packageName": "de.rawinstinctai.testapp",
+      "minSdk": null,
+      "targetSdk": null,
+      "abis": [],
+      "permissions": [],
+      "debuggable": false,
+      "usesCleartextTraffic": null,
+      "allowBackup": null
+    },
+    "signature": {
+      "status": "verified",
+      "scheme": "APK Signature Scheme v2",
+      "fingerprints": [
+        "1111111111111111111111111111111111111111111111111111111111111111"
+      ]
+    },
+    "verification": {
+      "inspection": "ready",
+      "sha256Recorded": true,
+      "signatureVerified": true,
+      "identityContinuity": "baseline"
+    }
+  }
+}

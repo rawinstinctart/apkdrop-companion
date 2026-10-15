@@ -1,0 +1,27 @@
+{
+  "schema": "apkdrop.droppass-issuer-keys.v1",
+  "keys": [
+    {
+      "keyId": "vec-key-active",
+      "jwk": {
+        "kty": "OKP",
+        "crv": "Ed25519",
+        "x": "d3lPEM-BIiis9sVbLmxaVoCLVjOzNL9SrmbgvFcm6MI"
+      },
+      "status": "active",
+      "validFrom": "2026-01-01T00:00:00.000Z",
+      "note": "synthetic vector key"
+    },
+    {
+      "keyId": "vec-key-revoked",
+      "jwk": {
+        "kty": "OKP",
+        "crv": "Ed25519",
+        "x": "YbtlpMjLpfQXaPaOVFYslvGZMA5jK_91WEZ7nAkVT8c"
+      },
+      "status": "revoked",
+      "validFrom": "2026-01-01T00:00:00.000Z",
+      "note": "synthetic revoked vector key"
+    }
+  ]
+}
