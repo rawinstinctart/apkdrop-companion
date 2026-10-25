@@ -36,7 +36,7 @@ final class AppLibraryController {
     void saveState(android.os.Bundle state){state.putString("librarySearch",search);}
     void restoreState(android.os.Bundle state){if(state!=null)((EditText)activity.findViewById(R.id.librarySearch)).setText(state.getString("librarySearch",""));}
     boolean canOpen(AppLibrary.Entry entry){State s=states.get(entry.slug);return s!=null&&s.installed!=null;}
-    void openApp(AppLibrary.Entry entry){if(detailBusy||checking)return;try{Intent intent=activity.getPackageManager().getLaunchIntentForPackage(entry.packageName);if(intent!=null)activity.startActivity(intent);else Toast.makeText(activity,"Diese App hat keinen Startbildschirm.",Toast.LENGTH_SHORT).show();}catch(Exception e){Toast.makeText(activity,message(e),Toast.LENGTH_SHORT).show();}}
+    void openApp(AppLibrary.Entry entry){if(detailBusy||checking)return;try{Intent intent=activity.getPackageManager().getLaunchIntentForPackage(entry.packageName);if(intent!=null)activity.startActivity(intent);else Toast.makeText(activity,"Diese App hat keinen Startbildschirm.",Toast.LENGTH_SHORT).show();}catch(Exception e){Toast.makeText(activity,"Diese App kann nicht geöffnet werden.",Toast.LENGTH_SHORT).show();}}
     void updatesOnly(boolean value) {if(updatesOnly!=value){updatesOnly=value;render();}}
     boolean hasSearch() {return !updatesOnly&&!search.isEmpty();}
     boolean updatesOnly() {return updatesOnly;}
@@ -417,7 +417,7 @@ final class AppLibraryController {
                 Intent intent=activity.getPackageManager().getLaunchIntentForPackage(entry.packageName);
                 if(intent!=null) activity.startActivity(intent);
                 else Toast.makeText(activity,"Diese App hat keinen Startbildschirm.",Toast.LENGTH_SHORT).show();
-            } catch(Exception e) { Toast.makeText(activity,message(e),Toast.LENGTH_LONG).show(); }
+            } catch(Exception e) { Toast.makeText(activity,"Diese App kann nicht geöffnet werden.",Toast.LENGTH_LONG).show(); }
             return true;
         });
         menu.getMenu().add("Aus Meine Apps entfernen").setOnMenuItemClickListener(item->{
